@@ -181,7 +181,7 @@ export function Project() {
           </span>
         </div>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          <Badge tone="accent">{presetBadge(presets.byId.get(p.preset), p.preset)}</Badge>
+          {presetBadge(presets.byId.get(p.preset)) && <Badge tone="accent">{presetBadge(presets.byId.get(p.preset))}</Badge>}
           <Badge>{p.fps} fps</Badge>
           <Badge>{MODE_LABEL[p.mode].title}</Badge>
           {p.target_duration_sec && <Badge>{p.target_duration_sec < 60 ? `${p.target_duration_sec}s` : `${Math.round(p.target_duration_sec / 60)} daq`}</Badge>}

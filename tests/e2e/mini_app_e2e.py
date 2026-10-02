@@ -120,7 +120,10 @@ def run(engine: str, browser_type, workdir: Path) -> str:
     shot(page, engine, "7-logs")
 
     browser.close()
-    fatal = [e for e in console_errors if "favicon" not in e]
+    # The deliberate reload aborts in-flight progress/SSE requests; WebKit logs
+    # an aborted fetch as an "access control checks" failure.
+    benign = ("favicon", "due to access control checks")
+    fatal = [e for e in console_errors if not any(b in e for b in benign)]
     if fatal:
         raise AssertionError(f"{engine}: console errors: {fatal[:5]}")
     return project_id

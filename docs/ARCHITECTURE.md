@@ -321,4 +321,9 @@ activity log in `events`. `/api/v1/ready` checks database, Redis and storage.
   docker compose --env-file /opt/synthcut/shared/.env up -d`.
 * Tests on the server: `bash infrastructure/deployment/test-stack.sh` —
   throwaway PostgreSQL/Redis/Garage (tmpfs), never production.
+* Browser e2e against a deployment: `tests/e2e/mini_app_e2e.py` (Chromium +
+  WebKit; real initData, real nginx → Garage path, interrupt + resume). It found
+  three production defects the unit and integration suites could not: the CSP
+  blocking WebAssembly MD5, inlined `data:` fonts blocked by CSP, and upstream
+  keep-alive races producing 502s on POSTs.
 * Logs: `docker compose -p synthcut logs -f api worker-io bot`.

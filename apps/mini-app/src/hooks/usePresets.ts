@@ -8,7 +8,8 @@ export function usePresets() {
   return { ...q, byId };
 }
 
-export function presetBadge(preset: Schemas["PresetOut"] | undefined, fallback: string): string {
-  if (!preset) return fallback;
+/** Short badge text, or null until the presets have loaded (never the raw id). */
+export function presetBadge(preset: Schemas["PresetOut"] | undefined): string | null {
+  if (!preset) return null;
   return preset.family === "long" ? `${preset.aspect} · ${preset.height >= 2160 ? "4K" : `${preset.height}p`}` : preset.aspect;
 }

@@ -20,7 +20,7 @@ function ProjectCard({ p, uploading }: { p: ProjectSummary; uploading: boolean }
               {p.asset_count} ta fayl · {formatBytes(p.total_bytes)} · {formatRelative(p.updated_at)}
             </p>
           </div>
-          <Badge tone="accent">{presetBadge(byId.get(p.preset), p.preset)}</Badge>
+          {presetBadge(byId.get(p.preset)) && <Badge tone="accent">{presetBadge(byId.get(p.preset))}</Badge>}
         </div>
         <ProgressBar value={p.progress} className="mt-3" />
         <div className="mt-1.5 flex justify-between text-xs">
