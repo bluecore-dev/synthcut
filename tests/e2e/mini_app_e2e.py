@@ -112,11 +112,11 @@ def run(engine: str, browser_type, workdir: Path) -> str:
 
     # 3) The pipeline reflects it: upload done, ingestion queued for Phase 3.
     page.get_by_role("button", name="Overview").click()
-    expect(page.get_by_text("Media Ingest")).to_be_visible()
-    expect(page.get_by_text("2 ta fayl navbatda")).to_be_visible(timeout=15_000)
+    expect(page.get_by_text("Media Ingest", exact=True)).to_be_visible()
+    expect(page.get_by_text("2 ta fayl navbatda", exact=True)).to_be_visible(timeout=15_000)
     shot(page, engine, "6-overview")
     page.get_by_role("button", name="Logs").click()
-    expect(page.get_by_text("yuklash davom ettirilmoqda", exact=False)).to_be_visible(timeout=15_000)
+    expect(page.get_by_text(re.compile("yuklash davom ettirilmoqda")).first).to_be_visible(timeout=15_000)
     shot(page, engine, "7-logs")
 
     browser.close()

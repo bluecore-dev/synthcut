@@ -10,6 +10,9 @@ export default defineConfig({
   },
   build: {
     target: "es2020",
+    // Fonts stay separate files: the CSP allows font-src 'self' only, so an
+    // inlined data: font would be blocked.
+    assetsInlineLimit: (file: string) => (/\.(woff2?|ttf|otf)$/.test(file) ? false : undefined),
     sourcemap: false,
     chunkSizeWarningLimit: 800,
   },
