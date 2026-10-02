@@ -1,0 +1,221 @@
+"""Project pipeline stages (spec §32, §37).
+
+``project_stages`` is the materialized state behind the dashboard's pipeline
+list. A persisted ``stage.updated`` event is written only when a stage's
+*status* changes; progress-only updates go out as ephemeral events so the
+activity log does not fill with percentages.
+"""
+
+from __future__ import annotations
+
+import uuid
+from dataclasses import dataclass
+
+from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
+from synthcut_schemas.enums import (
+    STAGE_LABELS,
+    STAGE_ORDER,
+    STAGE_WEIGHTS,
+    AssetStatus,
+    EventLevel,
+    Stage,
+    StageStatus,
+    UploadSessionStatus,
+)
+from synthcut_schemas.events import EventType
+
+from .events import emit
+from .models import Asset, ProjectStage, UploadSession, utcnow
+
+_TERMINAL = {StageStatus.DONE, StageStatus.FAILED, StageStatus.SKIPPED}
+
+
+@dataclass(frozen=True, slots=True)
+class StageState:
+    status: StageStatus
+    progress: float | None
+    detail: str | None
+
+
+def _upsert(project_id: uuid.UUID, stage: Stage, state: StageState, *, started: bool):
+    now = utcnow()
+    finished = now if state.status in _TERMINAL else None
+    stmt = pg_insert(ProjectStage).values(
+        project_id=project_id,
+        stage=stage.value,
+        status=state.status.value,
+        progress=state.progress,
+        detail=state.detail,
+        started_at=now if started else None,
+        finished_at=finished,
+        updated_at=now,
+    )
+    return stmt.on_conflict_do_update(
+        index_elements=[ProjectStage.project_id, ProjectStage.stage],
+        set_={
+            "status": stmt.excluded.status,
+            "progress": stmt.excluded.progress,
+            "detail": stmt.excluded.detail,
+            "updated_at": stmt.excluded.updated_at,
+            "finished_at": stmt.excluded.finished_at,
+            "started_at": func.coalesce(ProjectStage.started_at, stmt.excluded.started_at),
+        },
+    )
+
+
+def _status_event(session, project_id: uuid.UUID, stage: Stage, state: StageState, source: str) -> None:
+    level = EventLevel.ERROR if state.status is StageStatus.FAILED else EventLevel.INFO
+    label = STAGE_LABELS[stage]
+    message = f"{label}: {state.status.value}" + (f" — {state.detail}" if state.detail else "")
+    emit(
+        session,
+        project_id=project_id,
+        type=EventType.STAGE_UPDATED,
+        level=level,
+        message=message,
+        source=source,
+        data={
+            "stage": stage.value,
+            "status": state.status.value,
+            "progress": state.progress,
+            "detail": state.detail,
+        },
+    )
+
+
+def _previous_stmt(project_id: uuid.UUID, stage: Stage):
+    return (
+        select(ProjectStage.status)
+        .where(ProjectStage.project_id == project_id, ProjectStage.stage == stage.value)
+        .with_for_update()
+    )
+
+
+def set_stage(
+    session: Session, project_id: uuid.UUID, stage: Stage, state: StageState, *, source: str
+) -> bool:
+    previous = session.execute(_previous_stmt(project_id, stage)).scalar_one_or_none()
+    started = state.status is StageStatus.RUNNING
+    session.execute(_upsert(project_id, stage, state, started=started))
+    changed = previous != state.status.value
+    if changed:
+        _status_event(session, project_id, stage, state, source)
+    return changed
+
+
+async def set_stage_async(
+    session: AsyncSession, project_id: uuid.UUID, stage: Stage, state: StageState, *, source: str
+) -> bool:
+    previous = (await session.execute(_previous_stmt(project_id, stage))).scalar_one_or_none()
+    started = state.status is StageStatus.RUNNING
+    await session.execute(_upsert(project_id, stage, state, started=started))
+    changed = previous != state.status.value
+    if changed:
+        _status_event(session, project_id, stage, state, source)
+    return changed
+
+
+async def init_stages_async(session: AsyncSession, project_id: uuid.UUID) -> None:
+    now = utcnow()
+    await session.execute(
+        pg_insert(ProjectStage)
+        .values(
+            [
+                {
+                    "project_id": project_id,
+                    "stage": stage.value,
+                    "status": StageStatus.PENDING.value,
+                    "updated_at": now,
+                }
+                for stage in STAGE_ORDER
+            ]
+        )
+        .on_conflict_do_nothing()
+    )
+
+
+def overall_progress(stages: dict[str, tuple[str, float | None]]) -> float:
+    total = sum(STAGE_WEIGHTS.values())
+    done = 0.0
+    for stage, weight in STAGE_WEIGHTS.items():
+        status, progress = stages.get(stage.value, (StageStatus.PENDING.value, None))
+        if status in (StageStatus.DONE.value, StageStatus.SKIPPED.value):
+            done += weight
+        elif status == StageStatus.RUNNING.value and progress is not None:
+            done += weight * max(0.0, min(1.0, progress))
+    return round(done / total, 4)
+
+
+def active_stage(stages: dict[str, tuple[str, float | None]]) -> Stage | None:
+    for stage in STAGE_ORDER:
+        status = stages.get(stage.value, (StageStatus.PENDING.value, None))[0]
+        if status in (
+            StageStatus.RUNNING.value,
+            StageStatus.QUEUED.value,
+            StageStatus.WAITING_USER.value,
+            StageStatus.FAILED.value,
+        ):
+            return stage
+    return None
+
+
+# --------------------------------------------------------------------------- upload stage
+
+
+def _upload_aggregate_stmt(project_id: uuid.UUID):
+    return (
+        select(Asset.status, func.count(), func.coalesce(func.sum(Asset.size_bytes), 0))
+        .where(Asset.project_id == project_id, Asset.deleted_at.is_(None))
+        .group_by(Asset.status)
+    )
+
+
+def _reported_stmt(project_id: uuid.UUID):
+    return select(
+        func.coalesce(func.sum(func.least(UploadSession.bytes_reported, UploadSession.size_bytes)), 0)
+    ).where(
+        UploadSession.project_id == project_id,
+        UploadSession.status.in_([UploadSessionStatus.ACTIVE.value, UploadSessionStatus.COMPLETING.value]),
+    )
+
+
+def _upload_state(rows: list[tuple[str, int, int]], reported: int) -> StageState:
+    # SUM(bigint) is NUMERIC in PostgreSQL -> Decimal; keep event payloads JSON-safe.
+    by_status = {status: (int(count), int(size)) for status, count, size in rows}
+    uploading_count, uploading_size = by_status.get(AssetStatus.UPLOADING.value, (0, 0))
+    finished = [
+        by_status.get(s.value, (0, 0))
+        for s in (AssetStatus.UPLOADED, AssetStatus.INGESTING, AssetStatus.READY)
+    ]
+    done_count = sum(c for c, _ in finished)
+    done_size = sum(s for _, s in finished)
+    if uploading_count:
+        progress = min(1.0, reported / uploading_size) if uploading_size else 0.0
+        return StageState(StageStatus.RUNNING, round(progress, 4), f"{uploading_count} ta fayl yuklanmoqda")
+    if done_count:
+        gb = done_size / 1024**3
+        return StageState(StageStatus.DONE, 1.0, f"{done_count} ta fayl · {gb:.2f} GB")
+    return StageState(StageStatus.PENDING, None, None)
+
+
+def refresh_upload_stage(session: Session, project_id: uuid.UUID, *, source: str) -> StageState:
+    session.flush()  # the aggregate must see this transaction's pending changes
+    rows = [tuple(r) for r in session.execute(_upload_aggregate_stmt(project_id)).all()]
+    reported = int(session.execute(_reported_stmt(project_id)).scalar_one())
+    state = _upload_state(rows, reported)
+    set_stage(session, project_id, Stage.UPLOAD, state, source=source)
+    return state
+
+
+async def refresh_upload_stage_async(
+    session: AsyncSession, project_id: uuid.UUID, *, source: str
+) -> StageState:
+    await session.flush()  # the aggregate must see this transaction's pending changes
+    rows = [tuple(r) for r in (await session.execute(_upload_aggregate_stmt(project_id))).all()]
+    reported = int((await session.execute(_reported_stmt(project_id))).scalar_one())
+    state = _upload_state(rows, reported)
+    await set_stage_async(session, project_id, Stage.UPLOAD, state, source=source)
+    return state

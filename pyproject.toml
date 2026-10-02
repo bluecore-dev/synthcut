@@ -1,0 +1,69 @@
+[project]
+name = "synthcut-workspace"
+version = "0.1.0"
+description = "SynthCut — AI-orchestrated professional video post-production OS"
+requires-python = ">=3.12,<3.13"
+dependencies = []
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = [
+  "packages/core",
+  "packages/schemas",
+  "packages/timeline",
+  "packages/storage",
+  "packages/telemetry",
+  "packages/agent-sdk",
+  "packages/model-router",
+  "agents",
+  "apps/api",
+  "apps/worker",
+  "apps/bot",
+]
+
+[tool.uv.sources]
+synthcut-core = { workspace = true }
+synthcut-schemas = { workspace = true }
+synthcut-timeline = { workspace = true }
+synthcut-storage = { workspace = true }
+synthcut-telemetry = { workspace = true }
+synthcut-agent-sdk = { workspace = true }
+synthcut-model-router = { workspace = true }
+synthcut-agents = { workspace = true }
+synthcut-api = { workspace = true }
+synthcut-worker = { workspace = true }
+synthcut-bot = { workspace = true }
+
+[dependency-groups]
+dev = [
+  "pytest>=8.3",
+  "pytest-asyncio>=0.25",
+  "asgi-lifespan>=2.1",
+  "httpx>=0.28",
+  "moto[server]>=5.1",
+  "ruff>=0.9",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+markers = [
+  "integration: needs PostgreSQL, Redis and S3 (set SYNTHCUT_TEST_DATABASE_URL)",
+  "garage: needs a real Garage/S3 endpoint that enforces Content-MD5 and signatures",
+]
+filterwarnings = ["ignore::DeprecationWarning:botocore.*"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "ASYNC", "S", "RUF"]
+ignore = ["S101", "S311", "RUF001", "RUF002", "RUF003", "B008", "E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S105", "S106", "S108", "S324"]

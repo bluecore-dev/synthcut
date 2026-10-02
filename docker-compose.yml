@@ -1,0 +1,180 @@
+# SynthCut — single private deployment on a shared VPS (ADR-0001).
+#
+# Everything is isolated in the compose project "synthcut": own PostgreSQL,
+# Redis and Garage. Only api/web/bot/storage are published, and only on
+# 127.0.0.1 — the host nginx terminates TLS in front of them.
+#
+#   docker compose --env-file /opt/synthcut/shared/.env up -d
+#
+# Persistent data lives under /srv/synthcut (DATA_ROOT).
+
+name: synthcut
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+x-base-env: &base-env
+  RELEASE: ${SYNTHCUT_RELEASE:-dev}
+
+x-app: &app
+  image: synthcut/app:${SYNTHCUT_RELEASE:-dev}
+  pull_policy: never
+  env_file: ${SYNTHCUT_ENV_FILE:-/opt/synthcut/shared/.env}
+  restart: unless-stopped
+  logging: *logging
+  depends_on: &app-deps
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+    storage:
+      condition: service_healthy
+    migrate:
+      condition: service_completed_successfully
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: synthcut
+      POSTGRES_DB: synthcut
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes:
+      - ${DATA_ROOT:-/srv/synthcut}/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U synthcut -d synthcut"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    shm_size: 128mb
+    mem_limit: 512m
+    logging: *logging
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+      - --maxmemory
+      - 64mb
+      - --maxmemory-policy
+      - noeviction
+      - --requirepass
+      - ${REDIS_PASSWORD:?set REDIS_PASSWORD}
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    mem_limit: 128m
+    logging: *logging
+
+  storage:
+    image: dxflrs/garage:v2.4.1
+    restart: unless-stopped
+    environment:
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:?set GARAGE_RPC_SECRET}
+      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:?set GARAGE_ADMIN_TOKEN}
+    volumes:
+      # A stable path, not the release directory: old releases get pruned.
+      - ${GARAGE_CONFIG:-./infrastructure/garage/garage.toml}:/etc/garage.toml:ro
+      - ${DATA_ROOT:-/srv/synthcut}/storage/meta:/var/lib/garage/meta
+      - ${DATA_ROOT:-/srv/synthcut}/storage/data:/var/lib/garage/data
+    ports:
+      - "127.0.0.1:${STORAGE_PORT:-3402}:3900"
+    healthcheck:
+      test: ["CMD", "/garage", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    mem_limit: 512m
+    logging: *logging
+
+  migrate:
+    <<: *app
+    build:
+      context: .
+      dockerfile: infrastructure/docker/python.Dockerfile
+      target: app
+    restart: "no"
+    command: ["python", "-m", "synthcut_core.migrate", "upgrade"]
+    environment:
+      <<: *base-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    <<: *app
+    command: ["python", "-m", "synthcut_api.main"]
+    environment:
+      <<: *base-env
+      DISK_PROBE_PATH: /disk-probe
+    volumes:
+      # Same filesystem as the media store: statvfs here = free space there.
+      - ${DATA_ROOT:-/srv/synthcut}/disk-probe:/disk-probe:ro
+    ports:
+      - "127.0.0.1:${API_PORT:-3400}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    mem_limit: 512m
+
+  worker-cpu:
+    <<: *app
+    command: ["python", "-m", "synthcut_worker"]
+    environment:
+      <<: *base-env
+      WORKER_QUEUES: cpu
+      WORKER_CONCURRENCY: "1"
+      SCRATCH_DIR: /scratch
+    volumes:
+      - ${DATA_ROOT:-/srv/synthcut}/scratch:/scratch
+    # The VPS is shared with live services: media work may use at most half of it.
+    cpus: 2.0
+    mem_limit: 3g
+    stop_grace_period: 60s
+
+  worker-io:
+    <<: *app
+    command: ["python", "-m", "synthcut_worker"]
+    environment:
+      <<: *base-env
+      WORKER_QUEUES: io,llm
+      WORKER_CONCURRENCY: "4"
+      WORKER_SCHEDULER: "true"
+    mem_limit: 384m
+    stop_grace_period: 60s
+
+  bot:
+    <<: *app
+    command: ["python", "-m", "synthcut_bot"]
+    environment:
+      <<: *base-env
+    ports:
+      - "127.0.0.1:${BOT_PORT:-3403}:8080"
+    mem_limit: 256m
+
+  web:
+    image: synthcut/web:${SYNTHCUT_RELEASE:-dev}
+    build:
+      context: .
+      dockerfile: infrastructure/docker/web.Dockerfile
+    pull_policy: never
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${WEB_PORT:-3401}:8080"
+    mem_limit: 64m
+    logging: *logging

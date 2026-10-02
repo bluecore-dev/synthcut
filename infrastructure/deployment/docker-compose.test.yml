@@ -1,0 +1,61 @@
+# Throwaway stack for the integration suite on the server: tmpfs storage, no
+# published ports, nothing shared with production. Run via test-stack.sh.
+name: synthcut-test
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: synthcut_test
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test -d synthcut_test"]
+      interval: 2s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 2s
+      retries: 30
+
+  storage:
+    image: dxflrs/garage:v2.4.1
+    environment:
+      GARAGE_RPC_SECRET: "0000000000000000000000000000000000000000000000000000000000000001"
+      GARAGE_ADMIN_TOKEN: "test-admin-token"
+    volumes:
+      - ../garage/garage.toml:/etc/garage.toml:ro
+    tmpfs:
+      - /var/lib/garage
+    healthcheck:
+      test: ["CMD", "/garage", "status"]
+      interval: 3s
+      retries: 20
+
+  tests:
+    image: synthcut/test:local
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/python.Dockerfile
+      target: test
+    environment:
+      SYNTHCUT_TEST_DATABASE_URL: postgresql+psycopg://test:test@postgres:5432/synthcut_test
+      SYNTHCUT_TEST_REDIS_URL: redis://redis:6379/15
+      SYNTHCUT_TEST_S3_ENDPOINT: http://storage:3900
+      SYNTHCUT_TEST_S3_KEY: GK000000000000000000000001
+      SYNTHCUT_TEST_S3_SECRET: "0000000000000000000000000000000000000000000000000000000000000002"
+      SYNTHCUT_TEST_S3_BUCKET: synthcut-test
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      storage:
+        condition: service_healthy
+    cpus: 1.5

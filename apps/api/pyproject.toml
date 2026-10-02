@@ -1,0 +1,23 @@
+[project]
+name = "synthcut-api"
+version = "0.1.0"
+description = "SynthCut HTTP API (FastAPI)"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "synthcut-core",
+  "synthcut-schemas",
+  "synthcut-storage",
+  "synthcut-telemetry",
+  "synthcut-timeline",
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.32",
+  "pyjwt>=2.10",
+]
+
+[build-system]
+requires = ["uv_build>=0.12,<0.13"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "synthcut_api"
+module-root = ""

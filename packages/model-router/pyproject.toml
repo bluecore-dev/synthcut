@@ -1,0 +1,16 @@
+[project]
+name = "synthcut-model-router"
+version = "0.1.0"
+description = "Provider-independent model routing and cost accounting"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "pydantic>=2.10",
+]
+
+[build-system]
+requires = ["uv_build>=0.12,<0.13"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "synthcut_model_router"
+module-root = ""
