@@ -3,6 +3,8 @@ Everything heavier happens in the Mini App."""
 
 from __future__ import annotations
 
+import logging
+
 from aiogram import Router
 from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.types import Message
@@ -18,13 +20,17 @@ from .. import texts
 from ..keyboards.web_app import open_app_keyboard, web_app_available
 
 router = Router(name="commands")
+log = logging.getLogger("synthcut.bot")
 
 
 async def _authorized_user(message: Message, settings: Settings, session: AsyncSession) -> User | None:
     sender = message.from_user
     if sender is None:
         return None
-    if sender.id not in settings.allowed_telegram_ids:
+    allowed = sender.id in settings.allowed_telegram_ids
+    command = (message.text or "").split(maxsplit=1)[0][:32]
+    log.info("command", extra={"telegram_id": sender.id, "command": command, "allowed": allowed})
+    if not allowed:
         await message.answer(texts.denied(sender.id))
         return None
     user = await upsert_telegram_user(

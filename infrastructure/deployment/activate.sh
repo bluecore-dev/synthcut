@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Activate one release on the server:
-#   build images → storage config/init → migrate → start → health check → nginx.
+#   build images → nginx + TLS certificate → storage config/init → migrate →
+#   start → health check.
 # If the new release does not become healthy, the previous one is started again.
 #
 #   activate.sh <release-name>          (run by deploy.sh; the release is already unpacked)
@@ -33,6 +34,32 @@ log() { printf '\n== %s\n' "$*"; }
 
 log "build $REL"
 compose "$DIR" "$REL" build migrate web
+
+log "nginx + certificate (before the bot registers its webhook)"
+install_site() { # install_site <template>; restores the previous file if nginx -t fails
+  local template=$1 backup=""
+  if [ -f "$SITE" ]; then backup=$(mktemp); cp "$SITE" "$backup"; fi
+  sed "s/__DOMAIN__/$DOMAIN/g" "$template" > "$SITE.tmp"
+  if [ -f "$SITE" ] && cmp -s "$SITE.tmp" "$SITE"; then rm -f "$SITE.tmp" "$backup"; return 0; fi
+  mv "$SITE.tmp" "$SITE"
+  ln -sfn "$SITE" /etc/nginx/sites-enabled/synthcut
+  if nginx -t 2>/tmp/synthcut-nginx-test.log; then
+    systemctl reload nginx
+    rm -f "$backup"
+    echo "nginx: $(basename "$template") installed"
+  else
+    cat /tmp/synthcut-nginx-test.log >&2
+    if [ -n "$backup" ]; then mv "$backup" "$SITE"; else rm -f "$SITE" /etc/nginx/sites-enabled/synthcut; fi
+    echo "nginx config rejected — previous config restored, other sites untouched" >&2
+    exit 1
+  fi
+}
+if [ ! -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
+  install_site "$DIR/infrastructure/nginx/synthcut.acme.conf"
+  certbot certonly --webroot -w /var/www/synthcut-acme -d "$DOMAIN" \
+    --non-interactive --agree-tos --register-unsafely-without-email --keep-until-expiring
+fi
+install_site "$DIR/infrastructure/nginx/synthcut.conf"
 
 log "storage config"
 STORAGE_CONFIG_CHANGED=0
@@ -79,32 +106,6 @@ if [ "$healthy" != 1 ]; then
 fi
 ln -sfn "$DIR" "$ROOT/current"
 echo "release $REL is live"
-
-log "nginx"
-install_site() { # install_site <template>; restores the previous file if nginx -t fails
-  local template=$1 backup=""
-  if [ -f "$SITE" ]; then backup=$(mktemp); cp "$SITE" "$backup"; fi
-  sed "s/__DOMAIN__/$DOMAIN/g" "$template" > "$SITE.tmp"
-  if [ -f "$SITE" ] && cmp -s "$SITE.tmp" "$SITE"; then rm -f "$SITE.tmp" "$backup"; return 0; fi
-  mv "$SITE.tmp" "$SITE"
-  ln -sfn "$SITE" /etc/nginx/sites-enabled/synthcut
-  if nginx -t 2>/tmp/synthcut-nginx-test.log; then
-    systemctl reload nginx
-    rm -f "$backup"
-    echo "nginx: $(basename "$template") installed"
-  else
-    cat /tmp/synthcut-nginx-test.log >&2
-    if [ -n "$backup" ]; then mv "$backup" "$SITE"; else rm -f "$SITE" /etc/nginx/sites-enabled/synthcut; fi
-    echo "nginx config rejected — previous config restored, other sites untouched" >&2
-    exit 1
-  fi
-}
-if [ ! -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
-  install_site "$DIR/infrastructure/nginx/synthcut.acme.conf"
-  certbot certonly --webroot -w /var/www/synthcut-acme -d "$DOMAIN" \
-    --non-interactive --agree-tos --register-unsafely-without-email --keep-until-expiring
-fi
-install_site "$DIR/infrastructure/nginx/synthcut.conf"
 
 log "prune old releases (keep $KEEP_RELEASES)"
 mapfile -t releases < <(find "$ROOT/releases" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)

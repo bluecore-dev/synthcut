@@ -1,10 +1,13 @@
-import { FileAudio, FileImage, FileVideo, Files } from "lucide-react";
-import type { AssetOut } from "../api/client";
+import { useQueryClient } from "@tanstack/react-query";
+import { FileAudio, FileImage, FileVideo, Files, X } from "lucide-react";
+import { useState } from "react";
+import { api, unwrap, type AssetOut } from "../api/client";
 import type { RemoteUploadProgress } from "../hooks/useProjectEvents";
 import { useUploads } from "../hooks/useUploads";
 import { formatBytes, formatDuration, pct } from "../services/format";
 import { ASSET_STATUS_LABEL } from "../strings";
-import { Badge, EmptyState, ProgressBar } from "./ui";
+import { confirmDialog } from "../telegram";
+import { Badge, Button, EmptyState, ProgressBar } from "./ui";
 
 const KIND_ICON = { video: FileVideo, audio: FileAudio, image: FileImage, other: Files } as const;
 const STATUS_TONE = {
@@ -28,6 +31,19 @@ export function AssetList({
   remote: Record<string, RemoteUploadProgress>;
 }) {
   const local = useUploads(projectId);
+  const qc = useQueryClient();
+  const [cancelling, setCancelling] = useState<string | null>(null);
+  const cancelStalled = async (asset: AssetOut) => {
+    if (!asset.upload || !(await confirmDialog(`${asset.original_filename} yuklashini bekor qilasizmi?`))) return;
+    setCancelling(asset.id);
+    try {
+      await unwrap(api.DELETE("/api/v1/uploads/{session_id}", { params: { path: { session_id: asset.upload.session_id } } }));
+    } finally {
+      setCancelling(null);
+      void qc.invalidateQueries({ queryKey: ["assets", projectId] });
+      void qc.invalidateQueries({ queryKey: ["project", projectId] });
+    }
+  };
   const handledLocally = new Set(local.filter((u) => u.assetId && LOCAL_ACTIVE.has(u.phase)).map((u) => u.assetId));
   const visible = assets.filter((a) => !handledLocally.has(a.id) && a.status !== "cancelled");
 
@@ -66,11 +82,23 @@ export function AssetList({
               {a.status === "uploading" && (
                 <>
                   <ProgressBar value={a.size_bytes ? reported / a.size_bytes : 0} tone={stalled ? "warn" : "run"} className="mt-2" />
-                  <p className="mt-1 text-xs text-warn">
-                    {stalled
-                      ? `To'xtatilgan (${pct(reported / a.size_bytes)}) — davom ettirish uchun xuddi shu faylni qayta tanlang`
-                      : `Boshqa qurilmadan yuklanmoqda · ${pct(reported / a.size_bytes)}`}
-                  </p>
+                  <div className="mt-1 flex items-start gap-2">
+                    <p className="flex-1 text-xs text-warn">
+                      {stalled
+                        ? `To'xtatilgan (${pct(reported / a.size_bytes)}) — davom ettirish uchun xuddi shu faylni qayta tanlang`
+                        : `Boshqa qurilmadan yuklanmoqda · ${pct(reported / a.size_bytes)}`}
+                    </p>
+                    {stalled && a.upload && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        aria-label="Bekor qilish"
+                        loading={cancelling === a.id}
+                        icon={<X className="size-4" />}
+                        onClick={() => void cancelStalled(a)}
+                      />
+                    )}
+                  </div>
                 </>
               )}
               {a.error && a.status === "failed" && <p className="mt-1 text-xs text-err">{a.error}</p>}
