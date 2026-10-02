@@ -1,4 +1,6 @@
-import { md5 } from "hash-wasm";
+// Pure-JS MD5: WebAssembly would need 'wasm-unsafe-eval' in the CSP, which
+// older iOS WebViews do not understand (they would block hashing entirely).
+import SparkMD5 from "spark-md5";
 
 function hexToBase64(hex: string): string {
   let binary = "";
@@ -9,7 +11,7 @@ function hexToBase64(hex: string): string {
 /** MD5 of one upload part: hex (to compare with the storage ETag) and base64
  * (the Content-MD5 header the presigned URL is signed with). */
 export async function md5Part(buffer: ArrayBuffer): Promise<{ hex: string; b64: string }> {
-  const hex = await md5(new Uint8Array(buffer));
+  const hex = SparkMD5.ArrayBuffer.hash(buffer);
   return { hex, b64: hexToBase64(hex) };
 }
 

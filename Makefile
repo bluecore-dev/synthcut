@@ -15,6 +15,7 @@ fmt:
 
 test-unit:
 	uv run pytest tests/unit -q
+	cd apps/mini-app && npx vitest run
 
 test-integration:  ## needs local PostgreSQL + Redis; S3 is an in-process moto server
 	SYNTHCUT_TEST_DATABASE_URL=$(TEST_DB) uv run pytest tests -q

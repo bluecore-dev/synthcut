@@ -54,8 +54,11 @@ below the spec's suggested 8–16 vCPU / 32 GB / 200 GB NVMe. Consequences:
   disk. The 20–50 GB projects of the spec need a bigger disk or external S3 —
   a configuration change (`S3_ENDPOINT_*`), not a rewrite.
 
-Domain: `synthcut.185.2.101.47.nip.io` (Let's Encrypt). Moving to a real
-domain = DNS record + `SYNTHCUT_DOMAIN`/`PUBLIC_BASE_URL` + certificate.
+Domain: **`synthcut.socialmarketing.uz`** (A record → 185.2.101.47, Let's
+Encrypt via webroot, auto-renewed by `certbot.timer`). Changing the domain =
+DNS record + `SYNTHCUT_DOMAIN`, `PUBLIC_BASE_URL`, `S3_ENDPOINT_PUBLIC` in
+`.env` + re-running `activate.sh` (it obtains the certificate and the bot
+re-registers its webhook and menu button on start).
 
 ## 3. Components
 
