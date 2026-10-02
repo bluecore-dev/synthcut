@@ -18,12 +18,25 @@ describe("md5Part", () => {
 });
 
 describe("fileFingerprint", () => {
-  it("is stable for the same file and URL-safe", async () => {
-    const a = new File(["x"], "clip.mov", { lastModified: 1_759_000_000_000 });
-    const b = new File(["y"], "clip.mov", { lastModified: 1_759_000_000_000 });
-    const c = new File(["x"], "clip.mov", { lastModified: 1_759_000_000_001 });
+  const big = (seed: number, size = 3 * 1024 * 1024): Uint8Array<ArrayBuffer> =>
+    new Uint8Array(new ArrayBuffer(size)).map((_, i) => (i * 7 + seed) & 0xff);
+
+  it("follows the content, not the name or timestamp the picker invents", async () => {
+    const a = new File([big(1)], "copy_0842-A.mov", { lastModified: 1_759_000_000_000 });
+    const b = new File([big(1)], "copy_77F1-B.mov", { lastModified: 1_759_999_999_999 });
     expect(await fileFingerprint(a)).toBe(await fileFingerprint(b));
-    expect(await fileFingerprint(a)).not.toBe(await fileFingerprint(c));
     expect(await fileFingerprint(a)).toMatch(/^[A-Za-z0-9_-]{43}$/);
+  });
+
+  it("differs when the head, the tail or the size differ", async () => {
+    const base = big(1);
+    const tailChanged = base.slice();
+    tailChanged[tailChanged.length - 1] = (base[base.length - 1] ?? 0) ^ 0xff;
+    const fp = (bytes: Uint8Array<ArrayBuffer>) => fileFingerprint(new File([bytes], "x.mov"));
+    const reference = await fp(base);
+    expect(await fp(big(2))).not.toBe(reference);
+    expect(await fp(tailChanged)).not.toBe(reference);
+    expect(await fp(base.slice(0, base.length - 1))).not.toBe(reference);
+    expect(await fp(new Uint8Array(new ArrayBuffer(3)))).toMatch(/^[A-Za-z0-9_-]{43}$/);
   });
 });

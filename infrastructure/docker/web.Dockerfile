@@ -6,7 +6,8 @@ WORKDIR /web
 COPY apps/mini-app/package.json apps/mini-app/package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
 COPY apps/mini-app/ ./
-RUN npm run build
+# Type checking runs before commit (make lint); the shared VPS only bundles.
+RUN npx vite build
 
 FROM nginxinc/nginx-unprivileged:stable-alpine
 COPY infrastructure/nginx/web.conf /etc/nginx/conf.d/default.conf

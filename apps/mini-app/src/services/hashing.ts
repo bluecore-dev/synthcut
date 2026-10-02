@@ -21,9 +21,19 @@ function base64url(bytes: ArrayBuffer): string {
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-/** Identifies "the same file picked again" so an interrupted upload resumes. */
+const EDGE = 1024 * 1024;
+
+/** Identifies "the same file picked again" so an interrupted upload resumes.
+ * Content-based (size + first and last MiB): the iOS Photos picker hands out a
+ * new name (copy_<uuid>.mov) and lastModified on every pick, so metadata alone
+ * would never match. Reads 2 MiB at most. */
 export async function fileFingerprint(file: File): Promise<string> {
-  const text = `${file.name}|${file.size}|${file.lastModified}`;
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
-  return base64url(digest);
+  const head = new Uint8Array(await file.slice(0, Math.min(EDGE, file.size)).arrayBuffer());
+  const tail = file.size > EDGE ? new Uint8Array(await file.slice(Math.max(EDGE, file.size - EDGE)).arrayBuffer()) : new Uint8Array(0);
+  const size = new TextEncoder().encode(`${file.size}:`);
+  const joined = new Uint8Array(size.length + head.length + tail.length);
+  joined.set(size, 0);
+  joined.set(head, size.length);
+  joined.set(tail, size.length + head.length);
+  return base64url(await crypto.subtle.digest("SHA-256", joined));
 }
