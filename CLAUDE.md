@@ -28,7 +28,7 @@ an ADR in `docs/adr/` (why → impact → alternatives → decision).
 
 `tests/e2e/mini_app_e2e.py` drives the deployed Mini App in Chromium and WebKit
 with a freshly signed initData (see its docstring). Never run it as the owner
-while he is using the system: temporarily add the impossible id
+while the owner is using the system: temporarily add the impossible id
 `9007199254740993` (2^53+1, no real Telegram id has more than 52 bits) to
 `AUTHORIZED_TELEGRAM_USER_IDS`, recreate `api`, run, remove the id, recreate
 `api`, then purge that user's projects (storage prefix `projects/<id>/` + SQL).
