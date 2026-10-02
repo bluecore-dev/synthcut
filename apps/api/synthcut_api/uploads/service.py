@@ -401,7 +401,9 @@ class UploadService:
         await self.db.commit()
         return PartSignResponse(parts=signed)
 
-    async def report_progress(self, sess: UploadSession, bytes_uploaded: int) -> None:
+    async def report_progress(
+        self, sess: UploadSession, bytes_uploaded: int, error: str | None = None
+    ) -> None:
         if sess.status != UploadSessionStatus.ACTIVE.value:
             return
         value = min(bytes_uploaded, sess.size_bytes)
@@ -410,6 +412,19 @@ class UploadService:
             .where(UploadSession.id == sess.id)
             .values(bytes_reported=value, last_activity_at=utcnow())
         )
+        if error:
+            # What went wrong on the phone (network, storage status) — otherwise
+            # invisible from the server, since parts go straight to storage.
+            asset = await self._asset(sess.asset_id)
+            emit(
+                self.db,
+                project_id=sess.project_id,
+                type=EventType.UPLOAD_CLIENT_ERROR,
+                level=EventLevel.WARNING,
+                message=f"{asset.original_filename}: {error}",
+                source="client",
+                data={"asset_id": str(sess.asset_id), "bytes": value},
+            )
         await refresh_upload_stage_async(self.db, sess.project_id, source="api")
         await commit_and_publish(self.db, self.redis)
         await publish_ephemeral(

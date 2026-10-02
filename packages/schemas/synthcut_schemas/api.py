@@ -251,6 +251,9 @@ class PartSignResponse(BaseModel):
 
 class UploadProgressReport(_In):
     bytes_uploaded: int = Field(ge=0)
+    error: str | None = Field(
+        default=None, max_length=300, description="Last client-side failure (network, storage status)"
+    )
 
 
 # --------------------------------------------------------------------------- events & jobs

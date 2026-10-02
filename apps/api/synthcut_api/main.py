@@ -118,6 +118,9 @@ def run() -> None:  # pragma: no cover - container entry point
         proxy_headers=True,
         forwarded_allow_ips="*",
         log_config=None,
+        # Longer than nginx's upstream keepalive_timeout (30 s): nginx must be the side
+        # that closes idle connections, or it reuses one uvicorn just closed -> 502.
+        timeout_keep_alive=75,
         timeout_graceful_shutdown=10,
     )
 

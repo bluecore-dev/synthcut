@@ -858,6 +858,11 @@ export interface components {
         UploadProgressReport: {
             /** Bytes Uploaded */
             bytes_uploaded: number;
+            /**
+             * Error
+             * @description Last client-side failure (network, storage status)
+             */
+            error?: string | null;
         };
         /** UploadSessionOut */
         UploadSessionOut: {

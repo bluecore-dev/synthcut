@@ -2688,6 +2688,19 @@
             "type": "integer",
             "minimum": 0.0,
             "title": "Bytes Uploaded"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error",
+            "description": "Last client-side failure (network, storage status)"
           }
         },
         "additionalProperties": false,

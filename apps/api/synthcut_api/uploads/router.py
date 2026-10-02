@@ -87,7 +87,7 @@ async def report_progress(
     redis: RedisClient,
 ) -> Response:
     svc = UploadService(db, storage, settings, redis)
-    await svc.report_progress(await svc.get_owned_session(user, session_id), body.bytes_uploaded)
+    await svc.report_progress(await svc.get_owned_session(user, session_id), body.bytes_uploaded, body.error)
     return Response(status_code=204)
 
 

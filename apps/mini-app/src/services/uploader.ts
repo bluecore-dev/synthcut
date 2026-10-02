@@ -47,6 +47,8 @@ interface UploadItem extends UploadView {
   inflight: Map<number, number>;
   verifiedBytes: number;
   lastSample: { at: number; bytes: number };
+  /** Last failure not yet reported to the server (shown in the project log). */
+  pendingError?: string;
 }
 
 const PARALLEL_PARTS = 3;
@@ -270,6 +272,8 @@ export class UploadManager {
         item.error = err instanceof Error ? err.message : String(err);
         haptic.error();
       }
+      item.pendingError = `${item.phase === "offline" ? "internet yo'q" : "to'xtadi"}: ${item.error ?? ""}`.slice(0, 300);
+      void this.reportProgress(item, true);
     } finally {
       item.inflight.clear();
       this.emit();
@@ -374,6 +378,8 @@ export class UploadManager {
       } catch (err) {
         item.inflight.delete(n);
         if (err instanceof Paused || item.phase !== "uploading") throw new Paused();
+        item.pendingError = `qism ${n}, urinish ${attempt}: ${err instanceof Error ? err.message : String(err)}`.slice(0, 300);
+        void this.reportProgress(item);
         if (err instanceof ApiError && err.status >= 400 && err.status < 500 && err.status !== 429) throw err;
         if (attempt >= MAX_PART_ATTEMPTS) throw err;
         await waitOnline();
@@ -442,14 +448,17 @@ export class UploadManager {
     }
   }
 
-  private async reportProgress(item: UploadItem) {
-    if (!item.sessionId || item.phase !== "uploading") return;
+  private async reportProgress(item: UploadItem, force = false) {
+    if (!item.sessionId) return;
+    const error = item.pendingError;
+    if (item.phase !== "uploading" && !error && !force) return;
+    item.pendingError = undefined;
     const bytes = item.verifiedBytes + [...item.inflight.values()].reduce((a, b) => a + b, 0);
     try {
       await unwrap(
         api.POST("/api/v1/uploads/{session_id}/progress", {
           params: { path: { session_id: item.sessionId } },
-          body: { bytes_uploaded: bytes },
+          body: { bytes_uploaded: bytes, error: error ?? null },
         }),
       );
     } catch {

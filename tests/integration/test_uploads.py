@@ -288,3 +288,24 @@ async def test_progress_reports_feed_the_upload_stage(client, auth, Session):
     assert assets[0]["upload"]["bytes_reported"] == len(DATA) // 2
     with Session() as s:
         assert s.scalar(select(Asset.status)) == "uploading"
+
+
+async def test_client_side_errors_reach_the_project_log(client, auth):
+    project = await make_project(client, auth)
+    session = (await start_upload(client, auth, project["id"])).json()
+    r = await client.post(
+        f"/api/v1/uploads/{session['id']}/progress",
+        json={"bytes_uploaded": 0, "error": "qism 1: Storage 403"},
+        headers=auth,
+    )
+    assert r.status_code == 204
+    events = (await client.get(f"/api/v1/projects/{project['id']}/events", headers=auth)).json()["items"]
+    errors = [e for e in events if e["type"] == "upload.client_error"]
+    assert len(errors) == 1 and errors[0]["level"] == "warning"
+    assert errors[0]["message"] == "A001_C002.MOV: qism 1: Storage 403"
+    too_long = await client.post(
+        f"/api/v1/uploads/{session['id']}/progress",
+        json={"bytes_uploaded": 0, "error": "x" * 301},
+        headers=auth,
+    )
+    assert too_long.status_code == 422

@@ -30,6 +30,7 @@ class EventType(StrEnum):
     UPLOAD_CANCELLED = "upload.cancelled"
     UPLOAD_EXPIRED = "upload.expired"
     UPLOAD_FAILED = "upload.failed"
+    UPLOAD_CLIENT_ERROR = "upload.client_error"
 
     STAGE_UPDATED = "stage.updated"
 
