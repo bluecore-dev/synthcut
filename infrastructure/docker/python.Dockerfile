@@ -11,6 +11,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     UV_PROJECT_ENVIRONMENT=/opt/venv \
     PATH=/opt/venv/bin:$PATH
 COPY --from=ghcr.io/astral-sh/uv:0.12.22 /uv /usr/local/bin/uv
+# Media engine (spec §21): Debian's ffmpeg has libx264, zscale (HDR tone-mapping),
+# scdet and ebur128. In the base stage so the test image runs the same binary.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ffmpeg \
+ && rm -rf /var/lib/apt/lists/*
 RUN groupadd --system --gid 10001 synthcut \
  && useradd --system --uid 10001 --gid synthcut --home-dir /app --shell /usr/sbin/nologin synthcut
 WORKDIR /app

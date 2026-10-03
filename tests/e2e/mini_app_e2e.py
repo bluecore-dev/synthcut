@@ -22,6 +22,7 @@ import hmac
 import json
 import os
 import re
+import subprocess
 import sys
 import tempfile
 import time
@@ -66,6 +67,22 @@ def make_file(directory: Path, name: str, size: int) -> Path:
     return path
 
 
+def make_video(directory: Path, name: str) -> Path:
+    """~40 MB real 1080p clip with a scene cut and audio, so ingestion has work."""
+    path = directory / name
+    subprocess.run(
+        ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+         "-f", "lavfi", "-i", "testsrc2=size=1920x1080:rate=30:duration=4",
+         "-f", "lavfi", "-i", "smptebars=size=1920x1080:rate=30:duration=4",
+         "-f", "lavfi", "-i", "sine=frequency=330:sample_rate=48000:duration=8",
+         "-filter_complex", "[0:v][1:v]concat=n=2:v=1:a=0[v]", "-map", "[v]", "-map", "2:a",
+         "-c:v", "libx264", "-preset", "ultrafast", "-b:v", "40M", "-minrate", "40M", "-maxrate", "40M",
+         "-bufsize", "20M", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", str(path)],
+        check=True,
+    )  # fmt: skip
+    return path
+
+
 def shot(page: Page, engine: str, step: str) -> None:
     SHOTS.mkdir(parents=True, exist_ok=True)
     page.screenshot(path=str(SHOTS / f"{engine}-{step}.png"), full_page=True)
@@ -93,11 +110,17 @@ def run(engine: str, browser_type, workdir: Path) -> str:
     expect(page).to_have_url(re.compile(r"/p/[0-9a-f-]{36}\?tab=assets"), timeout=15_000)
     project_id = re.search(r"/p/([0-9a-f-]{36})", page.url).group(1)
 
-    # 1) A straight upload: 40 MiB = 3 parts, MD5-signed, through nginx to Garage.
-    small = make_file(workdir, f"E2E_{engine}_A001.mov", 40 * MIB)
+    # 1) A real ~40 MB clip: 3 MD5-signed parts through nginx to Garage, then the
+    #    worker ingests it (proxy, thumbnails, shots) and the asset page shows it.
+    small = make_video(workdir, f"E2E_{engine}_A001.mp4")
     page.locator("input[type=file]").set_input_files(str(small))
-    expect(page.get_by_text("yuklandi", exact=True)).to_have_count(1, timeout=300_000)
-    shot(page, engine, "3-uploaded")
+    expect(page.get_by_text("tayyor", exact=True)).to_have_count(1, timeout=300_000)
+    shot(page, engine, "3-ingested")
+    page.get_by_text(f"E2E_{engine}_A001.mp4").click()
+    expect(page.get_by_text("Kadr kesimlari (shots)")).to_be_visible(timeout=15_000)
+    expect(page.locator("video")).to_have_count(1)
+    shot(page, engine, "3b-asset")
+    page.go_back()
 
     # 2) Interrupt a 50 MiB upload after its first verified part, reload, resume.
     big = make_file(workdir, f"E2E_{engine}_B002.mov", 50 * MIB)
@@ -107,13 +130,14 @@ def run(engine: str, browser_type, workdir: Path) -> str:
     expect(page.get_by_text(re.compile("To'xtatilgan"))).to_be_visible(timeout=30_000)
     shot(page, engine, "4-interrupted")
     page.locator("input[type=file]").set_input_files(str(big))
-    expect(page.get_by_text("yuklandi", exact=True)).to_have_count(2, timeout=300_000)
+    # Random bytes are not a video: ingestion must fail cleanly, not hang.
+    expect(page.get_by_text("xato", exact=True)).to_have_count(1, timeout=300_000)
     shot(page, engine, "5-resumed")
 
-    # 3) The pipeline reflects it: upload done, ingestion queued for Phase 3.
+    # 3) The pipeline reflects it.
     page.get_by_role("button", name="Overview").click()
     expect(page.get_by_text("Media Ingest", exact=True)).to_be_visible()
-    expect(page.get_by_text("2 ta fayl navbatda", exact=True)).to_be_visible(timeout=15_000)
+    expect(page.get_by_text("1 ta fayl tayyor, 1 ta o'qilmadi", exact=True)).to_be_visible(timeout=15_000)
     shot(page, engine, "6-overview")
     page.get_by_role("button", name="Logs").click()
     expect(page.get_by_text(re.compile("yuklash davom ettirilmoqda")).first).to_be_visible(timeout=15_000)

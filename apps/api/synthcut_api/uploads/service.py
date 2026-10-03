@@ -29,13 +29,14 @@ from synthcut_core.jobs import enqueue_async
 from synthcut_core.models import Asset, Project, UploadSession, User, utcnow
 from synthcut_core.projects import touch_project
 from synthcut_core.settings import Settings
-from synthcut_core.stages import StageState, refresh_upload_stage_async, set_stage_async
+from synthcut_core.stages import refresh_ingest_stage_async, refresh_upload_stage_async
 from synthcut_schemas.api import (
     AssetOut,
     LimitsOut,
     PartSignRequest,
     PartSignResponse,
     SignedPart,
+    SignedUrl,
     UploadCreate,
     UploadPartOut,
     UploadSessionOut,
@@ -46,8 +47,6 @@ from synthcut_schemas.enums import (
     EventLevel,
     JobPriority,
     JobQueue,
-    Stage,
-    StageStatus,
     UploadSessionStatus,
 )
 from synthcut_schemas.events import EventType
@@ -74,8 +73,13 @@ def _gb(n: int) -> str:
     return f"{n / 1024**3:.2f} GB"
 
 
-def asset_out(asset: Asset, sess: UploadSession | None = None) -> AssetOut:
+def asset_out(
+    asset: Asset, sess: UploadSession | None = None, *, thumbnail: SignedUrl | None = None
+) -> AssetOut:
     out = AssetOut.model_validate(asset)
+    color = (asset.media_info or {}).get("color") or {}
+    out.color_label = color.get("label")
+    out.thumbnail = thumbnail
     if sess is not None and sess.status in _OPEN_SESSION_STATES:
         out.upload = UploadStateOut(
             session_id=sess.id,
@@ -519,20 +523,7 @@ class UploadService:
             max_attempts=3,
         )
         await refresh_upload_stage_async(self.db, sess.project_id, source="api")
-        waiting = (
-            await self.db.execute(
-                select(func.count()).where(
-                    Asset.project_id == sess.project_id, Asset.status == AssetStatus.UPLOADED.value
-                )
-            )
-        ).scalar_one()
-        await set_stage_async(
-            self.db,
-            sess.project_id,
-            Stage.INGEST,
-            StageState(StageStatus.QUEUED, None, f"{waiting} ta fayl navbatda"),
-            source="api",
-        )
+        await refresh_ingest_stage_async(self.db, sess.project_id, source="api")
         await touch_project(self.db, sess.project_id)
         await commit_and_publish(self.db, self.redis)
         return asset_out(asset)

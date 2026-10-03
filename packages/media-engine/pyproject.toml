@@ -1,0 +1,17 @@
+[project]
+name = "synthcut-media"
+version = "0.1.0"
+description = "Deterministic FFprobe / FFmpeg media engine (spec §21)"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "pydantic>=2.10",
+  "synthcut-schemas",
+]
+
+[build-system]
+requires = ["uv_build>=0.12,<0.13"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "synthcut_media"
+module-root = ""

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class JobKind:
@@ -17,6 +17,7 @@ class JobKind:
     EXPIRE_UPLOADS = "maintenance.expire_uploads"
     SWEEP_ORPHAN_UPLOADS = "maintenance.sweep_orphan_uploads"
     PRUNE_JOBS = "maintenance.prune_jobs"
+    NOTIFY_TELEGRAM = "notify.telegram"
 
 
 JOB_LABELS: dict[str, str] = {
@@ -24,6 +25,7 @@ JOB_LABELS: dict[str, str] = {
     JobKind.EXPIRE_UPLOADS: "Eskirgan yuklashlarni tozalash",
     JobKind.SWEEP_ORPHAN_UPLOADS: "Yetim multipart yuklashlarni tozalash",
     JobKind.PRUNE_JOBS: "Eski tizim job'larini tozalash",
+    JobKind.NOTIFY_TELEGRAM: "Telegram xabari",
 }
 
 
@@ -51,9 +53,16 @@ class PruneJobsPayload(_Payload):
     pass
 
 
+class NotifyTelegramPayload(_Payload):
+    chat_id: int
+    text: str = Field(max_length=4000)
+    open_project_id: UUID | None = None
+
+
 PAYLOAD_MODELS: dict[str, type[_Payload]] = {
     JobKind.INGEST_ASSET: IngestAssetPayload,
     JobKind.EXPIRE_UPLOADS: ExpireUploadsPayload,
     JobKind.SWEEP_ORPHAN_UPLOADS: SweepOrphanUploadsPayload,
     JobKind.PRUNE_JOBS: PruneJobsPayload,
+    JobKind.NOTIFY_TELEGRAM: NotifyTelegramPayload,
 }

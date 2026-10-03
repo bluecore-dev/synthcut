@@ -32,6 +32,9 @@ class EventType(StrEnum):
     UPLOAD_FAILED = "upload.failed"
     UPLOAD_CLIENT_ERROR = "upload.client_error"
 
+    ASSET_INGESTED = "asset.ingested"
+    ASSET_INGEST_FAILED = "asset.ingest_failed"
+
     STAGE_UPDATED = "stage.updated"
 
     JOB_QUEUED = "job.queued"

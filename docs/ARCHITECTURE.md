@@ -4,8 +4,8 @@
 > This document is the source of truth for how SynthCut is built. Decisions
 > that change it get an ADR in `docs/adr/` (**why → impact → alternatives → decision**).
 
-Status: **Phase 0–2 built and deployed** (architecture, foundation, resumable upload).
-Phases 3–12 are designed here and land one by one (§15).
+Status: **Phase 0–3 built and deployed** (architecture, foundation, resumable upload,
+media ingestion). Phases 4–12 are designed here and land one by one (§15).
 
 ---
 
@@ -101,7 +101,7 @@ packages/storage    synthcut_storage  key layout, immutability guard, multipart,
 packages/telemetry  synthcut_telemetry JSON logging, SSE stream
 packages/agent-sdk  synthcut_agent_sdk AgentSpec, typed tools, permission gate, agent loop
 packages/model-router synthcut_model_router roles → provider:model, pricing, failover
-packages/media-engine Phase 3
+packages/media-engine synthcut_media    ffprobe → MediaInfo, colour detection, ffmpeg plans, runner
 agents              synthcut_agents   13 agent manifests + tool catalog
 infrastructure/     docker/ nginx/ garage/ deployment/ postgres/ redis/
 docs/               ARCHITECTURE.md (this), ERD.md, adr/, openapi.json
@@ -204,6 +204,45 @@ Garage (ADR-0003) replaced MinIO, whose community images are no longer
 published. The code speaks plain S3 (boto3, path-style, checksum calculation
 `when_required`), so AWS S3 / R2 / another Garage cluster is a config change.
 
+## 8a. Ingestion — the media engine (Phase 3, ADR-0010)
+
+`ingest.asset` (queue `cpu`, enqueued when an upload completes) turns an
+original into everything later stages need. The original is only read —
+streamed from Garage over the private network — never copied to scratch:
+
+1. **ffprobe → `MediaInfo`** (`synthcut_schemas.media`, versioned
+   `mediainfo/1`): container, duration, coded *and* display size (rotation,
+   anamorphic SAR), fps + VFR, codec/profile, bit depth, chroma, colour tags,
+   audio, camera make/model/software. GPS coordinates are dropped
+   (`has_location` only).
+2. **Colour detection** (§11): PQ/HLG/Dolby Vision from tags (high), Apple Log
+   from an explicit tag (high) or Apple camera + 10-bit + undeclared transfer
+   (medium), other undeclared 10-bit = "Log (suspected)" (low), Rec.709 /
+   Rec.2020 SDR. Phase 8 builds transforms on top; the user can correct it.
+3. **SHA-256** of the original, streamed.
+4. **One decode pass** of the original produces the 720p H.264 proxy
+   (short side 720, never upscaled, keyframe every 2 s, ≤ 60 fps, AAC), the
+   16 kHz mono FLAC speech track for Whisper (Phase 4) and an EBU R128
+   loudness measurement. HDR is tone-mapped to SDR **after** scaling (zscale in
+   float at 720p, not 4K); Log stays flat (no guessing a transform).
+5. From the proxy: poster, a filmstrip sprite (≤ 12 tiles) and scene cuts
+   (`scdet`) → shots, flashes shorter than 0.4 s merged.
+6. Derived files go to deterministic keys (`proxies/`, `audio/`,
+   `thumbnails/`, `analysis/`), one `media_files` row per (asset, kind) —
+   re-running overwrites, never duplicates.
+
+FFmpeg runs as an argument list (never a shell), `nice 10`, 2 threads inside
+the 2-CPU worker container, with progress, cooperative cancellation and a
+duration-based timeout. Corrupt/unsupported input is a permanent failure (no
+retries, asset `failed`, stage shows it); I/O errors retry. When a project's
+ingest stage turns `done`, the owner gets one Telegram message
+(`notify.telegram`, worker → Bot API, token never in errors).
+
+`GET /api/v1/assets/{id}` returns the typed `MediaInfo`, shots and presigned
+links (proxy with HTTP range for the player, poster, filmstrip); the list
+carries a poster per asset. The Mini App keeps the first presigned URL per
+file until it nears expiry so images do not flash on refetch.
+
 ## 9. Queue design (ADR-0002)
 
 PostgreSQL `jobs` is the ledger; Redis only rings the bell.
@@ -299,7 +338,7 @@ activity log in `events`. `/api/v1/ready` checks database, Redis and storage.
 | 0 | Architecture, ERD, API contract, queue, storage, events, agent interfaces, timeline schema, security | **done** |
 | 1 | FastAPI, PostgreSQL, Redis, object storage, Telegram auth, Mini App, projects | **done** |
 | 2 | Resumable multipart upload, progress, pause/resume, checksum, asset registration | **done** |
-| 3 | FFprobe, proxies, thumbnails, audio extraction, shot detection, color metadata | next |
+| 3 | FFprobe, proxies, thumbnails, audio extraction, shot detection, color metadata | **done** |
 | 4 | Whisper, word timestamps, silence, subtitles | needs a speech route (API key or local CPU model) |
 | 5 | Video Analysis agent | needs `ANTHROPIC_API_KEY` |
 | 6 | Master, Director, Editor, EditPlan persistence | needs `ANTHROPIC_API_KEY` |

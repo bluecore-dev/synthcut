@@ -16,6 +16,7 @@ export function useProjectEvents(projectId: string) {
   const qc = useQueryClient();
   const [events, setEvents] = useState<EventEnvelope[]>([]);
   const [remoteUploads, setRemoteUploads] = useState<Record<string, RemoteUploadProgress>>({});
+  const [ingest, setIngest] = useState<Record<string, { progress: number; step: string }>>({});
   const [stream, setStream] = useState<StreamState>("connecting");
   const pending = useRef<number | null>(null);
 
@@ -36,6 +37,10 @@ export function useProjectEvents(projectId: string) {
 
     const onEvent = (ev: EventEnvelope) => {
       if (ev.id == null) {
+        if (ev.type === "job.progress") {
+          const d = ev.data as { asset_id?: string; progress?: number };
+          if (d.asset_id) setIngest((prev) => ({ ...prev, [d.asset_id!]: { progress: d.progress ?? 0, step: ev.message } }));
+        }
         if (ev.type === "upload.progress") {
           const d = ev.data as { asset_id?: string; bytes?: number; size?: number };
           if (d.asset_id) {
@@ -74,5 +79,5 @@ export function useProjectEvents(projectId: string) {
     };
   }, [projectId, qc]);
 
-  return { events, remoteUploads, stream };
+  return { events, remoteUploads, ingest, stream };
 }

@@ -56,6 +56,11 @@ class Settings(BaseSettings):
     upload_session_idle_ttl_seconds: int = 48 * 3600
 
     scratch_dir: str = "/scratch"
+    media_threads: int = Field(default=2, ge=1, le=16)
+    media_proxy_short_side: int = 720
+    media_url_ttl_seconds: int = 3600
+    notify_telegram: bool = True
+    telegram_api_base: str = "https://api.telegram.org"
     worker_queues: str = "io"
     worker_concurrency: int = Field(default=1, ge=1, le=16)
     worker_lease_seconds: int = 60

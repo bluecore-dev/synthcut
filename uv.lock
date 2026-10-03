@@ -9,6 +9,7 @@ members = [
     "synthcut-api",
     "synthcut-bot",
     "synthcut-core",
+    "synthcut-media",
     "synthcut-model-router",
     "synthcut-schemas",
     "synthcut-storage",
@@ -1397,6 +1398,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "pyjwt" },
     { name = "synthcut-core" },
+    { name = "synthcut-media" },
     { name = "synthcut-schemas" },
     { name = "synthcut-storage" },
     { name = "synthcut-telemetry" },
@@ -1409,6 +1411,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
     { name = "pyjwt", specifier = ">=2.10" },
     { name = "synthcut-core", editable = "packages/core" },
+    { name = "synthcut-media", editable = "packages/media-engine" },
     { name = "synthcut-schemas", editable = "packages/schemas" },
     { name = "synthcut-storage", editable = "packages/storage" },
     { name = "synthcut-telemetry", editable = "packages/telemetry" },
@@ -1457,6 +1460,21 @@ requires-dist = [
     { name = "pydantic-settings", specifier = ">=2.7" },
     { name = "redis", specifier = ">=5.2" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.36" },
+    { name = "synthcut-schemas", editable = "packages/schemas" },
+]
+
+[[package]]
+name = "synthcut-media"
+version = "0.1.0"
+source = { editable = "packages/media-engine" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "synthcut-schemas" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "pydantic", specifier = ">=2.10" },
     { name = "synthcut-schemas", editable = "packages/schemas" },
 ]
 
@@ -1530,6 +1548,7 @@ source = { editable = "apps/worker" }
 dependencies = [
     { name = "httpx" },
     { name = "synthcut-core" },
+    { name = "synthcut-media" },
     { name = "synthcut-schemas" },
     { name = "synthcut-storage" },
     { name = "synthcut-telemetry" },
@@ -1539,6 +1558,7 @@ dependencies = [
 requires-dist = [
     { name = "httpx", specifier = ">=0.28" },
     { name = "synthcut-core", editable = "packages/core" },
+    { name = "synthcut-media", editable = "packages/media-engine" },
     { name = "synthcut-schemas", editable = "packages/schemas" },
     { name = "synthcut-storage", editable = "packages/storage" },
     { name = "synthcut-telemetry", editable = "packages/telemetry" },

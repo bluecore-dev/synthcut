@@ -17,7 +17,8 @@ render, run by a team of specialist agents behind a Telegram Mini App.
 | 0 Architecture | done | schemas, ERD, API contract, queue, storage, events, agent interfaces, timeline |
 | 1 Foundation | done | FastAPI, PostgreSQL, Redis, Garage S3, Telegram auth, Mini App, projects |
 | 2 Upload | done | resumable multipart, MD5-verified parts, pause/resume, progress, quotas |
-| 3–12 | planned | see ARCHITECTURE.md §15 |
+| 3 Media engine | done | ffprobe metadata, colour detection, 720p proxy, thumbnails, speech audio, loudness, shots |
+| 4–12 | planned | see ARCHITECTURE.md §15 |
 
 ## Development
 

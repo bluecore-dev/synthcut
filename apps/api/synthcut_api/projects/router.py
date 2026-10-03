@@ -6,7 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, Query
 from sqlalchemy import select
 from synthcut_core.events import commit_and_publish
-from synthcut_core.models import Asset, Job, UploadSession
+from synthcut_core.models import Asset, Job, Project, UploadSession
 from synthcut_core.projects import (
     archive_project,
     create_project,
@@ -16,6 +16,7 @@ from synthcut_core.projects import (
     update_project,
 )
 from synthcut_schemas.api import (
+    AssetDetail,
     AssetList,
     ErrorResponse,
     JobList,
@@ -28,9 +29,10 @@ from synthcut_schemas.api import (
 )
 from synthcut_schemas.enums import PRESET_SPECS, UploadSessionStatus
 
-from ..deps import CurrentUser, DbSession, RedisClient
+from ..deps import AppSettings, CurrentUser, DbSession, RedisClient, StorageClient
 from ..errors import not_found
 from ..uploads.service import asset_out
+from .media import files_for, posters
 
 router = APIRouter(tags=["projects"], responses={404: {"model": ErrorResponse}})
 
@@ -92,18 +94,47 @@ async def archive(project_id: uuid.UUID, user: CurrentUser, db: DbSession, redis
 
 
 @router.get("/projects/{project_id}/assets", response_model=AssetList)
-async def list_assets(project_id: uuid.UUID, user: CurrentUser, db: DbSession) -> AssetList:
+async def list_assets(
+    project_id: uuid.UUID, user: CurrentUser, db: DbSession, storage: StorageClient, settings: AppSettings
+) -> AssetList:
     if await get_owned_project(db, user.id, project_id) is None:
         raise not_found("Loyiha")
-    rows = await db.execute(
-        select(Asset, UploadSession)
-        .outerjoin(UploadSession, UploadSession.asset_id == Asset.id)
-        .where(Asset.project_id == project_id, Asset.deleted_at.is_(None))
-        .order_by(Asset.sort_index, Asset.created_at)
+    rows = list(
+        await db.execute(
+            select(Asset, UploadSession)
+            .outerjoin(UploadSession, UploadSession.asset_id == Asset.id)
+            .where(Asset.project_id == project_id, Asset.deleted_at.is_(None))
+            .order_by(Asset.sort_index, Asset.created_at)
+        )
     )
+    thumbs = await posters(db, storage, [a.id for a, _ in rows], settings.media_url_ttl_seconds)
     return AssetList(
-        items=[asset_out(asset, sess if sess and sess.status in _OPEN else None) for asset, sess in rows]
+        items=[
+            asset_out(asset, sess if sess and sess.status in _OPEN else None, thumbnail=thumbs.get(asset.id))
+            for asset, sess in rows
+        ]
     )
+
+
+@router.get("/assets/{asset_id}", response_model=AssetDetail)
+async def get_asset(
+    asset_id: uuid.UUID, user: CurrentUser, db: DbSession, storage: StorageClient, settings: AppSettings
+) -> AssetDetail:
+    """One asset with its derived files (proxy, poster, filmstrip), shots and metadata."""
+    asset = (
+        await db.execute(
+            select(Asset)
+            .join(Project, Project.id == Asset.project_id)
+            .where(Asset.id == asset_id, Project.owner_id == user.id, Asset.deleted_at.is_(None))
+        )
+    ).scalar_one_or_none()
+    if asset is None:
+        raise not_found("Fayl")
+    ttl = settings.media_url_ttl_seconds
+    files, shots = await files_for(db, storage, asset.id, ttl)
+    thumbs = await posters(db, storage, [asset.id], ttl)
+    base = asset_out(asset, thumbnail=thumbs.get(asset.id))
+    return AssetDetail(**base.model_dump(), media_info=asset.media_info, files=files, shots=shots)
 
 
 @router.get("/projects/{project_id}/jobs", response_model=JobList)

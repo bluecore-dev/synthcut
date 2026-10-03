@@ -1,18 +1,20 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { FileAudio, FileImage, FileVideo, Files, X } from "lucide-react";
+import { ChevronRight, FileAudio, FileImage, FileVideo, Files, X } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router";
 import { api, unwrap, type AssetOut } from "../api/client";
 import type { RemoteUploadProgress } from "../hooks/useProjectEvents";
 import { useUploads } from "../hooks/useUploads";
 import { formatBytes, formatDuration, pct } from "../services/format";
+import { stableUrl } from "../services/urlcache";
 import { ASSET_STATUS_LABEL } from "../strings";
 import { confirmDialog } from "../telegram";
-import { Badge, Button, EmptyState, ProgressBar } from "./ui";
+import { Badge, Button, EmptyState, ProgressBar, cx } from "./ui";
 
 const KIND_ICON = { video: FileVideo, audio: FileAudio, image: FileImage, other: Files } as const;
 const STATUS_TONE = {
   uploading: "run",
-  uploaded: "accent",
+  uploaded: "warn",
   ingesting: "run",
   ready: "ok",
   failed: "err",
@@ -21,14 +23,23 @@ const STATUS_TONE = {
 
 const LOCAL_ACTIVE = new Set(["queued", "preparing", "verifying", "uploading", "paused", "offline", "completing", "error"]);
 
+export function colorTone(profile: string | null | undefined) {
+  if (!profile) return "neutral" as const;
+  if (profile === "hlg" || profile === "pq") return "warn" as const;
+  if (profile.includes("log")) return "accent" as const;
+  return "neutral" as const;
+}
+
 export function AssetList({
   projectId,
   assets,
   remote,
+  ingest,
 }: {
   projectId: string;
   assets: AssetOut[];
   remote: Record<string, RemoteUploadProgress>;
+  ingest: Record<string, { progress: number; step: string }>;
 }) {
   const local = useUploads(projectId);
   const qc = useQueryClient();
@@ -62,23 +73,44 @@ export function AssetList({
         const live = remote[a.id];
         const reported = live && Date.now() - live.at < 30_000 ? live.bytes : (a.upload?.bytes_reported ?? 0);
         const stalled = a.status === "uploading" && !(live && Date.now() - live.at < 30_000);
+        const thumb = stableUrl(`${a.id}:poster`, a.thumbnail);
+        const work = ingest[a.id];
         const meta = [
-          formatBytes(a.size_bytes),
+          a.duration_sec ? formatDuration(a.duration_sec) : null,
           a.width && a.height ? `${a.width}×${a.height}` : null,
           a.fps ? `${Math.round(a.fps * 100) / 100} fps` : null,
-          a.duration_sec ? formatDuration(a.duration_sec) : null,
+          a.video_codec ? a.video_codec.toUpperCase() : null,
+          a.status === "ready" && a.kind === "video" && a.has_audio === false ? "ovozsiz" : null,
+          formatBytes(a.size_bytes),
         ].filter(Boolean);
-        return (
-          <li key={a.id} className="flex gap-3 px-4 py-3">
-            <div className="grid size-10 shrink-0 place-items-center rounded-xl border border-line bg-s2 text-dim">
-              <Icon className="size-5" aria-hidden />
+        const openable = a.status === "ready" || a.status === "failed";
+        const body = (
+          <div className="flex gap-3 px-4 py-3">
+            <div className="relative grid size-14 shrink-0 place-items-center overflow-hidden rounded-xl border border-line bg-s2 text-dim">
+              {thumb ? (
+                <img src={thumb} alt="" loading="lazy" className="size-full object-cover" />
+              ) : (
+                <Icon className="size-5" aria-hidden />
+              )}
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <p className="min-w-0 flex-1 truncate text-sm font-medium">{a.original_filename}</p>
-                <Badge tone={STATUS_TONE[a.status]}>{ASSET_STATUS_LABEL[a.status]}</Badge>
+                <Badge tone={STATUS_TONE[a.status]}>{a.status === "uploaded" ? "navbatda" : ASSET_STATUS_LABEL[a.status]}</Badge>
               </div>
-              <p className="tabular mt-0.5 text-xs text-faint">{meta.join(" · ")}</p>
+              <p className="tabular mt-0.5 truncate text-xs text-faint">{meta.join(" · ")}</p>
+              {a.color_label && a.kind !== "audio" && (
+                <div className="mt-1.5 flex gap-1.5">
+                  <Badge tone={colorTone(a.color_profile)}>{a.color_label}</Badge>
+                  {a.bit_depth && a.bit_depth > 8 && <Badge>{a.bit_depth}-bit</Badge>}
+                </div>
+              )}
+              {a.status === "ingesting" && (
+                <>
+                  <ProgressBar value={work?.progress ?? 0} tone="run" className="mt-2" />
+                  <p className="mt-1 text-xs text-run">Tahlil · {work ? `${work.step} · ${pct(work.progress)}` : "boshlanmoqda"}</p>
+                </>
+              )}
               {a.status === "uploading" && (
                 <>
                   <ProgressBar value={a.size_bytes ? reported / a.size_bytes : 0} tone={stalled ? "warn" : "run"} className="mt-2" />
@@ -95,7 +127,10 @@ export function AssetList({
                         aria-label="Bekor qilish"
                         loading={cancelling === a.id}
                         icon={<X className="size-4" />}
-                        onClick={() => void cancelStalled(a)}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          void cancelStalled(a);
+                        }}
                       />
                     )}
                   </div>
@@ -103,6 +138,12 @@ export function AssetList({
               )}
               {a.error && a.status === "failed" && <p className="mt-1 text-xs text-err">{a.error}</p>}
             </div>
+            {openable && <ChevronRight className="mt-4 size-4 shrink-0 text-faint" aria-hidden />}
+          </div>
+        );
+        return (
+          <li key={a.id} className={cx(openable && "active:bg-s2")}>
+            {openable ? <Link to={`/p/${projectId}/a/${a.id}`}>{body}</Link> : body}
           </li>
         );
       })}

@@ -25,6 +25,7 @@ from .enums import (
     UploadSessionStatus,
 )
 from .events import EventEnvelope
+from .media import MediaInfo
 
 FpsChoice = Literal[24, 25, 30, 50, 60]  # kept equal to enums.ALLOWED_FPS by a test
 
@@ -173,6 +174,13 @@ class UploadStateOut(BaseModel):
     part_count: int
 
 
+class SignedUrl(BaseModel):
+    """Short-lived presigned GET on the Mini App's own origin."""
+
+    url: str
+    expires_at: datetime
+
+
 class AssetOut(_Out):
     id: UUID
     project_id: UUID
@@ -194,10 +202,41 @@ class AssetOut(_Out):
     uploaded_at: datetime | None
     ready_at: datetime | None
     upload: UploadStateOut | None = None
+    video_codec: str | None = None
+    audio_codec: str | None = None
+    color_profile: str | None = None
+    color_label: str | None = None
+    has_audio: bool | None = None
+    bit_depth: int | None = None
+    thumbnail: SignedUrl | None = None
 
 
 class AssetList(BaseModel):
     items: list[AssetOut]
+
+
+class MediaFileOut(BaseModel):
+    kind: str
+    content_type: str
+    size_bytes: int
+    width: int | None
+    height: int | None
+    duration_sec: float | None
+    metadata: dict[str, Any]
+    url: SignedUrl
+
+
+class ShotOut(BaseModel):
+    index: int
+    start: float
+    end: float
+    duration: float
+
+
+class AssetDetail(AssetOut):
+    media_info: MediaInfo | None
+    files: list[MediaFileOut]
+    shots: list[ShotOut]
 
 
 class UploadCreate(_In):

@@ -14,6 +14,7 @@ members = [
   "packages/schemas",
   "packages/timeline",
   "packages/storage",
+  "packages/media-engine",
   "packages/telemetry",
   "packages/agent-sdk",
   "packages/model-router",
@@ -28,6 +29,7 @@ synthcut-core = { workspace = true }
 synthcut-schemas = { workspace = true }
 synthcut-timeline = { workspace = true }
 synthcut-storage = { workspace = true }
+synthcut-media = { workspace = true }
 synthcut-telemetry = { workspace = true }
 synthcut-agent-sdk = { workspace = true }
 synthcut-model-router = { workspace = true }
@@ -66,4 +68,6 @@ select = ["E", "F", "W", "I", "B", "UP", "ASYNC", "S", "RUF"]
 ignore = ["S101", "S311", "RUF001", "RUF002", "RUF003", "B008", "E501"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S105", "S106", "S108", "S324"]
+"tests/**" = ["S105", "S106", "S108", "S324", "S603", "S607"]
+# The media engine runs ffmpeg/ffprobe with argument lists built in code (no shell).
+"packages/media-engine/**" = ["S603", "S607"]

@@ -219,3 +219,52 @@ async def refresh_upload_stage_async(
     state = _upload_state(rows, reported)
     await set_stage_async(session, project_id, Stage.UPLOAD, state, source=source)
     return state
+
+
+# --------------------------------------------------------------------------- ingest stage
+
+
+def _ingest_aggregate_stmt(project_id: uuid.UUID):
+    # Only uploaded files take part: a failed *upload* (never reached storage)
+    # is not an ingestion failure.
+    return (
+        select(Asset.status, func.count())
+        .where(Asset.project_id == project_id, Asset.deleted_at.is_(None), Asset.uploaded_at.is_not(None))
+        .group_by(Asset.status)
+    )
+
+
+def _ingest_state(rows: list[tuple[str, int]]) -> StageState:
+    counts = {status: int(n) for status, n in rows}
+    waiting = counts.get(AssetStatus.UPLOADED.value, 0)
+    running = counts.get(AssetStatus.INGESTING.value, 0)
+    ready = counts.get(AssetStatus.READY.value, 0)
+    failed = counts.get(AssetStatus.FAILED.value, 0)
+    total = waiting + running + ready + failed
+    if running:
+        return StageState(StageStatus.RUNNING, round((ready + failed) / total, 4), f"{ready}/{total} tayyor")
+    if waiting:
+        return StageState(StageStatus.QUEUED, None, f"{waiting} ta fayl navbatda")
+    if ready:
+        detail = f"{ready} ta fayl tayyor" + (f", {failed} ta o'qilmadi" if failed else "")
+        return StageState(StageStatus.DONE, 1.0, detail)
+    if failed:
+        return StageState(StageStatus.FAILED, None, f"{failed} ta fayl o'qilmadi")
+    return StageState(StageStatus.PENDING, None, None)
+
+
+def refresh_ingest_stage(session: Session, project_id: uuid.UUID, *, source: str) -> tuple[StageState, bool]:
+    session.flush()
+    state = _ingest_state([tuple(r) for r in session.execute(_ingest_aggregate_stmt(project_id)).all()])
+    changed = set_stage(session, project_id, Stage.INGEST, state, source=source)
+    return state, changed
+
+
+async def refresh_ingest_stage_async(
+    session: AsyncSession, project_id: uuid.UUID, *, source: str
+) -> tuple[StageState, bool]:
+    await session.flush()
+    rows = [tuple(r) for r in (await session.execute(_ingest_aggregate_stmt(project_id))).all()]
+    state = _ingest_state(rows)
+    changed = await set_stage_async(session, project_id, Stage.INGEST, state, source=source)
+    return state, changed

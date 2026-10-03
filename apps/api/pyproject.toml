@@ -7,6 +7,7 @@ dependencies = [
   "synthcut-core",
   "synthcut-schemas",
   "synthcut-storage",
+  "synthcut-media",
   "synthcut-telemetry",
   "synthcut-timeline",
   "fastapi>=0.115",

@@ -79,7 +79,10 @@ class JobContext:
         if self.shutdown.is_set():
             raise JobInterrupted(str(self.job.id))
 
-    def progress(self, fraction: float, message: str | None = None) -> None:
+    def progress(
+        self, fraction: float, message: str | None = None, *, data: dict[str, Any] | None = None
+    ) -> None:
+        """Persisted with the next heartbeat; published live at most once a second."""
         self.progress_value = max(0.0, min(1.0, fraction))
         self.progress_message = message
         now = time.monotonic()
@@ -91,7 +94,7 @@ class JobContext:
                 type=EventType.JOB_PROGRESS,
                 message=message or "progress",
                 source="worker",
-                data={"kind": self.job.kind, "progress": self.progress_value},
+                data={"kind": self.job.kind, "progress": round(self.progress_value, 4), **(data or {})},
                 job_id=self.job.id,
             )
 

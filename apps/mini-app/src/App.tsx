@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useNavigate } from "react-router";
 import { Spinner } from "./components/ui";
 import { useAuth } from "./hooks/useAuth";
+import { AssetPage } from "./pages/Asset";
 import { Gate } from "./pages/Gate";
 import { Home } from "./pages/Home";
 import { NewProject } from "./pages/NewProject";
@@ -34,6 +35,7 @@ export function App() {
         <Route path="/" element={<Home />} />
         <Route path="/new" element={<NewProject />} />
         <Route path="/p/:id" element={<Project />} />
+        <Route path="/p/:id/a/:assetId" element={<AssetPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

@@ -253,6 +253,14 @@ class Storage:
         assert_writable(key)
         self.internal.delete_object(Bucket=self.bucket, Key=key)
 
+    def iter_object(self, key: str, chunk_size: int = 8 * 1024 * 1024):
+        """Stream an object (any key, read-only) in chunks."""
+        body = self.internal.get_object(Bucket=self.bucket, Key=key)["Body"]
+        try:
+            yield from body.iter_chunks(chunk_size)
+        finally:
+            body.close()
+
     def download_file(self, key: str, path: Path) -> None:
         self.internal.download_file(self.bucket, key, str(path))
 

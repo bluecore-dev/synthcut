@@ -1,6 +1,6 @@
 # SynthCut — Entity relationships
 
-Implemented in migration `0001_foundation` (Phase 1–2):
+Implemented in migrations `0001_foundation` (Phase 1–2) and `0002_ingestion` (Phase 3):
 
 ```mermaid
 erDiagram
@@ -11,6 +11,7 @@ erDiagram
     projects ||--o{ jobs : scopes
     projects ||--o{ events : logs
     assets ||--o| upload_sessions : "uploaded by"
+    assets ||--o{ media_files : "derived files"
     jobs ||--o{ jobs : "parent_id"
 
     users {
@@ -48,8 +49,19 @@ erDiagram
         bigint size_bytes
         text fingerprint "unique while uploading"
         text etag "S3 composite"
-        text sha256 "Phase 3"
-        jsonb media_info "Phase 3"
+        text sha256 "of the original"
+        jsonb media_info "MediaInfo mediainfo/1"
+        text color_profile "rec709 | hlg | pq | apple_log | ..."
+        text video_codec
+        bool has_audio
+    }
+    media_files {
+        uuid id PK
+        uuid asset_id FK
+        text kind "proxy_720p | poster | sprite | audio_speech | audio_proxy | preview | shots | mediainfo"
+        text storage_key UK "projects/<p>/<area>/<a>/<name>"
+        bigint size_bytes
+        jsonb metadata "tiles, interval, shots, tonemapped..."
     }
     upload_sessions {
         uuid id PK
@@ -87,7 +99,6 @@ erDiagram
 
 | Table | Phase | Key columns |
 |---|---|---|
-| `media_files` | 3 | asset_id, kind (`proxy_720p`, `thumbnail`, `sprite`, `audio_speech`, `waveform`, `shots`), storage_key UK, size, width, height, duration, metadata — UNIQUE(asset_id, kind) |
 | `media_analysis` | 5 | asset_id, clip ranges, shot_type, subject, framing, motion, quality scores, semantic_description, usable_score, model, cost |
 | `transcripts` | 4 | asset_id, language, engine, words JSONB (word, start, end, confidence), segments, silences |
 | `timeline_versions` | 6 | project_id, version (UNIQUE per project), parent_version, created_by (agent/user), reason |

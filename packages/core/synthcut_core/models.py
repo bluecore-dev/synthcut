@@ -154,9 +154,40 @@ class Asset(TimestampMixin, Base):
     fps: Mapped[float | None] = mapped_column(Float)
     sort_index: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     error: Mapped[str | None] = mapped_column(Text)
+    # Phase 3 (ingestion) — denormalized from media_info for listing and queries.
+    video_codec: Mapped[str | None] = mapped_column(Text)
+    audio_codec: Mapped[str | None] = mapped_column(Text)
+    color_profile: Mapped[str | None] = mapped_column(Text)
+    has_audio: Mapped[bool | None]
+    bit_depth: Mapped[int | None] = mapped_column(SmallInteger)
+    rotation: Mapped[int | None] = mapped_column(SmallInteger)
     uploaded_at: Mapped[datetime | None]
     ready_at: Mapped[datetime | None]
     deleted_at: Mapped[datetime | None]
+
+
+class MediaFile(TimestampMixin, Base):
+    """A derived file of an asset: proxy, thumbnails, speech audio, analysis
+    JSON (spec §7, §10). Deterministic keys, one row per (asset, kind), so a
+    re-run of ingestion overwrites instead of duplicating."""
+
+    __tablename__ = "media_files"
+    __table_args__ = (
+        Index("uq_media_files_asset_kind", "asset_id", "kind", unique=True),
+        Index("ix_media_files_project", "project_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=new_id)
+    asset_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("assets.id", ondelete="CASCADE"))
+    project_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    kind: Mapped[str] = mapped_column(Text)
+    storage_key: Mapped[str] = mapped_column(Text, unique=True)
+    content_type: Mapped[str] = mapped_column(Text)
+    size_bytes: Mapped[int] = mapped_column(BigInteger)
+    width: Mapped[int | None] = mapped_column(Integer)
+    height: Mapped[int | None] = mapped_column(Integer)
+    duration_sec: Mapped[float | None] = mapped_column(Float)
+    meta: Mapped[dict[str, Any]] = mapped_column("metadata", default=dict, server_default=text("'{}'::jsonb"))
 
 
 class UploadSession(TimestampMixin, Base):

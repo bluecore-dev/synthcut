@@ -138,7 +138,7 @@ export function Project() {
     queryKey: ["assets", id],
     queryFn: () => unwrap(api.GET("/api/v1/projects/{project_id}/assets", { params: { path: { project_id: id } } })),
   });
-  const { events, remoteUploads, stream } = useProjectEvents(id);
+  const { events, remoteUploads, ingest, stream } = useProjectEvents(id);
   const presets = usePresets();
 
   const setTab = (next: ProjectTab) => {
@@ -221,7 +221,7 @@ export function Project() {
                 {assets.isPending ? (
                   <Skeleton className="m-3 h-14" />
                 ) : (
-                  <AssetList projectId={id} assets={assets.data?.items ?? []} remote={remoteUploads} />
+                  <AssetList projectId={id} assets={assets.data?.items ?? []} remote={remoteUploads} ingest={ingest} />
                 )}
               </Card>
             </div>

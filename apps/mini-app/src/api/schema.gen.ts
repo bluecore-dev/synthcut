@@ -188,6 +188,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/assets/{asset_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Asset
+         * @description One asset with its derived files (proxy, poster, filmstrip), shots and metadata.
+         */
+        get: operations["get_asset_api_v1_assets__asset_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/jobs": {
         parameters: {
             query?: never;
@@ -356,6 +376,73 @@ export interface components {
             /** Details */
             details?: unknown | null;
         };
+        /** AssetDetail */
+        AssetDetail: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Project Id
+             * Format: uuid
+             */
+            project_id: string;
+            kind: components["schemas"]["AssetKind"];
+            status: components["schemas"]["AssetStatus"];
+            /** Original Filename */
+            original_filename: string;
+            /** Extension */
+            extension: string;
+            /** Content Type */
+            content_type: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /** Sort Index */
+            sort_index: number;
+            /** Etag */
+            etag: string | null;
+            /** Sha256 */
+            sha256: string | null;
+            /** Duration Sec */
+            duration_sec: number | null;
+            /** Width */
+            width: number | null;
+            /** Height */
+            height: number | null;
+            /** Fps */
+            fps: number | null;
+            /** Error */
+            error: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Uploaded At */
+            uploaded_at: string | null;
+            /** Ready At */
+            ready_at: string | null;
+            upload?: components["schemas"]["UploadStateOut"] | null;
+            /** Video Codec */
+            video_codec?: string | null;
+            /** Audio Codec */
+            audio_codec?: string | null;
+            /** Color Profile */
+            color_profile?: string | null;
+            /** Color Label */
+            color_label?: string | null;
+            /** Has Audio */
+            has_audio?: boolean | null;
+            /** Bit Depth */
+            bit_depth?: number | null;
+            thumbnail?: components["schemas"]["SignedUrl"] | null;
+            media_info: components["schemas"]["MediaInfo"] | null;
+            /** Files */
+            files: components["schemas"]["MediaFileOut"][];
+            /** Shots */
+            shots: components["schemas"]["ShotOut"][];
+        };
         /**
          * AssetKind
          * @enum {string}
@@ -414,12 +501,42 @@ export interface components {
             /** Ready At */
             ready_at: string | null;
             upload?: components["schemas"]["UploadStateOut"] | null;
+            /** Video Codec */
+            video_codec?: string | null;
+            /** Audio Codec */
+            audio_codec?: string | null;
+            /** Color Profile */
+            color_profile?: string | null;
+            /** Color Label */
+            color_label?: string | null;
+            /** Has Audio */
+            has_audio?: boolean | null;
+            /** Bit Depth */
+            bit_depth?: number | null;
+            thumbnail?: components["schemas"]["SignedUrl"] | null;
         };
         /**
          * AssetStatus
          * @enum {string}
          */
         AssetStatus: "uploading" | "uploaded" | "ingesting" | "ready" | "failed" | "cancelled";
+        /** AudioStream */
+        AudioStream: {
+            /** Codec */
+            codec?: string | null;
+            /** Profile */
+            profile?: string | null;
+            /** Channels */
+            channels?: number | null;
+            /** Channel Layout */
+            channel_layout?: string | null;
+            /** Sample Rate */
+            sample_rate?: number | null;
+            /** Bitrate */
+            bitrate?: number | null;
+            /** Bit Depth */
+            bit_depth?: number | null;
+        };
         /** AuthResponse */
         AuthResponse: {
             /** Access Token */
@@ -435,6 +552,43 @@ export interface components {
              */
             expires_at: string;
             user: components["schemas"]["UserOut"];
+        };
+        /**
+         * ColorInfo
+         * @description Source color detection (spec §11 SOURCE DETECTION). Phase 8 builds the
+         *     full transform chain on top of this; ingestion only needs to know enough
+         *     to make a viewable proxy and to flag Log/HDR material.
+         */
+        ColorInfo: {
+            /**
+             * Profile
+             * @enum {string}
+             */
+            profile: "rec709" | "rec2020_sdr" | "hlg" | "pq" | "apple_log" | "log_suspected" | "srgb" | "unknown";
+            /** Label */
+            label: string;
+            /**
+             * Confidence
+             * @enum {string}
+             */
+            confidence: "high" | "medium" | "low";
+            /**
+             * Hdr
+             * @default false
+             */
+            hdr: boolean;
+            /**
+             * Log
+             * @default false
+             */
+            log: boolean;
+            /**
+             * Dolby Vision
+             * @default false
+             */
+            dolby_vision: boolean;
+            /** Reasons */
+            reasons?: string[];
         };
         /** ComponentCheck */
         ComponentCheck: {
@@ -579,10 +733,79 @@ export interface components {
             /** Part Size Bytes */
             part_size_bytes: number;
         };
+        /** Loudness */
+        Loudness: {
+            /** Integrated Lufs */
+            integrated_lufs?: number | null;
+            /** Lra Lu */
+            lra_lu?: number | null;
+            /** True Peak Dbfs */
+            true_peak_dbfs?: number | null;
+        };
         /** MeOut */
         MeOut: {
             user: components["schemas"]["UserOut"];
             limits: components["schemas"]["LimitsOut"];
+        };
+        /** MediaFileOut */
+        MediaFileOut: {
+            /** Kind */
+            kind: string;
+            /** Content Type */
+            content_type: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /** Width */
+            width: number | null;
+            /** Height */
+            height: number | null;
+            /** Duration Sec */
+            duration_sec: number | null;
+            /** Metadata */
+            metadata: {
+                [key: string]: unknown;
+            };
+            url: components["schemas"]["SignedUrl"];
+        };
+        /** MediaInfo */
+        MediaInfo: {
+            /**
+             * Schema Version
+             * @default mediainfo/1
+             * @constant
+             */
+            schema_version: "mediainfo/1";
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "video" | "audio" | "image" | "other";
+            /** Container */
+            container?: string | null;
+            /** Duration */
+            duration?: number | null;
+            /** Size Bytes */
+            size_bytes: number;
+            /** Bitrate */
+            bitrate?: number | null;
+            video?: components["schemas"]["VideoStream"] | null;
+            audio?: components["schemas"]["AudioStream"] | null;
+            /**
+             * Audio Streams
+             * @default 0
+             */
+            audio_streams: number;
+            color?: components["schemas"]["ColorInfo"] | null;
+            /** Camera */
+            camera?: {
+                [key: string]: string;
+            };
+            /**
+             * Has Location
+             * @default false
+             */
+            has_location: boolean;
+            loudness?: components["schemas"]["Loudness"] | null;
         };
         /** PartSignItem */
         PartSignItem: {
@@ -766,6 +989,17 @@ export interface components {
                 [key: string]: components["schemas"]["ComponentCheck"];
             };
         };
+        /** ShotOut */
+        ShotOut: {
+            /** Index */
+            index: number;
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
+            /** Duration */
+            duration: number;
+        };
         /** SignedPart */
         SignedPart: {
             /** Number */
@@ -781,6 +1015,19 @@ export interface components {
             headers: {
                 [key: string]: string;
             };
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+        };
+        /**
+         * SignedUrl
+         * @description Short-lived presigned GET on the Mini App's own origin.
+         */
+        SignedUrl: {
+            /** Url */
+            url: string;
             /**
              * Expires At
              * Format: date-time
@@ -951,6 +1198,51 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** VideoStream */
+        VideoStream: {
+            /** Codec */
+            codec?: string | null;
+            /** Profile */
+            profile?: string | null;
+            /** Width */
+            width: number;
+            /** Height */
+            height: number;
+            /** Display Width */
+            display_width: number;
+            /** Display Height */
+            display_height: number;
+            /**
+             * Rotation
+             * @default 0
+             */
+            rotation: number;
+            /** Fps */
+            fps?: number | null;
+            /**
+             * Vfr
+             * @default false
+             */
+            vfr: boolean;
+            /** Pix Fmt */
+            pix_fmt?: string | null;
+            /** Bit Depth */
+            bit_depth?: number | null;
+            /** Chroma */
+            chroma?: string | null;
+            /** Bitrate */
+            bitrate?: number | null;
+            /** Frames */
+            frames?: number | null;
+            /** Color Range */
+            color_range?: string | null;
+            /** Color Primaries */
+            color_primaries?: string | null;
+            /** Color Transfer */
+            color_transfer?: string | null;
+            /** Color Space */
+            color_space?: string | null;
         };
     };
     responses: never;
@@ -1390,6 +1682,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AssetList"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_asset_api_v1_assets__asset_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                asset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetDetail"];
                 };
             };
             /** @description Not Found */

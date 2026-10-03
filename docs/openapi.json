@@ -561,6 +561,60 @@
         }
       }
     },
+    "/api/v1/assets/{asset_id}": {
+      "get": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Get Asset",
+        "description": "One asset with its derived files (proxy, poster, filmstrip), shots and metadata.",
+        "operationId": "get_asset_api_v1_assets__asset_id__get",
+        "parameters": [
+          {
+            "name": "asset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Asset Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/projects/{project_id}/jobs": {
       "get": {
         "tags": [
@@ -1226,6 +1280,288 @@
         ],
         "title": "ApiErrorBody"
       },
+      "AssetDetail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "project_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Project Id"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/AssetKind"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AssetStatus"
+          },
+          "original_filename": {
+            "type": "string",
+            "title": "Original Filename"
+          },
+          "extension": {
+            "type": "string",
+            "title": "Extension"
+          },
+          "content_type": {
+            "type": "string",
+            "title": "Content Type"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "title": "Size Bytes"
+          },
+          "sort_index": {
+            "type": "integer",
+            "title": "Sort Index"
+          },
+          "etag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Etag"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha256"
+          },
+          "duration_sec": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Sec"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Width"
+          },
+          "height": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
+          },
+          "fps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fps"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "uploaded_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uploaded At"
+          },
+          "ready_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ready At"
+          },
+          "upload": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UploadStateOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "video_codec": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Codec"
+          },
+          "audio_codec": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audio Codec"
+          },
+          "color_profile": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color Profile"
+          },
+          "color_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color Label"
+          },
+          "has_audio": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Has Audio"
+          },
+          "bit_depth": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bit Depth"
+          },
+          "thumbnail": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SignedUrl"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "media_info": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MediaInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/MediaFileOut"
+            },
+            "type": "array",
+            "title": "Files"
+          },
+          "shots": {
+            "items": {
+              "$ref": "#/components/schemas/ShotOut"
+            },
+            "type": "array",
+            "title": "Shots"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "project_id",
+          "kind",
+          "status",
+          "original_filename",
+          "extension",
+          "content_type",
+          "size_bytes",
+          "sort_index",
+          "etag",
+          "sha256",
+          "duration_sec",
+          "width",
+          "height",
+          "fps",
+          "error",
+          "created_at",
+          "uploaded_at",
+          "ready_at",
+          "media_info",
+          "files",
+          "shots"
+        ],
+        "title": "AssetDetail"
+      },
       "AssetKind": {
         "type": "string",
         "enum": [
@@ -1405,6 +1741,82 @@
                 "type": "null"
               }
             ]
+          },
+          "video_codec": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Codec"
+          },
+          "audio_codec": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audio Codec"
+          },
+          "color_profile": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color Profile"
+          },
+          "color_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color Label"
+          },
+          "has_audio": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Has Audio"
+          },
+          "bit_depth": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bit Depth"
+          },
+          "thumbnail": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SignedUrl"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -1443,6 +1855,89 @@
         ],
         "title": "AssetStatus"
       },
+      "AudioStream": {
+        "properties": {
+          "codec": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Codec"
+          },
+          "profile": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile"
+          },
+          "channels": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channels"
+          },
+          "channel_layout": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channel Layout"
+          },
+          "sample_rate": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sample Rate"
+          },
+          "bitrate": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bitrate"
+          },
+          "bit_depth": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bit Depth"
+          }
+        },
+        "type": "object",
+        "title": "AudioStream"
+      },
       "AuthResponse": {
         "properties": {
           "access_token": {
@@ -1470,6 +1965,67 @@
           "user"
         ],
         "title": "AuthResponse"
+      },
+      "ColorInfo": {
+        "properties": {
+          "profile": {
+            "type": "string",
+            "enum": [
+              "rec709",
+              "rec2020_sdr",
+              "hlg",
+              "pq",
+              "apple_log",
+              "log_suspected",
+              "srgb",
+              "unknown"
+            ],
+            "title": "Profile"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "title": "Confidence"
+          },
+          "hdr": {
+            "type": "boolean",
+            "title": "Hdr",
+            "default": false
+          },
+          "log": {
+            "type": "boolean",
+            "title": "Log",
+            "default": false
+          },
+          "dolby_vision": {
+            "type": "boolean",
+            "title": "Dolby Vision",
+            "default": false
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reasons"
+          }
+        },
+        "type": "object",
+        "required": [
+          "profile",
+          "label",
+          "confidence"
+        ],
+        "title": "ColorInfo",
+        "description": "Source color detection (spec §11 SOURCE DETECTION). Phase 8 builds the\nfull transform chain on top of this; ingestion only needs to know enough\nto make a viewable proxy and to flag Log/HDR material."
       },
       "ComponentCheck": {
         "properties": {
@@ -1858,6 +2414,45 @@
         ],
         "title": "LimitsOut"
       },
+      "Loudness": {
+        "properties": {
+          "integrated_lufs": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Integrated Lufs"
+          },
+          "lra_lu": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lra Lu"
+          },
+          "true_peak_dbfs": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "True Peak Dbfs"
+          }
+        },
+        "type": "object",
+        "title": "Loudness"
+      },
       "MeOut": {
         "properties": {
           "user": {
@@ -1873,6 +2468,195 @@
           "limits"
         ],
         "title": "MeOut"
+      },
+      "MediaFileOut": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "content_type": {
+            "type": "string",
+            "title": "Content Type"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "title": "Size Bytes"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Width"
+          },
+          "height": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
+          },
+          "duration_sec": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Sec"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata"
+          },
+          "url": {
+            "$ref": "#/components/schemas/SignedUrl"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "content_type",
+          "size_bytes",
+          "width",
+          "height",
+          "duration_sec",
+          "metadata",
+          "url"
+        ],
+        "title": "MediaFileOut"
+      },
+      "MediaInfo": {
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "const": "mediainfo/1",
+            "title": "Schema Version",
+            "default": "mediainfo/1"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "video",
+              "audio",
+              "image",
+              "other"
+            ],
+            "title": "Kind"
+          },
+          "container": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Container"
+          },
+          "duration": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "title": "Size Bytes"
+          },
+          "bitrate": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bitrate"
+          },
+          "video": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VideoStream"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "audio": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AudioStream"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "audio_streams": {
+            "type": "integer",
+            "title": "Audio Streams",
+            "default": 0
+          },
+          "color": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ColorInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "camera": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Camera"
+          },
+          "has_location": {
+            "type": "boolean",
+            "title": "Has Location",
+            "default": false
+          },
+          "loudness": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Loudness"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "size_bytes"
+        ],
+        "title": "MediaInfo"
       },
       "PartSignItem": {
         "properties": {
@@ -2429,6 +3213,34 @@
         ],
         "title": "ReadyOut"
       },
+      "ShotOut": {
+        "properties": {
+          "index": {
+            "type": "integer",
+            "title": "Index"
+          },
+          "start": {
+            "type": "number",
+            "title": "Start"
+          },
+          "end": {
+            "type": "number",
+            "title": "End"
+          },
+          "duration": {
+            "type": "number",
+            "title": "Duration"
+          }
+        },
+        "type": "object",
+        "required": [
+          "index",
+          "start",
+          "end",
+          "duration"
+        ],
+        "title": "ShotOut"
+      },
       "SignedPart": {
         "properties": {
           "number": {
@@ -2465,6 +3277,26 @@
           "expires_at"
         ],
         "title": "SignedPart"
+      },
+      "SignedUrl": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url",
+          "expires_at"
+        ],
+        "title": "SignedUrl",
+        "description": "Short-lived presigned GET on the Mini App's own origin."
       },
       "Stage": {
         "type": "string",
@@ -2940,6 +3772,176 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "VideoStream": {
+        "properties": {
+          "codec": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Codec"
+          },
+          "profile": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile"
+          },
+          "width": {
+            "type": "integer",
+            "title": "Width"
+          },
+          "height": {
+            "type": "integer",
+            "title": "Height"
+          },
+          "display_width": {
+            "type": "integer",
+            "title": "Display Width"
+          },
+          "display_height": {
+            "type": "integer",
+            "title": "Display Height"
+          },
+          "rotation": {
+            "type": "integer",
+            "title": "Rotation",
+            "default": 0
+          },
+          "fps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fps"
+          },
+          "vfr": {
+            "type": "boolean",
+            "title": "Vfr",
+            "default": false
+          },
+          "pix_fmt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pix Fmt"
+          },
+          "bit_depth": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bit Depth"
+          },
+          "chroma": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chroma"
+          },
+          "bitrate": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bitrate"
+          },
+          "frames": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frames"
+          },
+          "color_range": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color Range"
+          },
+          "color_primaries": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color Primaries"
+          },
+          "color_transfer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color Transfer"
+          },
+          "color_space": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color Space"
+          }
+        },
+        "type": "object",
+        "required": [
+          "width",
+          "height",
+          "display_width",
+          "display_height"
+        ],
+        "title": "VideoStream"
       }
     }
   }

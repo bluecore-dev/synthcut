@@ -177,18 +177,14 @@ async def test_worker_runs_maintenance_jobs_and_expires_stale_uploads(client, au
     assert assets[0]["status"] == "failed"
 
 
-async def test_worker_leaves_unknown_kinds_queued(client, auth, Session, settings):
-    """Phase 2 enqueues ingest.asset; until the Phase 3 handler ships it waits."""
-    project = await make_project(client, auth)
-    session = (await start_upload(client, auth, project["id"])).json()
-    for n in (1, 2, 3):
-        await put_part(client, auth, session, n)
-    await client.post(f"/api/v1/uploads/{session['id']}/complete", headers=auth)
+def test_worker_leaves_unknown_kinds_queued(Session, settings):
+    """A job for a phase that is not deployed yet waits for a worker that knows it."""
+    _enqueue(Session, kind="speech.transcribe", queue=JobQueue.CPU)
     worker = Worker(settings, worker_id="test-worker")
-    assert "ingest.asset" not in worker.kinds
+    assert "speech.transcribe" not in worker.kinds and "ingest.asset" in worker.kinds
     assert worker._claim() is None
     with Session() as s:
-        assert s.scalar(select(Job.status).where(Job.kind == "ingest.asset")) == "queued"
+        assert s.scalar(select(Job.status).where(Job.kind == "speech.transcribe")) == "queued"
 
 
 def test_crashing_handler_is_retried_and_recorded(Session, settings, monkeypatch):
