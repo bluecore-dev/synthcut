@@ -82,6 +82,9 @@ def video_filter(plan: ProxyPlan) -> str:
             "zscale=t=bt709:m=bt709:r=tv",
         ]
     elif plan.gamut_to_709:
+        # Measured on the VPS (20 s 1080p → 720p proxy): zscale +33% time.
+        # colorspace fast=1 skips the primaries entirely (PSNR equal to no
+        # conversion); colorspace without it and lut3d (RGB round-trip) are slower.
         chain += ["zscale=p=bt709:t=bt709:m=bt709:r=tv"]
     chain += ["setsar=1", "format=yuv420p"]
     return ",".join(chain)
