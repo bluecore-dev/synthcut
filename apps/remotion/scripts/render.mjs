@@ -5,7 +5,20 @@
 //   node scripts/render.mjs <props.json> <out.mov> <bundle dir> [concurrency]
 // Prints one JSON line per progress update ({"progress": 0.42}) on stdout.
 import { readFileSync } from "node:fs";
+import { availableParallelism } from "node:os";
 import { renderMedia, selectComposition } from "@remotion/renderer";
+
+/** Cores this process may use: the container's CPU quota (cgroup v2 cpu.max)
+ *  when there is one — Remotion refuses a concurrency above it. */
+function cores() {
+  try {
+    const [quota, period] = readFileSync("/sys/fs/cgroup/cpu.max", "utf8").trim().split(/\s+/);
+    if (quota !== "max") return Math.max(1, Math.floor(Number(quota) / Number(period)));
+  } catch {
+    /* not Linux / no cgroup v2: fall through */
+  }
+  return availableParallelism();
+}
 
 const [propsPath, outPath, serveUrl, concurrency = "2"] = process.argv.slice(2);
 if (!propsPath || !outPath || !serveUrl) {
@@ -27,7 +40,7 @@ await renderMedia({
   pixelFormat: "yuva444p10le",
   outputLocation: outPath,
   inputProps,
-  concurrency: Number(concurrency),
+  concurrency: Math.max(1, Math.min(Number(concurrency), cores())),
   chromiumOptions,
   logLevel: "warn",
   timeoutInMilliseconds: 120_000,

@@ -28,9 +28,22 @@ PERMANENT_MARKERS = (
 NOISE_MARKERS = ("lavfi.scd.", "Parsed_ebur128", "frame=", "size=")
 
 
+def _is_noise(line: str) -> bool:
+    stripped = line.strip()
+    if not stripped or any(m in line for m in NOISE_MARKERS):
+        return True
+    # Node / JS stack frames ("    at renderMedia (file:///…)") hide the actual error.
+    return line[:1].isspace() and stripped.startswith("at ")
+
+
 def _error_tail(lines: list[str]) -> str:
-    useful = [line for line in lines if line.strip() and not any(m in line for m in NOISE_MARKERS)]
-    return " | ".join(useful[-4:])[-400:]
+    useful = [line for line in lines if not _is_noise(line)]
+    tail = useful[-4:]
+    # Lead with the last explicit error line if the tail does not already show it.
+    errors = [line for line in useful if "Error" in line or "error:" in line]
+    if errors and errors[-1] not in tail:
+        tail = [errors[-1], *tail[-3:]]
+    return " | ".join(line.strip() for line in tail)[-400:]
 
 
 # `nice` execs the command, so the PID we signal is ffmpeg itself. (A

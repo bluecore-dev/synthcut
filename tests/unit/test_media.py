@@ -325,3 +325,21 @@ def test_sprite_plan_never_asks_for_more_tiles_than_keyframes(duration, step, ti
     assert (plan.step, plan.tiles, plan.interval) == (step, tiles, interval)
     keyframes = max(1, -(-duration // 2))
     assert plan.tiles <= 12 and (plan.tiles - 1) * plan.step < keyframes
+
+
+def test_error_tail_shows_the_node_error_not_its_stack():
+    from synthcut_media.runner import _error_tail
+
+    log = [
+        "node:internal/modules/run_main:123",
+        "    triggerUncaughtException(",
+        "Error: Maximum for --concurrency is 1 (number of cores on this system)",
+        "    at renderMedia (file:///opt/remotion/node_modules/@remotion/renderer/dist/esm/index.mjs:24745:10)",
+        "    at file:///opt/remotion/scripts/render.mjs:21:7",
+        "    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)",
+        "",
+        "Node.js v22.23.3",
+    ]
+    tail = _error_tail(log)
+    assert "Error: Maximum for --concurrency is 1" in tail
+    assert "at renderMedia" not in tail
