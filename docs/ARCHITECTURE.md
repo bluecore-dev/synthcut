@@ -102,6 +102,7 @@ packages/telemetry  synthcut_telemetry JSON logging, SSE stream
 packages/agent-sdk  synthcut_agent_sdk AgentSpec, typed tools, permission gate, agent loop
 packages/model-router synthcut_model_router roles → provider:model, pricing, failover
 packages/media-engine synthcut_media    ffprobe → MediaInfo, colour detection, ffmpeg plans, runner
+packages/speech     synthcut_speech   speech engines (SPEECH_ROUTE), silences, subtitle cues → transcript/1
 agents              synthcut_agents   13 agent manifests + tool catalog
 infrastructure/     docker/ nginx/ garage/ deployment/ postgres/ redis/
 docs/               ARCHITECTURE.md (this), ERD.md, adr/, openapi.json
@@ -114,9 +115,10 @@ sees one metadata.
 
 ## 5. Data model
 
-See [ERD.md](ERD.md). Implemented (migration `0001`): `users`, `projects`,
-`project_stages`, `assets`, `upload_sessions`, `jobs`, `events`. Each later
-phase adds its tables in its own migration. Migrations are **additive only**
+See [ERD.md](ERD.md). Implemented: `users`, `projects`, `project_stages`,
+`assets`, `upload_sessions`, `jobs`, `events` (migration `0001`),
+`media_files` (`0002`), `transcripts` (`0003`). Each later phase adds its
+tables in its own migration. Migrations are **additive only**
 (ADR-0006).
 
 Conventions: UUIDv7 primary keys (time-ordered); `timestamptz` everywhere;
@@ -142,6 +144,8 @@ the single source of truth from database to React.
 | GET | `/api/v1/projects/{id}/assets` | assets incl. live upload state and poster |
 | GET | `/api/v1/assets/{id}` | MediaInfo, shots, proxy/poster/filmstrip links |
 | POST | `/api/v1/assets/{id}/reingest` | run ingestion again |
+| GET | `/api/v1/assets/{id}/transcript` | `transcript/1`: words, segments, silences, cues |
+| POST | `/api/v1/assets/{id}/transcribe` | transcribe again (optionally forcing a language) |
 | GET | `/api/v1/projects/{id}/jobs` | job history |
 | GET | `/api/v1/projects/{id}/events` | activity log (paged) |
 | GET | `/api/v1/projects/{id}/events/stream` | SSE, resumable with `Last-Event-ID` |
@@ -254,6 +258,41 @@ links (proxy with HTTP range for the player, poster, filmstrip); the list
 carries a poster per asset. The Mini App keeps the first presigned URL per
 file until it nears expiry so images do not flash on refetch.
 
+## 8b. Speech (Phase 4, ADR-0011)
+
+Ingestion of a file with audio queues `speech.transcribe` (cpu queue, priority
+below ingestion, so every file gets its proxy first). The job:
+
+1. downloads the 16 kHz speech FLAC that ingestion made and decodes it with our
+   ffmpeg to float PCM (never through the engine's own decoder);
+2. finds silences with `silencedetect` (threshold ~22 dB under the measured
+   programme loudness, clamped to −55…−30 dB, ≥ 0.5 s);
+3. runs the engine named by `SPEECH_ROUTE` (today `faster-whisper:<model>`,
+   int8 on two threads, VAD on, no conditioning on previous text, a
+   Latin-script prompt for Uzbek) with progress per segment and cancellation
+   between segments;
+4. cleans the result into **`transcript/1`** (`synthcut_schemas.speech`):
+   words with timings and confidence, segments (≈ sentences, `question`
+   flagged), silences, and subtitle **cues** (≤ 2 lines × 42 characters, cut at
+   sentence ends, pauses ≥ 0.6 s and 6 s; cues index the word list so per-word
+   timing survives for animated captions without storing words twice);
+5. stores it in `transcripts.data` and as `analysis/<asset>/transcript.json`,
+   `subtitles.vtt` (the player's track) and `subtitles.srt` (download).
+
+One `transcripts` row per asset exists from the moment transcription is
+queued, so the **Transcription** stage counts it (`skipped` when the project
+has only silent files). `POST /assets/{id}/transcribe` re-runs it, optionally
+forcing a language when detection got it wrong; each request bumps `runs` so
+its job gets a fresh idempotency key, while a double tap queues once. The
+owner gets one Telegram message when a project's transcription stage turns
+`done`.
+
+The local model lives in `/srv/synthcut/models`, fetched by `activate.sh`
+(`python -m synthcut_worker.speech.fetch`); a job never downloads. A missing
+model fails the transcript permanently with a readable reason instead of
+retrying. Speaker detection, emphasis, CTA and semantic segments (spec §13
+"Qo'shimcha") need language understanding and come with the agents (Phase 5–6).
+
 ## 9. Queue design (ADR-0002)
 
 PostgreSQL `jobs` is the ledger; Redis only rings the bell.
@@ -350,7 +389,7 @@ activity log in `events`. `/api/v1/ready` checks database, Redis and storage.
 | 1 | FastAPI, PostgreSQL, Redis, object storage, Telegram auth, Mini App, projects | **done** |
 | 2 | Resumable multipart upload, progress, pause/resume, checksum, asset registration | **done** |
 | 3 | FFprobe, proxies, thumbnails, audio extraction, shot detection, color metadata | **done** |
-| 4 | Whisper, word timestamps, silence, subtitles | needs a speech route (API key or local CPU model) |
+| 4 | Whisper, word timestamps, silence, subtitles | **done** (local CPU Whisper; a hosted engine is one provider away) |
 | 5 | Video Analysis agent | needs `ANTHROPIC_API_KEY` |
 | 6 | Master, Director, Editor, EditPlan persistence | needs `ANTHROPIC_API_KEY` |
 | 7 | Remotion compositions, widget registry, subtitles | |

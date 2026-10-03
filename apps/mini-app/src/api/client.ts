@@ -14,6 +14,9 @@ export type MeOut = Schemas["MeOut"];
 export type ProjectCreate = Schemas["ProjectCreate"];
 export type UploadSessionOut = Schemas["UploadSessionOut"];
 export type PresetId = Schemas["ProjectPreset"];
+export type Transcript = Schemas["Transcript"];
+export type TranscriptSummary = Schemas["TranscriptSummary"];
+export type TranscriptStatus = Schemas["TranscriptStatus"];
 
 const STORAGE_KEY = "synthcut.token";
 

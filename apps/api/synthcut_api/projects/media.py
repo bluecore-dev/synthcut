@@ -4,19 +4,23 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime, timedelta
+from pathlib import PurePosixPath
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from synthcut_core.models import MediaFile
-from synthcut_schemas.api import MediaFileOut, SignedUrl
+from synthcut_core.models import AssetTranscript, MediaFile
+from synthcut_schemas.api import MediaFileOut, SignedUrl, TranscriptSummary
 from synthcut_storage import Storage
 
-# Ingestion bookkeeping files are not useful in the browser.
-HIDDEN_KINDS = {"mediainfo", "shots", "audio_speech"}
+# Bookkeeping files are not useful in the browser (the transcript has its own endpoint).
+HIDDEN_KINDS = {"mediainfo", "shots", "audio_speech", "transcript"}
 
 
-def sign(storage: Storage, key: str, ttl: int) -> SignedUrl:
-    return SignedUrl(url=storage.presign_get(key, ttl), expires_at=datetime.now(UTC) + timedelta(seconds=ttl))
+def sign(storage: Storage, key: str, ttl: int, *, download_name: str | None = None) -> SignedUrl:
+    return SignedUrl(
+        url=storage.presign_get(key, ttl, download_name=download_name),
+        expires_at=datetime.now(UTC) + timedelta(seconds=ttl),
+    )
 
 
 async def posters(
@@ -52,3 +56,44 @@ async def files_for(
         if r.kind not in HIDDEN_KINDS
     ]
     return files, shots
+
+
+TranscriptState = tuple[str, str | None, datetime | None]  # status, language, finished_at
+
+
+async def transcript_states(db: AsyncSession, asset_ids: list[uuid.UUID]) -> dict[uuid.UUID, TranscriptState]:
+    """asset id -> transcript state for list views."""
+    if not asset_ids:
+        return {}
+    rows = await db.execute(
+        select(
+            AssetTranscript.asset_id,
+            AssetTranscript.status,
+            AssetTranscript.language,
+            AssetTranscript.finished_at,
+        ).where(AssetTranscript.asset_id.in_(asset_ids))
+    )
+    return {asset_id: (status, language, finished) for asset_id, status, language, finished in rows.all()}
+
+
+async def transcript_summary(
+    db: AsyncSession, storage: Storage, asset_id: uuid.UUID, ttl: int, *, filename: str = "subtitles"
+) -> TranscriptSummary | None:
+    row = (
+        await db.execute(select(AssetTranscript).where(AssetTranscript.asset_id == asset_id))
+    ).scalar_one_or_none()
+    if row is None:
+        return None
+    out = TranscriptSummary.model_validate(row)
+    if row.status == "done":
+        subs = await db.execute(
+            select(MediaFile.kind, MediaFile.storage_key).where(
+                MediaFile.asset_id == asset_id, MediaFile.kind.in_(["subtitles_vtt", "subtitles_srt"])
+            )
+        )
+        stem = PurePosixPath(filename).stem or "subtitles"
+        for kind, key in subs.all():
+            # SRT downloads under the clip's own name; the VTT feeds the player.
+            name = f"{stem}.srt" if kind == "subtitles_srt" else None
+            setattr(out, kind, sign(storage, key, ttl, download_name=name))
+    return out

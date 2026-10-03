@@ -1,15 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Play, RefreshCw } from "lucide-react";
-import { useRef, type ReactNode } from "react";
-import { useNavigate, useParams } from "react-router";
-import { api, unwrap, type AssetDetail } from "../api/client";
+import { Captions, Download, Play, RefreshCw } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router";
+import { api, unwrap, type AssetDetail, type Schemas, type TranscriptSummary } from "../api/client";
 import { colorTone } from "../components/AssetList";
-import { Badge, Button, Card, ErrorNote, SectionLabel, Skeleton } from "../components/ui";
+import { TranscriptView, languageNote } from "../components/TranscriptView";
+import { Badge, Button, Card, Chip, ErrorNote, ProgressBar, SectionLabel, Skeleton } from "../components/ui";
 import { useBackButton } from "../hooks/useBackButton";
-import { formatBytes, formatDuration } from "../services/format";
+import { useProjectEvents, type JobProgress } from "../hooks/useProjectEvents";
+import { formatBytes, formatDuration, pct } from "../services/format";
 import { stableUrl } from "../services/urlcache";
-import { ASSET_STATUS_LABEL } from "../strings";
-import { confirmDialog, haptic } from "../telegram";
+import { ASSET_STATUS_LABEL, LANGUAGE_LABEL, TRANSCRIPT_STATUS_LABEL } from "../strings";
+import { confirmDialog, downloadFile, haptic } from "../telegram";
 
 type File = AssetDetail["files"][number];
 
@@ -57,12 +59,118 @@ function Filmstrip({ file, src, onSeek }: { file: File; src: string | undefined;
   );
 }
 
+type Language = Schemas["ProjectLanguage"];
+const LANGUAGES = Object.keys(LANGUAGE_LABEL) as Language[];
+const ACTIVE = new Set(["queued", "running"]);
+
+function Speech({
+  assetId,
+  summary,
+  live,
+  currentTime,
+  onSeek,
+  filename,
+}: {
+  assetId: string;
+  summary: TranscriptSummary | null | undefined;
+  live: JobProgress | undefined;
+  currentTime: number | null;
+  onSeek?: (t: number) => void;
+  filename: string;
+}) {
+  const qc = useQueryClient();
+  const [language, setLanguage] = useState<Language>(() => (summary?.requested_language as Language | undefined) ?? "auto");
+  const run = useMutation({
+    mutationFn: () =>
+      unwrap(api.POST("/api/v1/assets/{asset_id}/transcribe", { params: { path: { asset_id: assetId } }, body: { language } })),
+    onSuccess: () => {
+      haptic.success();
+      void qc.invalidateQueries({ queryKey: ["asset", assetId] });
+    },
+    onError: () => haptic.error(),
+  });
+  const active = summary && ACTIVE.has(summary.status);
+  const stats = summary?.status === "done"
+    ? [
+        languageNote(summary),
+        `${summary.word_count ?? 0} so'z`,
+        summary.speech_sec != null ? `nutq ${formatDuration(summary.speech_sec)}` : null,
+      ].filter(Boolean)
+    : [];
+  return (
+    <div>
+      <SectionLabel right={summary ? <span className="text-xs text-faint">{TRANSCRIPT_STATUS_LABEL[summary.status]}</span> : null}>Nutq</SectionLabel>
+      <Card className="divide-y divide-line">
+        {summary?.status === "done" && (
+          <div className="flex items-center gap-2 px-4 py-3">
+            <p className="min-w-0 flex-1 text-[13px] text-dim">{stats.join(" · ")}</p>
+            {summary.subtitles_srt && (
+              <Button
+                size="sm"
+                variant="ghost"
+                icon={<Download className="size-4" />}
+                onClick={() => downloadFile(summary.subtitles_srt!.url, `${filename.replace(/\.[^.]+$/, "")}.srt`)}
+              >
+                SRT
+              </Button>
+            )}
+          </div>
+        )}
+        {active && (
+          <div className="px-4 py-3">
+            <ProgressBar value={live?.progress ?? 0} tone="run" />
+            <p className="mt-1.5 text-xs text-run">
+              {summary.status === "queued" ? "Navbatda — avval barcha fayllar tahlil qilinadi" : `Whisper · ${live ? pct(live.progress) : "boshlanmoqda"}`}
+            </p>
+            <p className="mt-1 text-[11px] text-faint">Server CPU'da ishlaydi: odatda video davomiyligidan uzoqroq vaqt oladi.</p>
+          </div>
+        )}
+        {summary?.status === "failed" && summary.error && (
+          <div className="px-4 py-3">
+            <ErrorNote>{summary.error}</ErrorNote>
+          </div>
+        )}
+        {summary?.status === "done" && (
+          <TranscriptView assetId={assetId} version={summary.finished_at} currentTime={currentTime} onSeek={onSeek} />
+        )}
+        {!active && (
+          <div className="space-y-3 px-4 py-3">
+            <div className="flex flex-wrap gap-2">
+              {LANGUAGES.map((l) => (
+                <Chip key={l} active={language === l} onClick={() => setLanguage(l)}>
+                  {LANGUAGE_LABEL[l]}
+                </Chip>
+              ))}
+            </div>
+            <Button
+              className="w-full"
+              loading={run.isPending}
+              icon={summary ? <RefreshCw className="size-4" /> : <Captions className="size-4" />}
+              onClick={async () => {
+                if (summary?.status === "done" && !(await confirmDialog("Mavjud transkript yangisiga almashtiriladi. Davom etilsinmi?"))) return;
+                run.mutate();
+              }}
+            >
+              {summary ? "Qayta matnga o'girish" : "Matnga o'girish"}
+            </Button>
+            {run.isError && <ErrorNote>{(run.error as Error).message}</ErrorNote>}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
 export function AssetPage() {
   const { id = "", assetId = "" } = useParams();
+  const [params] = useSearchParams();
   useBackButton(`/p/${id}?tab=assets`);
   const video = useRef<HTMLVideoElement>(null);
+  const audio = useRef<HTMLAudioElement>(null);
+  const [time, setTime] = useState<number | null>(null);
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { events, speech } = useProjectEvents(id);
   const reingest = useMutation({
     mutationFn: () => unwrap(api.POST("/api/v1/assets/{asset_id}/reingest", { params: { path: { asset_id: assetId } } })),
     onSuccess: () => {
@@ -77,7 +185,15 @@ export function AssetPage() {
     queryKey: ["asset", assetId],
     queryFn: () => unwrap(api.GET("/api/v1/assets/{asset_id}", { params: { path: { asset_id: assetId } } })),
     staleTime: 10 * 60_000,
+    // The live stream drives updates; polling only covers a dropped stream while work is pending.
+    refetchInterval: (query) => (ACTIVE.has(query.state.data?.transcript?.status ?? "") ? 15_000 : false),
   });
+  const lastEvent = events[events.length - 1];
+  useEffect(() => {
+    const d = lastEvent?.data as { asset_id?: string } | undefined;
+    if (d?.asset_id === assetId) void qc.invalidateQueries({ queryKey: ["asset", assetId] });
+  }, [lastEvent, assetId, qc]);
+  const startAt = Number(params.get("t") ?? "");
 
   if (q.isPending) {
     return (
@@ -102,11 +218,17 @@ export function AssetPage() {
   const camera = info?.camera ?? {};
   const proxy = files.proxy_720p;
   const poster = stableUrl(`${a.id}:poster`, a.thumbnail);
+  const vtt = a.transcript?.subtitles_vtt ? stableUrl(`${a.id}:vtt:${a.transcript.finished_at}`, a.transcript.subtitles_vtt) : undefined;
   const seek = (t: number) => {
     haptic.select();
-    if (!video.current) return;
-    video.current.currentTime = t;
-    void video.current.play().catch(() => undefined);
+    const player = video.current ?? audio.current;
+    if (!player) return;
+    player.currentTime = t;
+    void player.play().catch(() => undefined);
+  };
+  const onTime = (e: { currentTarget: HTMLMediaElement }) => setTime(e.currentTarget.currentTime);
+  const onReady = (e: { currentTarget: HTMLMediaElement }) => {
+    if (Number.isFinite(startAt) && startAt > 0) e.currentTarget.currentTime = startAt;
   };
 
   return (
@@ -135,13 +257,27 @@ export function AssetPage() {
             preload="metadata"
             className="mx-auto max-h-[60vh] w-full"
             style={proxy.width && proxy.height ? { aspectRatio: `${proxy.width} / ${proxy.height}` } : undefined}
-          />
+            onTimeUpdate={onTime}
+            onLoadedMetadata={onReady}
+          >
+            {vtt && <track kind="subtitles" src={vtt} srcLang={a.transcript?.language ?? "und"} label="Transkript" default />}
+          </video>
           <p className="border-t border-line px-3 py-2 text-[11px] text-faint">
             Proxy {proxy.width}×{proxy.height} · {String(proxy.metadata.color ?? "")}
           </p>
         </div>
       )}
-      {files.audio_proxy && <audio controls preload="metadata" src={stableUrl(`${a.id}:audio`, files.audio_proxy.url)} className="w-full" />}
+      {files.audio_proxy && (
+        <audio
+          ref={audio}
+          controls
+          preload="metadata"
+          src={stableUrl(`${a.id}:audio`, files.audio_proxy.url)}
+          className="w-full"
+          onTimeUpdate={onTime}
+          onLoadedMetadata={onReady}
+        />
+      )}
       {files.preview && (
         <img src={stableUrl(`${a.id}:preview`, files.preview.url)} alt="" className="w-full rounded-2xl border border-line" />
       )}
@@ -170,6 +306,18 @@ export function AssetPage() {
             ))}
           </div>
         </div>
+      )}
+
+      {a.status === "ready" && a.has_audio && (
+        <Speech
+          key={a.transcript?.finished_at ?? a.transcript?.status ?? "none"}
+          assetId={a.id}
+          summary={a.transcript}
+          live={speech[a.id]}
+          currentTime={time}
+          onSeek={proxy || files.audio_proxy ? seek : undefined}
+          filename={a.original_filename}
+        />
       )}
 
       {v && (

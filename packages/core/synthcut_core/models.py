@@ -37,6 +37,7 @@ from synthcut_schemas.enums import (
     JobStatus,
     ProjectStatus,
     StageStatus,
+    TranscriptStatus,
     UploadSessionStatus,
 )
 
@@ -188,6 +189,39 @@ class MediaFile(TimestampMixin, Base):
     height: Mapped[int | None] = mapped_column(Integer)
     duration_sec: Mapped[float | None] = mapped_column(Float)
     meta: Mapped[dict[str, Any]] = mapped_column("metadata", default=dict, server_default=text("'{}'::jsonb"))
+
+
+class AssetTranscript(TimestampMixin, Base):
+    """Speech of one asset (spec §13, Phase 4). The row exists from the moment
+    transcription is queued, so the pipeline stage can count it; ``data`` holds
+    the ``transcript/1`` document once it is done."""
+
+    __tablename__ = "transcripts"
+    __table_args__ = (
+        CheckConstraint(_one_of("status", TranscriptStatus), name="status"),
+        Index("ix_transcripts_project", "project_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=new_id)
+    asset_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("assets.id", ondelete="CASCADE"), unique=True)
+    project_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    status: Mapped[str] = mapped_column(Text)
+    # What was asked for ("auto" = detect) and what the engine settled on.
+    requested_language: Mapped[str] = mapped_column(Text, default="auto", server_default=text("'auto'"))
+    language: Mapped[str | None] = mapped_column(Text)
+    language_probability: Mapped[float | None] = mapped_column(Float)
+    engine: Mapped[str | None] = mapped_column(Text)
+    duration_sec: Mapped[float | None] = mapped_column(Float)
+    speech_sec: Mapped[float | None] = mapped_column(Float)
+    word_count: Mapped[int | None] = mapped_column(Integer)
+    segment_count: Mapped[int | None] = mapped_column(Integer)
+    engine_seconds: Mapped[float | None] = mapped_column(Float)
+    data: Mapped[dict[str, Any] | None]
+    error: Mapped[str | None] = mapped_column(Text)
+    # Bumped on every request, so each re-run gets its own idempotency key.
+    runs: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    started_at: Mapped[datetime | None]
+    finished_at: Mapped[datetime | None]
 
 
 class UploadSession(TimestampMixin, Base):

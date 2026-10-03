@@ -1,1 +1,1 @@
-"""speech jobs — implemented in Phase 4 (spec §51)."""
+"""Speech jobs (spec §13, Phase 4)."""

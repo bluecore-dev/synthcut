@@ -59,6 +59,13 @@ class Settings(BaseSettings):
     media_threads: int = Field(default=2, ge=1, le=16)
     media_proxy_short_side: int = 720
     media_url_ttl_seconds: int = 3600
+    # Speech (Phase 4, spec §13). ``provider:model``; the local engine's model is
+    # fetched into speech_models_dir at deploy, jobs never download.
+    speech_route: str = "faster-whisper:large-v3-turbo"
+    speech_models_dir: str = "/models"
+    speech_threads: int = Field(default=2, ge=1, le=16)
+    speech_beam_size: int = Field(default=5, ge=1, le=10)
+    speech_auto: bool = True  # transcribe every file with audio once it is ingested
     notify_telegram: bool = True
     telegram_api_base: str = "https://api.telegram.org"
     worker_queues: str = "io"

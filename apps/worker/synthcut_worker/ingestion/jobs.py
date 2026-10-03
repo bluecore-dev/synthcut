@@ -19,12 +19,10 @@ from pathlib import Path
 from typing import Any
 
 from sqlalchemy import func, select
-from sqlalchemy.dialects.postgresql import insert as pg_insert
 from synthcut_core.events import commit_and_publish_sync, emit
-from synthcut_core.ids import new_id
-from synthcut_core.jobs import enqueue
-from synthcut_core.models import Asset, MediaFile, Project, User, utcnow
-from synthcut_core.stages import refresh_ingest_stage
+from synthcut_core.models import Asset, Project, utcnow
+from synthcut_core.speech import request_transcription
+from synthcut_core.stages import refresh_ingest_stage, refresh_transcription_stage
 from synthcut_media import (
     MediaError,
     MediaInfo,
@@ -42,12 +40,14 @@ from synthcut_media import (
     sprite,
     video_main_pass,
 )
-from synthcut_schemas.enums import AssetStatus, EventLevel, JobPriority, JobQueue, StageStatus
+from synthcut_schemas.enums import AssetStatus, EventLevel, JobQueue, StageStatus
 from synthcut_schemas.events import EventType
 from synthcut_schemas.jobs import IngestAssetPayload, JobKind
 from synthcut_storage import Area, derived_key
 
 from ..context import JobCancelled, JobContext, JobInterrupted, LeaseLost, PermanentError, RetryableError
+from ..delivery.owner import notify_owner
+from ..derived import upsert_media_file
 from ..registry import handler
 
 INTERNAL_URL_TTL = 6 * 3600
@@ -381,35 +381,19 @@ def _finish(ctx: JobContext, ref: AssetRef, outcome: Outcome) -> None:
         if asset is None:
             return
         for f in outcome.files:
-            stmt = pg_insert(MediaFile).values(
-                id=new_id(),
+            upsert_media_file(
+                s,
                 asset_id=ref.id,
                 project_id=ref.project_id,
                 kind=f.kind,
                 storage_key=f.key,
                 content_type=f.content_type,
                 size_bytes=f.size,
+                now=now,
                 width=f.width,
                 height=f.height,
                 duration_sec=f.duration,
                 meta=f.meta,
-                created_at=now,
-                updated_at=now,
-            )
-            s.execute(
-                stmt.on_conflict_do_update(
-                    index_elements=[MediaFile.asset_id, MediaFile.kind],
-                    set_={
-                        "storage_key": stmt.excluded.storage_key,
-                        "content_type": stmt.excluded.content_type,
-                        "size_bytes": stmt.excluded.size_bytes,
-                        "width": stmt.excluded.width,
-                        "height": stmt.excluded.height,
-                        "duration_sec": stmt.excluded.duration_sec,
-                        "metadata": stmt.excluded.metadata,
-                        "updated_at": now,
-                    },
-                )
             )
         video = info.video if info.kind in ("video", "image") else None
         asset.kind = info.kind
@@ -437,35 +421,31 @@ def _finish(ctx: JobContext, ref: AssetRef, outcome: Outcome) -> None:
             data={"asset_id": str(ref.id), "kind": info.kind, "files": [f.kind for f in outcome.files]},
             job_id=ctx.job.id,
         )
+        if info.audio is not None and info.kind in ("video", "audio") and ctx.settings.speech_auto:
+            project = s.get(Project, ref.project_id)
+            request_transcription(
+                s,
+                asset_id=ref.id,
+                project_id=ref.project_id,
+                language=project.language if project else "auto",
+            )
+        refresh_transcription_stage(s, ref.project_id, source="worker")
         state, changed = refresh_ingest_stage(s, ref.project_id, source="worker")
         if changed and state.status is StageStatus.DONE and ctx.settings.notify_telegram:
-            _notify_ingest_done(s, ctx, ref.project_id, state.detail or "")
+            _notify_ingest_done(s, ref.project_id, state.detail or "")
         commit_and_publish_sync(s, ctx.redis)
 
 
-def _notify_ingest_done(s, ctx: JobContext, project_id: uuid.UUID, detail: str) -> None:
-    row = s.execute(
-        select(Project.name, User.telegram_id)
-        .join(User, User.id == Project.owner_id)
-        .where(Project.id == project_id)
-    ).one_or_none()
-    if row is None:
-        return
+def _notify_ingest_done(s, project_id: uuid.UUID, detail: str) -> None:
     ready = s.execute(
         select(func.count()).where(Asset.project_id == project_id, Asset.status == AssetStatus.READY.value)
     ).scalar_one()
-    enqueue(
+    notify_owner(
         s,
-        kind=JobKind.NOTIFY_TELEGRAM,
-        queue=JobQueue.IO,
-        priority=JobPriority.HIGH,
-        payload={
-            "chat_id": row.telegram_id,
-            "text": f"✅ <b>{escape(row.name)}</b>\nMedia tahlili tugadi: {escape(detail)}.\n"
-            "Proxy, thumbnail, nutq audiosi va kadr kesimlari tayyor.",
-            "open_project_id": str(project_id),
-        },
-        project_id=project_id,
+        project_id,
+        text=lambda name: (
+            f"✅ <b>{name}</b>\nMedia tahlili tugadi: {escape(detail)}.\n"
+            "Proxy, thumbnail, nutq audiosi va kadr kesimlari tayyor."
+        ),
         idempotency_key=f"notify.ingest_done:{project_id}:{ready}",
-        max_attempts=4,
     )

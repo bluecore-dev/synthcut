@@ -4,6 +4,7 @@ type Mode = Schemas["ProjectMode"];
 type Language = Schemas["ProjectLanguage"];
 type StageStatus = Schemas["StageStatus"];
 type AssetStatus = Schemas["AssetStatus"];
+type TranscriptStatus = Schemas["TranscriptStatus"];
 
 export const MODE_LABEL: Record<Mode, { title: string; hint: string }> = {
   auto: { title: "Auto", hint: "AI to'liq mustaqil ishlaydi" },
@@ -36,6 +37,26 @@ export const ASSET_STATUS_LABEL: Record<AssetStatus, string> = {
   ready: "tayyor",
   failed: "xato",
   cancelled: "bekor qilindi",
+};
+
+export const TRANSCRIPT_STATUS_LABEL: Record<TranscriptStatus, string> = {
+  queued: "navbatda",
+  running: "matnga o'girilmoqda",
+  done: "tayyor",
+  failed: "xato",
+};
+
+/** Whisper language codes we can name; anything else is shown as the code. */
+export const SPEECH_LANGUAGE_NAME: Record<string, string> = {
+  uz: "O'zbek",
+  ru: "Русский",
+  en: "English",
+  kk: "Qozoq",
+  ky: "Qirg'iz",
+  tg: "Tojik",
+  tk: "Turkman",
+  tr: "Turk",
+  az: "Ozarbayjon",
 };
 
 export const SHORT_DURATIONS = [30, 45, 60, 90, 120];

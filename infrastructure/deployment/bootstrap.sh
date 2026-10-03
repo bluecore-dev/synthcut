@@ -13,10 +13,10 @@ ENV_FILE=$ROOT/shared/.env
 
 mkdir -p "$ROOT/releases" "$ROOT/shared" \
          "$DATA/postgres" "$DATA/storage/meta" "$DATA/storage/data" \
-         "$DATA/scratch" "$DATA/disk-probe" "$DATA/backups" \
+         "$DATA/scratch" "$DATA/models" "$DATA/disk-probe" "$DATA/backups" \
          /var/www/synthcut-acme
-# Containers run as uid 10001 (python image); scratch must be writable by it.
-chown 10001:10001 "$DATA/scratch"
+# Containers run as uid 10001 (python image); scratch and models must be writable by it.
+chown 10001:10001 "$DATA/scratch" "$DATA/models"
 chmod 700 "$ROOT/shared" "$DATA/backups"
 
 if [ -f "$ENV_FILE" ]; then

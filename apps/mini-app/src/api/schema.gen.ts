@@ -208,6 +208,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/assets/{asset_id}/transcript": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Transcript
+         * @description Words with timings, segments, silences and subtitle cues (``transcript/1``).
+         */
+        get: operations["get_transcript_api_v1_assets__asset_id__transcript_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assets/{asset_id}/transcribe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Transcribe Asset
+         * @description Transcribe (again), optionally forcing a language when detection got it wrong.
+         */
+        post: operations["transcribe_asset_api_v1_assets__asset_id__transcribe_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/jobs": {
         parameters: {
             query?: never;
@@ -458,11 +498,17 @@ export interface components {
             /** Bit Depth */
             bit_depth?: number | null;
             thumbnail?: components["schemas"]["SignedUrl"] | null;
+            transcript_status?: components["schemas"]["TranscriptStatus"] | null;
+            /** Transcript Language */
+            transcript_language?: string | null;
+            /** Transcript Finished At */
+            transcript_finished_at?: string | null;
             media_info: components["schemas"]["MediaInfo"] | null;
             /** Files */
             files: components["schemas"]["MediaFileOut"][];
             /** Shots */
             shots: components["schemas"]["ShotOut"][];
+            transcript?: components["schemas"]["TranscriptSummary"] | null;
         };
         /**
          * AssetKind
@@ -535,6 +581,11 @@ export interface components {
             /** Bit Depth */
             bit_depth?: number | null;
             thumbnail?: components["schemas"]["SignedUrl"] | null;
+            transcript_status?: components["schemas"]["TranscriptStatus"] | null;
+            /** Transcript Language */
+            transcript_language?: string | null;
+            /** Transcript Finished At */
+            transcript_finished_at?: string | null;
         };
         /**
          * AssetStatus
@@ -1010,6 +1061,31 @@ export interface components {
                 [key: string]: components["schemas"]["ComponentCheck"];
             };
         };
+        /**
+         * Segment
+         * @description Roughly a sentence (the engine's segmentation, split at long pauses).
+         */
+        Segment: {
+            /** Id */
+            id: number;
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
+            /** Text */
+            text: string;
+            /** Words */
+            words: components["schemas"]["Word"][];
+            /** Avg Logprob */
+            avg_logprob: number | null;
+            /** No Speech Prob */
+            no_speech_prob: number | null;
+            /**
+             * Question
+             * @default false
+             */
+            question: boolean;
+        };
         /** ShotOut */
         ShotOut: {
             /** Index */
@@ -1055,6 +1131,13 @@ export interface components {
              */
             expires_at: string;
         };
+        /** Silence */
+        Silence: {
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
+        };
         /**
          * Stage
          * @enum {string}
@@ -1092,10 +1175,113 @@ export interface components {
          * @enum {string}
          */
         StageStatus: "pending" | "queued" | "running" | "done" | "failed" | "skipped" | "blocked" | "waiting_user";
+        /**
+         * SubtitleCue
+         * @description Preset-neutral subtitle data: ≤ 2 lines. ``word_start``/``word_end``
+         *     (exclusive) index ``Transcript.words``, so per-word timing stays available
+         *     for animated captions without storing every word twice. The Caption agent
+         *     (Phase 7) re-flows and styles these per output format.
+         */
+        SubtitleCue: {
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
+            /** Lines */
+            lines: string[];
+            /** Word Start */
+            word_start: number;
+            /** Word End */
+            word_end: number;
+        };
         /** TelegramAuthRequest */
         TelegramAuthRequest: {
             /** Init Data */
             init_data: string;
+        };
+        /** TranscribeRequest */
+        TranscribeRequest: {
+            language?: components["schemas"]["ProjectLanguage"] | null;
+        };
+        /** Transcript */
+        Transcript: {
+            /**
+             * Schema Version
+             * @default transcript/1
+             * @constant
+             */
+            schema_version: "transcript/1";
+            /** Engine */
+            engine: string;
+            /** Language */
+            language: string | null;
+            /** Language Probability */
+            language_probability: number | null;
+            /**
+             * Language Forced
+             * @default false
+             */
+            language_forced: boolean;
+            /** Duration */
+            duration: number;
+            /**
+             * Speech Seconds
+             * @default 0
+             */
+            speech_seconds: number;
+            /**
+             * Word Count
+             * @default 0
+             */
+            word_count: number;
+            /** Segments */
+            segments: components["schemas"]["Segment"][];
+            /** Silences */
+            silences: components["schemas"]["Silence"][];
+            /** Cues */
+            cues: components["schemas"]["SubtitleCue"][];
+        };
+        /**
+         * TranscriptStatus
+         * @enum {string}
+         */
+        TranscriptStatus: "queued" | "running" | "done" | "failed";
+        /**
+         * TranscriptSummary
+         * @description The state of an asset's transcription; the words themselves come from
+         *     ``GET /assets/{id}/transcript``.
+         */
+        TranscriptSummary: {
+            status: components["schemas"]["TranscriptStatus"];
+            /** Requested Language */
+            requested_language: string;
+            /** Language */
+            language: string | null;
+            /** Language Probability */
+            language_probability: number | null;
+            /** Engine */
+            engine: string | null;
+            /** Duration Sec */
+            duration_sec: number | null;
+            /** Speech Sec */
+            speech_sec: number | null;
+            /** Word Count */
+            word_count: number | null;
+            /** Segment Count */
+            segment_count: number | null;
+            /** Engine Seconds */
+            engine_seconds: number | null;
+            /** Error */
+            error: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Finished At */
+            finished_at: string | null;
+            subtitles_vtt?: components["schemas"]["SignedUrl"] | null;
+            subtitles_srt?: components["schemas"]["SignedUrl"] | null;
         };
         /** UploadCreate */
         UploadCreate: {
@@ -1264,6 +1450,17 @@ export interface components {
             color_transfer?: string | null;
             /** Color Space */
             color_space?: string | null;
+        };
+        /** Word */
+        Word: {
+            /** Word */
+            word: string;
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
+            /** Probability */
+            probability: number | null;
         };
     };
     responses: never;
@@ -1743,6 +1940,90 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AssetDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_transcript_api_v1_assets__asset_id__transcript_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                asset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Transcript"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    transcribe_asset_api_v1_assets__asset_id__transcribe_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                asset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TranscribeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TranscriptSummary"];
                 };
             };
             /** @description Not Found */

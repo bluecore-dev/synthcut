@@ -1,6 +1,6 @@
 # SynthCut — Entity relationships
 
-Implemented in migrations `0001_foundation` (Phase 1–2) and `0002_ingestion` (Phase 3):
+Implemented in migrations `0001_foundation` (Phase 1–2), `0002_ingestion` (Phase 3) and `0003_transcripts` (Phase 4):
 
 ```mermaid
 erDiagram
@@ -12,6 +12,7 @@ erDiagram
     projects ||--o{ events : logs
     assets ||--o| upload_sessions : "uploaded by"
     assets ||--o{ media_files : "derived files"
+    assets ||--o| transcripts : "speech"
     jobs ||--o{ jobs : "parent_id"
 
     users {
@@ -58,10 +59,22 @@ erDiagram
     media_files {
         uuid id PK
         uuid asset_id FK
-        text kind "proxy_720p | poster | sprite | audio_speech | audio_proxy | preview | shots | mediainfo"
+        text kind "proxy_720p | poster | sprite | audio_speech | audio_proxy | preview | shots | mediainfo | transcript | subtitles_vtt | subtitles_srt"
         text storage_key UK "projects/<p>/<area>/<a>/<name>"
         bigint size_bytes
         jsonb metadata "tiles, interval, shots, tonemapped..."
+    }
+    transcripts {
+        uuid id PK
+        uuid asset_id FK,UK
+        text status "queued | running | done | failed"
+        text requested_language "auto | uz | ru | en"
+        text language "detected or forced"
+        text engine "provider:model"
+        int word_count
+        real speech_sec
+        jsonb data "transcript/1: words, segments, silences, cues"
+        int runs "bumped per request (idempotency key)"
     }
     upload_sessions {
         uuid id PK
@@ -100,7 +113,6 @@ erDiagram
 | Table | Phase | Key columns |
 |---|---|---|
 | `media_analysis` | 5 | asset_id, clip ranges, shot_type, subject, framing, motion, quality scores, semantic_description, usable_score, model, cost |
-| `transcripts` | 4 | asset_id, language, engine, words JSONB (word, start, end, confidence), segments, silences |
 | `timeline_versions` | 6 | project_id, version (UNIQUE per project), parent_version, created_by (agent/user), reason |
 | `edit_plans` | 6 | timeline_version_id, schema_version, plan JSONB (EditPlan), validation report |
 | `agent_runs` | 5–6 | project_id, job_id, agent, model, status, steps, tokens in/out/cache, cost_usd, transcript ref |

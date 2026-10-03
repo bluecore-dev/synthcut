@@ -9,6 +9,11 @@ export interface RemoteUploadProgress {
   at: number;
 }
 
+export interface JobProgress {
+  progress: number;
+  step: string;
+}
+
 const MAX_EVENTS = 500;
 
 /** Activity log + live stream for one project; refreshes server state as events arrive. */
@@ -16,7 +21,8 @@ export function useProjectEvents(projectId: string) {
   const qc = useQueryClient();
   const [events, setEvents] = useState<EventEnvelope[]>([]);
   const [remoteUploads, setRemoteUploads] = useState<Record<string, RemoteUploadProgress>>({});
-  const [ingest, setIngest] = useState<Record<string, { progress: number; step: string }>>({});
+  const [ingest, setIngest] = useState<Record<string, JobProgress>>({});
+  const [speech, setSpeech] = useState<Record<string, JobProgress>>({});
   const [stream, setStream] = useState<StreamState>("connecting");
   const pending = useRef<number | null>(null);
 
@@ -38,8 +44,9 @@ export function useProjectEvents(projectId: string) {
     const onEvent = (ev: EventEnvelope) => {
       if (ev.id == null) {
         if (ev.type === "job.progress") {
-          const d = ev.data as { asset_id?: string; progress?: number };
-          if (d.asset_id) setIngest((prev) => ({ ...prev, [d.asset_id!]: { progress: d.progress ?? 0, step: ev.message } }));
+          const d = ev.data as { asset_id?: string; progress?: number; kind?: string };
+          const set = d.kind === "speech.transcribe" ? setSpeech : d.kind === "ingest.asset" ? setIngest : null;
+          if (d.asset_id && set) set((prev) => ({ ...prev, [d.asset_id!]: { progress: d.progress ?? 0, step: ev.message } }));
         }
         if (ev.type === "upload.progress") {
           const d = ev.data as { asset_id?: string; bytes?: number; size?: number };
@@ -79,5 +86,5 @@ export function useProjectEvents(projectId: string) {
     };
   }, [projectId, qc]);
 
-  return { events, remoteUploads, ingest, stream };
+  return { events, remoteUploads, ingest, speech, stream };
 }

@@ -27,6 +27,7 @@ export interface TelegramWebApp {
   disableVerticalSwipes?(): void;
   openTelegramLink(url: string): void;
   showConfirm?(message: string, callback: (ok: boolean) => void): void;
+  downloadFile?(params: { url: string; file_name: string }, callback?: (accepted: boolean) => void): void;
   BackButton: TelegramBackButton;
   HapticFeedback: {
     impactOccurred(style: HapticImpact): void;
@@ -97,4 +98,13 @@ export function backButton(): TelegramBackButton | null {
 export function launchProjectId(): string | null {
   const p = new URLSearchParams(window.location.search).get("p");
   return p && /^[0-9a-f-]{36}$/i.test(p) ? p : null;
+}
+
+/** Telegram 8.0+ saves files natively; elsewhere the presigned link (Content-Disposition: attachment) does it. */
+export function downloadFile(url: string, fileName: string): void {
+  if (tg?.downloadFile && tg.isVersionAtLeast("8.0")) {
+    tg.downloadFile({ url, file_name: fileName });
+    return;
+  }
+  window.open(url, "_blank", "noopener");
 }

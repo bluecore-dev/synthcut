@@ -615,6 +615,124 @@
         }
       }
     },
+    "/api/v1/assets/{asset_id}/transcript": {
+      "get": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Get Transcript",
+        "description": "Words with timings, segments, silences and subtitle cues (``transcript/1``).",
+        "operationId": "get_transcript_api_v1_assets__asset_id__transcript_get",
+        "parameters": [
+          {
+            "name": "asset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Asset Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Transcript"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/assets/{asset_id}/transcribe": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Transcribe Asset",
+        "description": "Transcribe (again), optionally forcing a language when detection got it wrong.",
+        "operationId": "transcribe_asset_api_v1_assets__asset_id__transcribe_post",
+        "parameters": [
+          {
+            "name": "asset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Asset Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TranscribeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranscriptSummary"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/projects/{project_id}/jobs": {
       "get": {
         "tags": [
@@ -1564,6 +1682,39 @@
               }
             ]
           },
+          "transcript_status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TranscriptStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "transcript_language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transcript Language"
+          },
+          "transcript_finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transcript Finished At"
+          },
           "media_info": {
             "anyOf": [
               {
@@ -1587,6 +1738,16 @@
             },
             "type": "array",
             "title": "Shots"
+          },
+          "transcript": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TranscriptSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -1871,6 +2032,39 @@
                 "type": "null"
               }
             ]
+          },
+          "transcript_status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TranscriptStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "transcript_language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transcript Language"
+          },
+          "transcript_finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transcript Finished At"
           }
         },
         "type": "object",
@@ -3268,6 +3462,73 @@
         ],
         "title": "ReadyOut"
       },
+      "Segment": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "start": {
+            "type": "number",
+            "title": "Start"
+          },
+          "end": {
+            "type": "number",
+            "title": "End"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "words": {
+            "items": {
+              "$ref": "#/components/schemas/Word"
+            },
+            "type": "array",
+            "title": "Words"
+          },
+          "avg_logprob": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Logprob"
+          },
+          "no_speech_prob": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "No Speech Prob"
+          },
+          "question": {
+            "type": "boolean",
+            "title": "Question",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "start",
+          "end",
+          "text",
+          "words",
+          "avg_logprob",
+          "no_speech_prob",
+          "question"
+        ],
+        "title": "Segment",
+        "description": "Roughly a sentence (the engine's segmentation, split at long pauses)."
+      },
       "ShotOut": {
         "properties": {
           "index": {
@@ -3352,6 +3613,24 @@
         ],
         "title": "SignedUrl",
         "description": "Short-lived presigned GET on the Mini App's own origin."
+      },
+      "Silence": {
+        "properties": {
+          "start": {
+            "type": "number",
+            "title": "Start"
+          },
+          "end": {
+            "type": "number",
+            "title": "End"
+          }
+        },
+        "type": "object",
+        "required": [
+          "start",
+          "end"
+        ],
+        "title": "Silence"
       },
       "Stage": {
         "type": "string",
@@ -3482,6 +3761,43 @@
         ],
         "title": "StageStatus"
       },
+      "SubtitleCue": {
+        "properties": {
+          "start": {
+            "type": "number",
+            "title": "Start"
+          },
+          "end": {
+            "type": "number",
+            "title": "End"
+          },
+          "lines": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Lines"
+          },
+          "word_start": {
+            "type": "integer",
+            "title": "Word Start"
+          },
+          "word_end": {
+            "type": "integer",
+            "title": "Word End"
+          }
+        },
+        "type": "object",
+        "required": [
+          "start",
+          "end",
+          "lines",
+          "word_start",
+          "word_end"
+        ],
+        "title": "SubtitleCue",
+        "description": "Preset-neutral subtitle data: ≤ 2 lines. ``word_start``/``word_end``\n(exclusive) index ``Transcript.words``, so per-word timing stays available\nfor animated captions without storing every word twice. The Caption agent\n(Phase 7) re-flows and styles these per output format."
+      },
       "TelegramAuthRequest": {
         "properties": {
           "init_data": {
@@ -3497,6 +3813,289 @@
           "init_data"
         ],
         "title": "TelegramAuthRequest"
+      },
+      "TranscribeRequest": {
+        "properties": {
+          "language": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProjectLanguage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "TranscribeRequest"
+      },
+      "Transcript": {
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "const": "transcript/1",
+            "title": "Schema Version",
+            "default": "transcript/1"
+          },
+          "engine": {
+            "type": "string",
+            "title": "Engine"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "language_probability": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language Probability"
+          },
+          "language_forced": {
+            "type": "boolean",
+            "title": "Language Forced",
+            "default": false
+          },
+          "duration": {
+            "type": "number",
+            "title": "Duration"
+          },
+          "speech_seconds": {
+            "type": "number",
+            "title": "Speech Seconds",
+            "default": 0.0
+          },
+          "word_count": {
+            "type": "integer",
+            "title": "Word Count",
+            "default": 0
+          },
+          "segments": {
+            "items": {
+              "$ref": "#/components/schemas/Segment"
+            },
+            "type": "array",
+            "title": "Segments"
+          },
+          "silences": {
+            "items": {
+              "$ref": "#/components/schemas/Silence"
+            },
+            "type": "array",
+            "title": "Silences"
+          },
+          "cues": {
+            "items": {
+              "$ref": "#/components/schemas/SubtitleCue"
+            },
+            "type": "array",
+            "title": "Cues"
+          }
+        },
+        "type": "object",
+        "required": [
+          "schema_version",
+          "engine",
+          "language",
+          "language_probability",
+          "language_forced",
+          "duration",
+          "speech_seconds",
+          "word_count",
+          "segments",
+          "silences",
+          "cues"
+        ],
+        "title": "Transcript"
+      },
+      "TranscriptStatus": {
+        "type": "string",
+        "enum": [
+          "queued",
+          "running",
+          "done",
+          "failed"
+        ],
+        "title": "TranscriptStatus"
+      },
+      "TranscriptSummary": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/TranscriptStatus"
+          },
+          "requested_language": {
+            "type": "string",
+            "title": "Requested Language"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "language_probability": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language Probability"
+          },
+          "engine": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Engine"
+          },
+          "duration_sec": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Sec"
+          },
+          "speech_sec": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speech Sec"
+          },
+          "word_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Word Count"
+          },
+          "segment_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Segment Count"
+          },
+          "engine_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Engine Seconds"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "subtitles_vtt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SignedUrl"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "subtitles_srt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SignedUrl"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "requested_language",
+          "language",
+          "language_probability",
+          "engine",
+          "duration_sec",
+          "speech_sec",
+          "word_count",
+          "segment_count",
+          "engine_seconds",
+          "error",
+          "updated_at",
+          "finished_at"
+        ],
+        "title": "TranscriptSummary",
+        "description": "The state of an asset's transcription; the words themselves come from\n``GET /assets/{id}/transcript``."
       },
       "UploadCreate": {
         "properties": {
@@ -3997,6 +4596,41 @@
           "display_height"
         ],
         "title": "VideoStream"
+      },
+      "Word": {
+        "properties": {
+          "word": {
+            "type": "string",
+            "title": "Word"
+          },
+          "start": {
+            "type": "number",
+            "title": "Start"
+          },
+          "end": {
+            "type": "number",
+            "title": "End"
+          },
+          "probability": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Probability"
+          }
+        },
+        "type": "object",
+        "required": [
+          "word",
+          "start",
+          "end",
+          "probability"
+        ],
+        "title": "Word"
       }
     }
   }

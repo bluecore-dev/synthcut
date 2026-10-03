@@ -8,6 +8,7 @@ dependencies = [
   "synthcut-schemas",
   "synthcut-storage",
   "synthcut-media",
+  "synthcut-speech",
   "synthcut-telemetry",
   "httpx>=0.28",
 ]

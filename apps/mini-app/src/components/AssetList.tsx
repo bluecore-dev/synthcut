@@ -1,9 +1,9 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronRight, FileAudio, FileImage, FileVideo, Files, X } from "lucide-react";
+import { Captions, ChevronRight, FileAudio, FileImage, FileVideo, Files, X } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
 import { api, unwrap, type AssetOut } from "../api/client";
-import type { RemoteUploadProgress } from "../hooks/useProjectEvents";
+import type { JobProgress, RemoteUploadProgress } from "../hooks/useProjectEvents";
 import { useUploads } from "../hooks/useUploads";
 import { formatBytes, formatDuration, pct } from "../services/format";
 import { stableUrl } from "../services/urlcache";
@@ -21,6 +21,8 @@ const STATUS_TONE = {
   cancelled: "neutral",
 } as const;
 
+const SPEECH_TONE = { queued: "neutral", running: "run", done: "ok", failed: "err" } as const;
+
 const LOCAL_ACTIVE = new Set(["queued", "preparing", "verifying", "uploading", "paused", "offline", "completing", "error"]);
 
 export function colorTone(profile: string | null | undefined) {
@@ -35,11 +37,13 @@ export function AssetList({
   assets,
   remote,
   ingest,
+  speech,
 }: {
   projectId: string;
   assets: AssetOut[];
   remote: Record<string, RemoteUploadProgress>;
-  ingest: Record<string, { progress: number; step: string }>;
+  ingest: Record<string, JobProgress>;
+  speech: Record<string, JobProgress>;
 }) {
   const local = useUploads(projectId);
   const qc = useQueryClient();
@@ -99,10 +103,22 @@ export function AssetList({
                 <Badge tone={STATUS_TONE[a.status]}>{a.status === "uploaded" ? "navbatda" : ASSET_STATUS_LABEL[a.status]}</Badge>
               </div>
               <p className="tabular mt-0.5 truncate text-xs text-faint">{meta.join(" · ")}</p>
-              {a.color_label && a.kind !== "audio" && (
-                <div className="mt-1.5 flex gap-1.5">
-                  <Badge tone={colorTone(a.color_profile)}>{a.color_label}</Badge>
-                  {a.bit_depth && a.bit_depth > 8 && <Badge>{a.bit_depth}-bit</Badge>}
+              {((a.color_label && a.kind !== "audio") || a.transcript_status) && (
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {a.color_label && a.kind !== "audio" && <Badge tone={colorTone(a.color_profile)}>{a.color_label}</Badge>}
+                  {a.bit_depth && a.bit_depth > 8 && a.kind !== "audio" && <Badge>{a.bit_depth}-bit</Badge>}
+                  {a.transcript_status && (
+                    <Badge tone={SPEECH_TONE[a.transcript_status]}>
+                      <Captions className="size-3" aria-hidden />
+                      {a.transcript_status === "done"
+                        ? (a.transcript_language ?? "").toUpperCase() || "matn"
+                        : a.transcript_status === "failed"
+                          ? "nutq xato"
+                          : a.transcript_status === "queued"
+                            ? "nutq navbatda"
+                            : `nutq ${speech[a.id] ? pct(speech[a.id]!.progress) : "…"}`}
+                    </Badge>
+                  )}
                 </div>
               )}
               {a.status === "ingesting" && (

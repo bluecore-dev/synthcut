@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class JobKind:
     INGEST_ASSET = "ingest.asset"
+    TRANSCRIBE_ASSET = "speech.transcribe"
     EXPIRE_UPLOADS = "maintenance.expire_uploads"
     SWEEP_ORPHAN_UPLOADS = "maintenance.sweep_orphan_uploads"
     PRUNE_JOBS = "maintenance.prune_jobs"
@@ -22,6 +23,7 @@ class JobKind:
 
 JOB_LABELS: dict[str, str] = {
     JobKind.INGEST_ASSET: "Media ingest",
+    JobKind.TRANSCRIBE_ASSET: "Nutqni matnga o'girish",
     JobKind.EXPIRE_UPLOADS: "Eskirgan yuklashlarni tozalash",
     JobKind.SWEEP_ORPHAN_UPLOADS: "Yetim multipart yuklashlarni tozalash",
     JobKind.PRUNE_JOBS: "Eski tizim job'larini tozalash",
@@ -41,6 +43,14 @@ class IngestAssetPayload(_Payload):
     asset_id: UUID
     # Re-run on an asset that is already ready (the media engine improved).
     # Only derived files are rewritten; the original is never touched.
+    force: bool = False
+
+
+class TranscribeAssetPayload(_Payload):
+    asset_id: UUID
+    # None = the project's language ("auto" detects); an explicit code forces it.
+    language: str | None = Field(default=None, pattern=r"^(auto|[a-z]{2,3})$")
+    # Re-run on an asset whose transcript is already done.
     force: bool = False
 
 
@@ -64,6 +74,7 @@ class NotifyTelegramPayload(_Payload):
 
 PAYLOAD_MODELS: dict[str, type[_Payload]] = {
     JobKind.INGEST_ASSET: IngestAssetPayload,
+    JobKind.TRANSCRIBE_ASSET: TranscribeAssetPayload,
     JobKind.EXPIRE_UPLOADS: ExpireUploadsPayload,
     JobKind.SWEEP_ORPHAN_UPLOADS: SweepOrphanUploadsPayload,
     JobKind.PRUNE_JOBS: PruneJobsPayload,

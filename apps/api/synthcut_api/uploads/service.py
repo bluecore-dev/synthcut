@@ -47,6 +47,7 @@ from synthcut_schemas.enums import (
     EventLevel,
     JobPriority,
     JobQueue,
+    TranscriptStatus,
     UploadSessionStatus,
 )
 from synthcut_schemas.events import EventType
@@ -74,12 +75,19 @@ def _gb(n: int) -> str:
 
 
 def asset_out(
-    asset: Asset, sess: UploadSession | None = None, *, thumbnail: SignedUrl | None = None
+    asset: Asset,
+    sess: UploadSession | None = None,
+    *,
+    thumbnail: SignedUrl | None = None,
+    transcript: tuple[str, str | None, datetime | None] | None = None,
 ) -> AssetOut:
     out = AssetOut.model_validate(asset)
     color = (asset.media_info or {}).get("color") or {}
     out.color_label = color.get("label")
     out.thumbnail = thumbnail
+    if transcript is not None:
+        status, out.transcript_language, out.transcript_finished_at = transcript
+        out.transcript_status = TranscriptStatus(status)
     if sess is not None and sess.status in _OPEN_SESSION_STATES:
         out.upload = UploadStateOut(
             session_id=sess.id,

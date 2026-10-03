@@ -140,8 +140,12 @@ services:
       WORKER_QUEUES: cpu
       WORKER_CONCURRENCY: "1"
       SCRATCH_DIR: /scratch
+      SPEECH_MODELS_DIR: /models
+      HF_HUB_DISABLE_TELEMETRY: "1"
     volumes:
       - ${DATA_ROOT:-/srv/synthcut}/scratch:/scratch
+      # Local Whisper weights, fetched by activate.sh (jobs never download).
+      - ${DATA_ROOT:-/srv/synthcut}/models:/models
     # The VPS is shared with live services: media work may use at most half of it.
     cpus: 2.0
     mem_limit: 3g

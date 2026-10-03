@@ -72,6 +72,13 @@ class AssetStatus(StrEnum):
     CANCELLED = "cancelled"
 
 
+class TranscriptStatus(StrEnum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    DONE = "done"
+    FAILED = "failed"
+
+
 class UploadSessionStatus(StrEnum):
     ACTIVE = "active"
     COMPLETING = "completing"
@@ -142,7 +149,7 @@ STAGE_LABELS: dict[Stage, str] = {
 
 # Highest development phase (spec §51) that is built and deployed. Stages whose
 # phase is above this are shown as "not yet available" instead of pretending.
-BUILT_PHASE = 3
+BUILT_PHASE = 4
 
 # Development phase (spec §51) in which each stage becomes operational.
 STAGE_PHASE: dict[Stage, int] = {

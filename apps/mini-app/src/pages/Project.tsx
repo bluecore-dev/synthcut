@@ -4,6 +4,7 @@ import { useSearchParams, useParams } from "react-router";
 import { api, unwrap, type ProjectOut } from "../api/client";
 import { ActivityLog } from "../components/ActivityLog";
 import { AssetList } from "../components/AssetList";
+import { ProjectTranscripts } from "../components/ProjectTranscripts";
 import { StageList } from "../components/StageList";
 import { UploadPanel } from "../components/UploadPanel";
 import { Badge, Card, EmptyState, ErrorNote, ProgressBar, SectionLabel, Skeleton, cx } from "../components/ui";
@@ -16,7 +17,6 @@ import { haptic } from "../telegram";
 
 const LOCKED_COPY: Partial<Record<ProjectTab, string>> = {
   analysis: "Har bir kadr tahlili: kompozitsiya, fokus, ekspozitsiya, harakat, foydalanish bahosi.",
-  transcript: "Whisper bilan so'zma-so'z transkript, pauzalar va urg'ular.",
   timeline: "Director va Editor tuzgan EditPlan: treklar, kesimlar, o'tishlar.",
   decisions: "Agentlar qaysi qarorni nima uchun qabul qilgani.",
   preview: "Render qilingan preview — tomosha va izoh.",
@@ -138,7 +138,7 @@ export function Project() {
     queryKey: ["assets", id],
     queryFn: () => unwrap(api.GET("/api/v1/projects/{project_id}/assets", { params: { path: { project_id: id } } })),
   });
-  const { events, remoteUploads, ingest, stream } = useProjectEvents(id);
+  const { events, remoteUploads, ingest, speech, stream } = useProjectEvents(id);
   const presets = usePresets();
 
   const setTab = (next: ProjectTab) => {
@@ -221,13 +221,14 @@ export function Project() {
                 {assets.isPending ? (
                   <Skeleton className="m-3 h-14" />
                 ) : (
-                  <AssetList projectId={id} assets={assets.data?.items ?? []} remote={remoteUploads} ingest={ingest} />
+                  <AssetList projectId={id} assets={assets.data?.items ?? []} remote={remoteUploads} ingest={ingest} speech={speech} />
                 )}
               </Card>
             </div>
           </div>
         )}
         {tab === "logs" && <Logs projectId={id} events={events} />}
+        {tab === "transcript" && <ProjectTranscripts projectId={id} assets={assets.data?.items ?? []} speech={speech} />}
         {LOCKED_COPY[tab] && (
           <Card>
             <EmptyState icon={<Lock className="size-6" />} title={`${PROJECT_TABS.find((t) => t.id === tab)?.label} — Phase ${PROJECT_TABS.find((t) => t.id === tab)?.phase}`}>

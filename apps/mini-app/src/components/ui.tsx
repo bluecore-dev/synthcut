@@ -120,3 +120,21 @@ export function ErrorNote({ children }: { children: ReactNode }) {
 }
 
 export { cx };
+
+export function Chip({ active, children, onClick }: { active: boolean; children: ReactNode; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        haptic.select();
+        onClick();
+      }}
+      className={cx(
+        "h-9 rounded-lg border px-3 text-[13px] font-semibold transition-colors",
+        active ? "border-accent/60 bg-accent/15 text-fg" : "border-line bg-s1 text-dim active:bg-s2",
+      )}
+    >
+      {children}
+    </button>
+  );
+}

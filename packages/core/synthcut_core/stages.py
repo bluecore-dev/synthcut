@@ -23,12 +23,13 @@ from synthcut_schemas.enums import (
     EventLevel,
     Stage,
     StageStatus,
+    TranscriptStatus,
     UploadSessionStatus,
 )
 from synthcut_schemas.events import EventType
 
 from .events import emit
-from .models import Asset, ProjectStage, UploadSession, utcnow
+from .models import Asset, AssetTranscript, ProjectStage, UploadSession, utcnow
 
 _TERMINAL = {StageStatus.DONE, StageStatus.FAILED, StageStatus.SKIPPED}
 
@@ -267,4 +268,78 @@ async def refresh_ingest_stage_async(
     rows = [tuple(r) for r in (await session.execute(_ingest_aggregate_stmt(project_id))).all()]
     state = _ingest_state(rows)
     changed = await set_stage_async(session, project_id, Stage.INGEST, state, source=source)
+    return state, changed
+
+
+# --------------------------------------------------------------------------- transcription stage
+
+
+def _transcription_aggregate_stmt(project_id: uuid.UUID):
+    return (
+        select(AssetTranscript.status, func.count(), func.coalesce(func.sum(AssetTranscript.word_count), 0))
+        .join(Asset, Asset.id == AssetTranscript.asset_id)
+        .where(AssetTranscript.project_id == project_id, Asset.deleted_at.is_(None))
+        .group_by(AssetTranscript.status)
+    )
+
+
+def _audio_pending_stmt(project_id: uuid.UUID):
+    """Uploaded files that may still bring speech: not ingested yet, or ingested with audio."""
+    return select(func.count()).where(
+        Asset.project_id == project_id,
+        Asset.deleted_at.is_(None),
+        Asset.uploaded_at.is_not(None),
+        (Asset.status.in_([AssetStatus.UPLOADED.value, AssetStatus.INGESTING.value]))
+        | (Asset.has_audio.is_(True)),
+    )
+
+
+def _transcription_state(rows: list[tuple[str, int, int]], audio_pending: int, ingested: bool) -> StageState:
+    counts = {status: (int(n), int(words)) for status, n, words in rows}
+    queued = counts.get(TranscriptStatus.QUEUED.value, (0, 0))[0]
+    running = counts.get(TranscriptStatus.RUNNING.value, (0, 0))[0]
+    done, words = counts.get(TranscriptStatus.DONE.value, (0, 0))
+    failed = counts.get(TranscriptStatus.FAILED.value, (0, 0))[0]
+    total = queued + running + done + failed
+    if running:
+        return StageState(StageStatus.RUNNING, round((done + failed) / total, 4), f"{done}/{total} tayyor")
+    if queued:
+        return StageState(StageStatus.QUEUED, None, f"{queued} ta fayl navbatda")
+    if done:
+        detail = f"{done} ta faylda nutq · {words} so'z" + (f", {failed} ta o'qilmadi" if failed else "")
+        return StageState(StageStatus.DONE, 1.0, detail)
+    if failed:
+        return StageState(StageStatus.FAILED, None, f"{failed} ta faylda nutq o'qilmadi")
+    if ingested and not audio_pending:
+        return StageState(StageStatus.SKIPPED, None, "Ovozli fayl yo'q")
+    return StageState(StageStatus.PENDING, None, None)
+
+
+def _ingested_stmt(project_id: uuid.UUID):
+    return select(func.count()).where(
+        Asset.project_id == project_id, Asset.deleted_at.is_(None), Asset.status == AssetStatus.READY.value
+    )
+
+
+def refresh_transcription_stage(
+    session: Session, project_id: uuid.UUID, *, source: str
+) -> tuple[StageState, bool]:
+    session.flush()
+    rows = [tuple(r) for r in session.execute(_transcription_aggregate_stmt(project_id)).all()]
+    pending = int(session.execute(_audio_pending_stmt(project_id)).scalar_one())
+    ingested = int(session.execute(_ingested_stmt(project_id)).scalar_one()) > 0
+    state = _transcription_state(rows, pending, ingested)
+    changed = set_stage(session, project_id, Stage.TRANSCRIPTION, state, source=source)
+    return state, changed
+
+
+async def refresh_transcription_stage_async(
+    session: AsyncSession, project_id: uuid.UUID, *, source: str
+) -> tuple[StageState, bool]:
+    await session.flush()
+    rows = [tuple(r) for r in (await session.execute(_transcription_aggregate_stmt(project_id))).all()]
+    pending = int((await session.execute(_audio_pending_stmt(project_id))).scalar_one())
+    ingested = int((await session.execute(_ingested_stmt(project_id))).scalar_one()) > 0
+    state = _transcription_state(rows, pending, ingested)
+    changed = await set_stage_async(session, project_id, Stage.TRANSCRIPTION, state, source=source)
     return state, changed

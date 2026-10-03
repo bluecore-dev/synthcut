@@ -76,6 +76,13 @@ fi
 SYNTHCUT_RELEASE=$REL bash "$DIR/infrastructure/deployment/garage-init.sh" \
   --project-directory "$DIR" -f "$DIR/docker-compose.yml" --env-file "$ENV_FILE"
 
+log "speech model"
+# Jobs only read local weights; a failed download must not block a deploy, the
+# transcription jobs then fail with a clear reason until the next activation.
+install -d -o 10001 -g 10001 "${DATA_ROOT:-/srv/synthcut}/models"
+compose "$DIR" "$REL" run --rm --no-deps -T worker-cpu python -m synthcut_worker.speech.fetch \
+  || echo "WARNING: speech model not fetched — transcription will fail until it is" >&2
+
 log "migrate + start"
 if ! compose "$DIR" "$REL" up -d --remove-orphans; then
   echo "start failed" >&2

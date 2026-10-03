@@ -22,6 +22,7 @@ from .enums import (
     ProjectStatus,
     Stage,
     StageStatus,
+    TranscriptStatus,
     UploadSessionStatus,
 )
 from .events import EventEnvelope
@@ -209,6 +210,9 @@ class AssetOut(_Out):
     has_audio: bool | None = None
     bit_depth: int | None = None
     thumbnail: SignedUrl | None = None
+    transcript_status: TranscriptStatus | None = None
+    transcript_language: str | None = None
+    transcript_finished_at: datetime | None = None
 
 
 class AssetList(BaseModel):
@@ -233,10 +237,39 @@ class ShotOut(BaseModel):
     duration: float
 
 
+class TranscriptSummary(BaseModel):
+    """The state of an asset's transcription; the words themselves come from
+    ``GET /assets/{id}/transcript``."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    status: TranscriptStatus
+    requested_language: str
+    language: str | None
+    language_probability: float | None
+    engine: str | None
+    duration_sec: float | None
+    speech_sec: float | None
+    word_count: int | None
+    segment_count: int | None
+    engine_seconds: float | None
+    error: str | None
+    updated_at: datetime
+    finished_at: datetime | None
+    subtitles_vtt: SignedUrl | None = None
+    subtitles_srt: SignedUrl | None = None
+
+
+class TranscribeRequest(_In):
+    # None = the project's language; "auto" detects.
+    language: ProjectLanguage | None = None
+
+
 class AssetDetail(AssetOut):
     media_info: MediaInfo | None
     files: list[MediaFileOut]
     shots: list[ShotOut]
+    transcript: TranscriptSummary | None = None
 
 
 class UploadCreate(_In):

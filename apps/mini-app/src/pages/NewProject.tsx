@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { api, unwrap, type PresetId, type ProjectCreate, type Schemas } from "../api/client";
-import { Button, Card, ErrorNote, SectionLabel, Skeleton, cx } from "../components/ui";
+import { Button, Card, Chip, ErrorNote, SectionLabel, Skeleton, cx } from "../components/ui";
 import { useBackButton } from "../hooks/useBackButton";
 import { LANGUAGE_LABEL, LONG_DURATIONS, MODE_LABEL, SHORT_DURATIONS } from "../strings";
 import { haptic } from "../telegram";
@@ -12,23 +12,6 @@ const FPS_CHOICES: Fps[] = [24, 25, 30, 50, 60];
 const MODES = Object.keys(MODE_LABEL) as Schemas["ProjectMode"][];
 const LANGUAGES = Object.keys(LANGUAGE_LABEL) as Schemas["ProjectLanguage"][];
 
-function Chip({ active, children, onClick }: { active: boolean; children: React.ReactNode; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={() => {
-        haptic.select();
-        onClick();
-      }}
-      className={cx(
-        "h-9 rounded-lg border px-3 text-[13px] font-semibold transition-colors",
-        active ? "border-accent/60 bg-accent/15 text-fg" : "border-line bg-s1 text-dim active:bg-s2",
-      )}
-    >
-      {children}
-    </button>
-  );
-}
 
 function AspectGlyph({ width, height }: { width: number; height: number }) {
   const scale = 22 / Math.max(width, height);
