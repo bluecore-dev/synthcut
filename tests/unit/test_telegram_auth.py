@@ -13,7 +13,7 @@ def fields(**overrides):
         "auth_date": str(int(time.time())),
         "query_id": "AAHdF6IQAAAAAN0XohDhrOrc",
         "user": json.dumps(
-            {"id": 7914882474, "first_name": "Omonjon", "username": "omonjon", "language_code": "uz"}
+            {"id": 100000001, "first_name": "Omonjon", "username": "owner", "language_code": "uz"}
         ),
     }
     base.update(overrides)
@@ -22,22 +22,22 @@ def fields(**overrides):
 
 def test_valid_init_data_is_accepted():
     data = validate_init_data(sign_init_data(fields(), TOKEN), TOKEN, max_age_seconds=3600)
-    assert data.user.id == 7914882474
-    assert data.user.username == "omonjon"
+    assert data.user.id == 100000001
+    assert data.user.username == "owner"
     assert data.query_id == "AAHdF6IQAAAAAN0XohDhrOrc"
 
 
 def test_signature_field_inside_hmac_is_accepted():
     # Telegram (Bot API 8.0+) sends an Ed25519 `signature` field as well.
     raw = sign_init_data(fields(signature="c2lnbmF0dXJl"), TOKEN)
-    assert validate_init_data(raw, TOKEN, max_age_seconds=3600).user.id == 7914882474
+    assert validate_init_data(raw, TOKEN, max_age_seconds=3600).user.id == 100000001
 
 
 def test_signature_field_outside_hmac_is_accepted():
     f = fields()
     signed = dict(parse_qsl(sign_init_data(f, TOKEN)))
     signed["signature"] = "c2lnbmF0dXJl"
-    assert validate_init_data(urlencode(signed), TOKEN, max_age_seconds=3600).user.id == 7914882474
+    assert validate_init_data(urlencode(signed), TOKEN, max_age_seconds=3600).user.id == 100000001
 
 
 def test_tampered_user_is_rejected():

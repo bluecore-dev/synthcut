@@ -2,6 +2,8 @@
 name = "synthcut-workspace"
 version = "0.1.0"
 description = "SynthCut — AI-orchestrated professional video post-production OS"
+authors = [{ name = "Omonjon", email = "anvarov1170@gmail.com" }]
+license = { text = "Proprietary" }
 requires-python = ">=3.12,<3.13"
 dependencies = []
 

@@ -1,0 +1,12 @@
+Copyright (c) 2026 Omonjon. All rights reserved.
+
+This software and its source code are proprietary and confidential. No part of
+it may be copied, modified, distributed, sublicensed or used, in whole or in
+part, without the prior written permission of the copyright holder.
+
+Third-party components keep their own licences, notably:
+  - the YuNet face detection model (MIT), see
+    packages/analysis/synthcut_analysis/models/YUNET_LICENSE;
+  - open-source libraries listed in uv.lock and apps/mini-app/package-lock.json.
+
+Contact: anvarov1170@gmail.com

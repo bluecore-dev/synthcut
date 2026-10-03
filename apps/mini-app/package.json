@@ -2,6 +2,9 @@
   "name": "synthcut-mini-app",
   "private": true,
   "version": "0.2.0",
+  "description": "SynthCut Telegram Mini App",
+  "author": "Omonjon <anvarov1170@gmail.com>",
+  "license": "UNLICENSED",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: Python — lint, unit and integration tests
+    runs-on: ubuntu-latest
+    # Same base as production (Debian trixie, FFmpeg 7.1): media tests depend on it.
+    container: python:3.12-slim-trixie
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: synthcut
+          POSTGRES_PASSWORD: synthcut
+          POSTGRES_DB: synthcut_test
+        options: >-
+          --health-cmd "pg_isready -U synthcut -d synthcut_test"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      SYNTHCUT_TEST_DATABASE_URL: postgresql+psycopg://synthcut:synthcut@postgres:5432/synthcut_test
+      SYNTHCUT_TEST_REDIS_URL: redis://redis:6379/15
+      UV_PYTHON_DOWNLOADS: never
+      UV_LINK_MODE: copy
+    steps:
+      - name: System packages
+        run: apt-get update && apt-get install -y --no-install-recommends ffmpeg git ca-certificates
+      - uses: actions/checkout@v4
+      - name: Install uv
+        run: pip install --no-cache-dir "uv==0.12.22"
+      - name: Install the workspace
+        run: uv sync --frozen --all-packages
+      - name: Lint
+        run: uv run ruff check . && uv run ruff format --check .
+      - name: Tests
+        run: uv run pytest -q -p no:cacheprovider tests
+
+  mini-app:
+    name: Mini App — typecheck, tests, build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mini-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/mini-app/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npx vite build
