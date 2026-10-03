@@ -6,7 +6,6 @@
 
 RAW / Log footage → analysis → speech → intelligent editing → color → audio → motion → captions → QA → render
 
-[![CI](https://github.com/iqtisodiyot01-ops/synthcut/actions/workflows/ci.yml/badge.svg)](https://github.com/iqtisodiyot01-ops/synthcut/actions/workflows/ci.yml)
 ![Python 3.12](https://img.shields.io/badge/python-3.12-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
 ![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
