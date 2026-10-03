@@ -5,6 +5,7 @@ shell syntax, and each command is unit-testable."""
 from __future__ import annotations
 
 import functools
+import math
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -95,24 +96,19 @@ def video_main_pass(
     plan: ProxyPlan,
     proxy: Path,
     speech: Path | None,
-    sprite_path: Path,
-    sprite_tiles: int,
-    duration: float,
     threads: int = 2,
     scene_threshold: float = 12.0,
     binary: str = "ffmpeg",
 ) -> list[str]:
-    """One decode of the original feeds everything: the scaled frames are split
-    into the proxy encoder, scene detection and the filmstrip, and the audio
-    into the proxy, the Whisper track and the loudness meter. Decoding is the
-    expensive part; separate passes over the proxy for cuts and the filmstrip
-    cost ~40% more on the shared VPS (measured)."""
-    rate = sprite_tiles / max(duration, 0.1)
-    graph = (
-        f"[0:v:0]{video_filter(plan)},split=3[proxy][cuts][strip];"
-        f"[cuts]scale=320:-2,scdet=threshold={scene_threshold},nullsink;"
-        f"[strip]fps={rate:.6f},scale=-2:120,tile={sprite_tiles}x1[sprite]"
-    )
+    """One decode of the original feeds the proxy encoder and scene detection
+    (a split of the scaled frames), and the audio into the proxy, the Whisper
+    track and the loudness meter. Decoding is the expensive part.
+
+    The filmstrip is deliberately *not* part of this graph: an output that gets
+    its first frame only at the very end (tile of 12 frames) makes ffmpeg 7.1
+    queue every proxy packet meanwhile — a 162 s phone clip grew past 3 GB and
+    was OOM-killed. It is made from the proxy's keyframes afterwards."""
+    graph = f"[0:v:0]{video_filter(plan)},split=2[proxy][cuts];[cuts]scale=320:-2,scdet=threshold={scene_threshold},nullsink"
     args = [binary, *BASE, "-loglevel", "info", "-progress", "pipe:1", "-threads", str(threads), "-i", source]
     args += [
         "-filter_complex", graph,
@@ -128,7 +124,6 @@ def video_main_pass(
     else:
         args += ["-an"]
     args += ["-sn", "-dn", "-movflags", "+faststart", str(proxy)]
-    args += ["-map", "[sprite]", "-frames:v", "1", "-q:v", "4", str(sprite_path)]
     if speech is not None:
         args += speech_outputs(speech)
     return args
@@ -176,14 +171,33 @@ def poster(proxy: Path, out: Path, *, at: float, longest: int = 640, binary: str
     ]  # fmt: skip
 
 
+KEYFRAME_INTERVAL = 2.0  # the proxy encoder forces a keyframe every 2 s
+
+
+@dataclass(frozen=True, slots=True)
+class SpritePlan:
+    step: int  # use every step-th keyframe
+    tiles: int
+    interval: float  # seconds between tiles
+
+
+def plan_sprite(duration: float, *, max_tiles: int = 12) -> SpritePlan:
+    keyframes = max(1, math.ceil(duration / KEYFRAME_INTERVAL))
+    step = math.ceil(keyframes / max_tiles)
+    tiles = math.ceil(keyframes / step)
+    return SpritePlan(step=step, tiles=tiles, interval=step * KEYFRAME_INTERVAL)
+
+
 def sprite(
-    proxy: Path, out: Path, *, duration: float, tiles: int, tile_height: int = 120, binary: str = "ffmpeg"
+    proxy: Path, out: Path, *, plan: SpritePlan, tile_height: int = 120, binary: str = "ffmpeg"
 ) -> list[str]:
-    rate = tiles / max(duration, 0.1)
+    """Filmstrip from the proxy's keyframes only: a handful of frames are
+    decoded instead of the whole proxy, and every tile is a real frame (an fps
+    filter would need a following frame and yields nothing for 1-keyframe clips)."""
+    select = f"select='not(mod(n,{plan.step}))',scale=-2:{tile_height},tile={plan.tiles}x1"
     return [
-        binary, *BASE, "-loglevel", "error", "-i", str(proxy), "-an",
-        "-vf", f"fps={rate:.6f},scale=-2:{tile_height},tile={tiles}x1",
-        "-frames:v", "1", "-q:v", "4", str(out),
+        binary, *BASE, "-loglevel", "error", "-skip_frame", "nokey", "-i", str(proxy), "-an",
+        "-vf", select, "-frames:v", "1", "-q:v", "4", str(out),
     ]  # fmt: skip
 
 

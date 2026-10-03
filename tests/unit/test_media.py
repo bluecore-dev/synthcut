@@ -1,4 +1,5 @@
 import shutil
+import subprocess
 import threading
 import time
 from pathlib import Path
@@ -11,9 +12,12 @@ from synthcut_media import (
     parse_progress_seconds,
     parse_scene_cuts,
     plan_proxy,
+    plan_sprite,
     proxy_size,
     run_ffmpeg,
+    run_ffprobe,
     shots_from_cuts,
+    sprite,
     video_filter,
     video_main_pass,
 )
@@ -152,21 +156,17 @@ def test_main_pass_arguments_are_a_safe_list():
     info = normalize(IPHONE_HDR, size_bytes=1)
     plan = plan_proxy(info, zscale=False)
     hostile = "http://x/a.mov; rm -rf / #"
-    common = {
-        "plan": plan,
-        "proxy": Path("/s/p.mp4"),
-        "sprite_path": Path("/s/sp.jpg"),
-        "sprite_tiles": 12,
-        "duration": 12.5,
-    }
+    common = {"plan": plan, "proxy": Path("/s/p.mp4")}
     args = video_main_pass(hostile, speech=Path("/s/a.flac"), **common)
     assert args[args.index("-i") + 1] == hostile  # one argv element, never parsed by a shell
-    assert "/s/a.flac" in args and "/s/sp.jpg" in args and args.count("-map") == 5
+    assert "/s/a.flac" in args and args.count("-map") == 4
     graph = args[args.index("-filter_complex") + 1]
-    # one decode feeds the proxy, scene detection and the filmstrip
-    assert "split=3" in graph and "scdet=" in graph and "tile=12x1" in graph and "fps=0.960000" in graph
+    # one decode feeds the proxy and scene detection; never a late-starting output (OOM on ffmpeg 7.1)
+    assert "split=2" in graph and "scdet=" in graph and "tile" not in graph
     silent = video_main_pass("u", speech=None, **common)
     assert "-an" in silent and "flac" not in silent
+    strip = sprite(Path("/s/p.mp4"), Path("/s/sp.jpg"), plan=plan_sprite(12.5))
+    assert strip[strip.index("-skip_frame") + 1] == "nokey" and "tile=7x1" in strip[strip.index("-vf") + 1]
 
 
 def test_parsers():
@@ -258,3 +258,43 @@ def test_display_p3_is_recognised_and_gamut_mapped():
     plan = plan_proxy(info, zscale=True)
     assert plan.gamut_to_709 and "zscale=p=bt709" in video_filter(plan)
     assert not plan_proxy(info, zscale=False).gamut_to_709
+
+
+@pytest.mark.skipif(not HAS_FFMPEG, reason="ffmpeg not installed")
+def test_main_pass_never_queues_frames(tmp_path):
+    """Regression: on ffmpeg 7.1 an output that starts late made the proxy
+    output queue every packet ("N buffers queued ... something may be wrong")
+    until the worker was OOM-killed. The queue warning appears after 100
+    packets, so a 20 s clip is enough to catch it."""
+    src = tmp_path / "src.mp4"
+    subprocess.run(
+        ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+         "-f", "lavfi", "-i", "testsrc2=size=640x360:rate=30:duration=20",
+         "-f", "lavfi", "-i", "sine=sample_rate=44100:duration=20",
+         "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:a", "aac", str(src)],
+        check=True,
+    )  # fmt: skip
+    info = normalize(run_ffprobe(str(src)), size_bytes=src.stat().st_size)
+    log = run_ffmpeg(
+        video_main_pass(
+            str(src), plan=plan_proxy(info), proxy=tmp_path / "p.mp4", speech=tmp_path / "s.flac"
+        ),
+        timeout=120,
+    )
+    assert "buffers queued" not in log
+    assert (tmp_path / "p.mp4").stat().st_size > 0 and (tmp_path / "s.flac").stat().st_size > 0
+    run_ffmpeg(sprite(tmp_path / "p.mp4", tmp_path / "sp.jpg", plan=plan_sprite(20)), timeout=60)
+    sw = normalize(run_ffprobe(str(tmp_path / "sp.jpg")), size_bytes=1).video.width
+    assert sw >= 10 * 200  # 10 keyframes (every 2 s) of ~213 px (16:9 at 120 px high)
+
+
+@pytest.mark.parametrize(
+    ("duration", "step", "tiles", "interval"),
+    [(0.5, 1, 1, 2.0), (2.0, 1, 1, 2.0), (6.0, 1, 3, 2.0), (6.01, 1, 4, 2.0), (24.0, 1, 12, 2.0),
+     (161.667, 7, 12, 14.0), (600.0, 25, 12, 50.0)],
+)  # fmt: skip
+def test_sprite_plan_never_asks_for_more_tiles_than_keyframes(duration, step, tiles, interval):
+    plan = plan_sprite(duration)
+    assert (plan.step, plan.tiles, plan.interval) == (step, tiles, interval)
+    keyframes = max(1, -(-duration // 2))
+    assert plan.tiles <= 12 and (plan.tiles - 1) * plan.step < keyframes

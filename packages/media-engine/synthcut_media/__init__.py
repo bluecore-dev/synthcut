@@ -5,10 +5,12 @@ directly — workers run it for jobs (rule 20)."""
 from .color import classify_color
 from .commands import (
     ProxyPlan,
+    SpritePlan,
     audio_main_pass,
     has_filter,
     image_preview,
     plan_proxy,
+    plan_sprite,
     poster,
     proxy_size,
     scene_detect,
@@ -29,6 +31,7 @@ __all__ = [
     "MediaError",
     "MediaInfo",
     "ProxyPlan",
+    "SpritePlan",
     "VideoStream",
     "audio_main_pass",
     "classify_color",
@@ -39,6 +42,7 @@ __all__ = [
     "parse_progress_seconds",
     "parse_scene_cuts",
     "plan_proxy",
+    "plan_sprite",
     "poster",
     "proxy_size",
     "run_ffmpeg",

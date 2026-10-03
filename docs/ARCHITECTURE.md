@@ -223,15 +223,19 @@ streamed from Garage over the private network — never copied to scratch:
    (Apple's SDR default — found on the first real upload), Rec.709 /
    Rec.2020 SDR. Phase 8 builds transforms on top; the user can correct it.
 3. **SHA-256** of the original, streamed.
-4. **One decode pass** of the original feeds everything: the scaled frames are
-   split into the 720p H.264 proxy (short side 720, never upscaled, keyframe
-   every 2 s, ≤ 60 fps, AAC), scene detection (`scdet` → shots, flashes
-   < 0.4 s merged) and the filmstrip sprite (≤ 12 tiles); the audio into the
-   16 kHz mono FLAC for Whisper (Phase 4) and an EBU R128 loudness meter.
-   Separate passes over the proxy cost ~40% more on the shared VPS (measured).
-   HDR is tone-mapped to SDR **after** scaling (zscale in float at 720p, not
-   4K); Display P3 / Rec.2020 SDR are gamut-mapped to Rec.709; Log stays flat.
-5. A poster frame from the proxy.
+4. **One decode pass** of the original: the scaled frames are split into the
+   720p H.264 proxy (short side 720, never upscaled, keyframe every 2 s,
+   ≤ 60 fps, AAC) and scene detection (`scdet` → shots, flashes < 0.4 s
+   merged); the audio into the 16 kHz mono FLAC for Whisper (Phase 4) and an
+   EBU R128 loudness meter. HDR is tone-mapped to SDR **after** scaling
+   (zscale in float at 720p, not 4K); Display P3 / Rec.2020 SDR are
+   gamut-mapped to Rec.709; Log stays flat.
+   *Never add an output that starts late to this graph* (e.g. a tiled
+   filmstrip): on ffmpeg 7.1 the proxy output then queues every packet — the
+   first real 162 s phone clip grew past 3 GB and was OOM-killed.
+   `test_main_pass_never_queues_frames` guards it.
+5. A poster frame, and a filmstrip (≤ 12 tiles) from the proxy's keyframes
+   only (`-skip_frame nokey`), so it costs a handful of decoded frames.
 6. Derived files go to deterministic keys (`proxies/`, `audio/`,
    `thumbnails/`, `analysis/`), one `media_files` row per (asset, kind) —
    re-running overwrites, never duplicates.

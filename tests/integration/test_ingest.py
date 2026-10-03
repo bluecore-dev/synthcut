@@ -122,7 +122,7 @@ async def test_video_ingestion_end_to_end(client, auth, settings, media, Session
     files = {f["kind"]: f for f in detail["files"]}
     assert set(files) == {"proxy_720p", "poster", "sprite"}  # bookkeeping files are not exposed
     assert (files["proxy_720p"]["width"], files["proxy_720p"]["height"]) == (1280, 720)
-    assert files["sprite"]["metadata"]["tiles"] == 6
+    assert files["sprite"]["metadata"]["tiles"] == 3  # one per proxy keyframe (every 2 s)
     assert [(s["start"], s["end"]) for s in detail["shots"]] == [(0.0, 3.0), (3.0, 6.0)]
     assert detail["thumbnail"]["url"].startswith(settings.s3_endpoint_public)
 

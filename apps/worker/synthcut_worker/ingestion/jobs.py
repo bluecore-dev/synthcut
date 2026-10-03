@@ -34,10 +34,12 @@ from synthcut_media import (
     parse_loudness,
     parse_scene_cuts,
     plan_proxy,
+    plan_sprite,
     poster,
     run_ffmpeg,
     run_ffprobe,
     shots_from_cuts,
+    sprite,
     video_main_pass,
 )
 from synthcut_schemas.enums import AssetStatus, EventLevel, JobPriority, JobQueue, StageStatus
@@ -239,20 +241,8 @@ def _ingest(ctx: JobContext, ref: AssetRef) -> Outcome:
         plan = plan_proxy(info, short_side=settings.media_proxy_short_side)
         proxy = work / "proxy_720p.mp4"
         speech = work / "speech_16k.flac" if info.audio else None
-        sprite_path = work / "sprite.jpg"
-        duration = info.duration or 0.0
-        tiles = max(1, min(12, int(duration)))
         log = run_ffmpeg(
-            video_main_pass(
-                url,
-                plan=plan,
-                proxy=proxy,
-                speech=speech,
-                sprite_path=sprite_path,
-                sprite_tiles=tiles,
-                duration=duration,
-                threads=settings.media_threads,
-            ),
+            video_main_pass(url, plan=plan, proxy=proxy, speech=speech, threads=settings.media_threads),
             duration=info.duration,
             on_progress=progress(0.15, 0.80, "proxy"),
             check=ctx.check,
@@ -284,7 +274,13 @@ def _ingest(ctx: JobContext, ref: AssetRef) -> Outcome:
         poster_path = work / "poster.jpg"
         run_ffmpeg(poster(proxy, poster_path, at=min(1.0, duration * 0.1)), check=ctx.check, timeout=120)
         files.append(Derived("poster", poster_path, "image/jpeg", *_image_size(poster_path)))
-        if sprite_path.exists():
+        strip = plan_sprite(duration)
+        sprite_path = work / "sprite.jpg"
+        try:
+            run_ffmpeg(sprite(proxy, sprite_path, plan=strip), check=ctx.check, timeout=300)
+        except MediaError:
+            sprite_path.unlink(missing_ok=True)  # a missing filmstrip never fails ingestion
+        if sprite_path.exists() and sprite_path.stat().st_size > 0:
             sw, sh = _image_size(sprite_path)
             files.append(
                 Derived(
@@ -294,9 +290,9 @@ def _ingest(ctx: JobContext, ref: AssetRef) -> Outcome:
                     sw,
                     sh,
                     meta={
-                        "tiles": tiles,
-                        "tile_width": (sw or 0) // tiles,
-                        "interval": round(duration / tiles, 3),
+                        "tiles": strip.tiles,
+                        "tile_width": (sw or 0) // strip.tiles,
+                        "interval": strip.interval,
                     },
                 )
             )
