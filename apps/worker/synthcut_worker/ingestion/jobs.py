@@ -248,7 +248,8 @@ def _ingest(ctx: JobContext, ref: AssetRef) -> Outcome:
         if speech is not None:
             info.loudness = parse_loudness(log)
         pinfo = normalize(run_ffprobe(str(proxy), timeout=60), size_bytes=proxy.stat().st_size)
-        duration = pinfo.duration or info.duration or 0.0
+        # Source time, not the proxy file's length (AAC priming can add ~20 ms).
+        duration = info.duration or pinfo.duration or 0.0
         assert pinfo.video is not None
         files.append(
             Derived(
