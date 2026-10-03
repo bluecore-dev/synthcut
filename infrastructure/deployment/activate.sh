@@ -12,7 +12,7 @@ ROOT=/opt/synthcut
 DIR=$ROOT/releases/$REL
 ENV_FILE=$ROOT/shared/.env
 SITE=/etc/nginx/sites-available/synthcut
-KEEP_RELEASES=5
+KEEP_RELEASES=3
 
 [ -d "$DIR" ] || { echo "no such release: $DIR" >&2; exit 1; }
 [ -f "$ENV_FILE" ] || { echo "missing $ENV_FILE — run bootstrap.sh first" >&2; exit 1; }
@@ -124,4 +124,6 @@ for ((i = 0; i < count - KEEP_RELEASES; i++)); do
   docker image rm "synthcut/app:$old" "synthcut/web:$old" >/dev/null 2>&1 || true
   echo "pruned $old"
 done
+# Untagged leftovers of earlier SynthCut builds only (label-scoped; the host is shared).
+docker image prune -f --filter label=com.synthcut.project=synthcut >/dev/null 2>&1 || true
 echo "done: $REL"

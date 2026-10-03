@@ -8,7 +8,11 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 F="$HERE/docker-compose.test.yml"
 C=(docker compose -p synthcut-test -f "$F")
 
-cleanup() { "${C[@]}" down -v --remove-orphans >/dev/null 2>&1 || true; }
+cleanup() {
+  "${C[@]}" down -v --remove-orphans >/dev/null 2>&1 || true
+  # The previous test image becomes dangling on every rebuild; remove only ours.
+  docker image prune -f --filter label=com.synthcut.project=synthcut >/dev/null 2>&1 || true
+}
 trap cleanup EXIT
 
 "${C[@]}" build tests

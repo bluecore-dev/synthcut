@@ -5,6 +5,8 @@ All notable changes, phase by phase. Releases are deployed as
 
 ## [Unreleased]
 
+- Deploys keep 3 releases instead of 5; SynthCut images carry a label so only their own dangling images are pruned on the shared host.
+
 ## Phase 5a — measured shot analysis · 2026-10-04
 
 - Per-shot analysis of every video (`clipanalysis/1`): shot type, people and position from YuNet faces; camera motion (static, pan, tilt, handheld) from phase correlation; sharpness, exposure, crushed / clipped areas; frozen and black frames; speech share and silent gaps (Silero VAD); retakes across the project (perceptual hash); usability score and flags.

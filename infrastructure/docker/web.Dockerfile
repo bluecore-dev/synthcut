@@ -10,6 +10,7 @@ COPY apps/mini-app/ ./
 RUN npx vite build
 
 FROM nginxinc/nginx-unprivileged:stable-alpine
+LABEL com.synthcut.project="synthcut"
 COPY infrastructure/nginx/web.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /web/dist /usr/share/nginx/html
 EXPOSE 8080

@@ -440,6 +440,10 @@ activity log in `events`. `/api/v1/ready` checks database, Redis and storage.
   health check (api ready, bot, web) → automatic rollback to the previous
   image tag on failure → nginx installed only if `nginx -t` passes (else the
   previous file is restored).
+* Disk: the host is shared, so cleanup is scoped — the last 3 releases (dirs
+  and image tags) are kept, and dangling images are pruned only by the
+  `com.synthcut.project=synthcut` label. Docker's build cache is host-wide and
+  is never pruned by SynthCut's scripts.
 * Rollback by hand: `cd /opt/synthcut/releases/<old> && SYNTHCUT_RELEASE=<old>
   docker compose --env-file /opt/synthcut/shared/.env up -d`.
 * Tests on the server: `bash infrastructure/deployment/test-stack.sh` —

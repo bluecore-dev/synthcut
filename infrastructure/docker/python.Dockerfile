@@ -3,6 +3,9 @@
 # Built from the repository root: docker build -f infrastructure/docker/python.Dockerfile .
 
 FROM python:3.12-slim-trixie AS base
+# Lets the deploy scripts clean up *only* SynthCut's dangling images on the
+# shared host (docker image prune --filter label=...), never other projects'.
+LABEL com.synthcut.project="synthcut"
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     UV_COMPILE_BYTECODE=1 \
