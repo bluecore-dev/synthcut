@@ -3,7 +3,7 @@ shared), progress reporting, cooperative cancellation and a hard timeout."""
 
 from __future__ import annotations
 
-import os
+import shutil
 import subprocess
 import threading
 import time
@@ -23,11 +23,10 @@ PERMANENT_MARKERS = (
 )
 
 
-def _lower_priority() -> None:  # pragma: no cover - runs in the child
-    try:
-        os.nice(10)
-    except OSError:
-        pass
+# `nice` execs the command, so the PID we signal is ffmpeg itself. (A
+# preexec_fn would be unsafe here: the worker is multi-threaded and forking
+# with Python code in the child can deadlock.)
+NICE = ["nice", "-n", "10"] if shutil.which("nice") else []
 
 
 def run_ffmpeg(
@@ -43,13 +42,12 @@ def run_ffmpeg(
     second and may raise to abort (cancellation, shutdown); the process is then
     terminated and the exception propagates."""
     proc = subprocess.Popen(
-        args,
+        [*NICE, *args],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         stdin=subprocess.DEVNULL,
         text=True,
         errors="replace",
-        preexec_fn=_lower_priority,
     )
     log: deque[str] = deque(maxlen=keep_lines)
 
