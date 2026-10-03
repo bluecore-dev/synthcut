@@ -149,7 +149,7 @@ Private by design: access is limited to an allowlist of Telegram users (fails cl
 
 ## Developer
 
-**Omonjon** — full-stack developer, 4+ years of experience · design, architecture and development of SynthCut
+**Omonjon** — full-stack developer, 4+ years of experience · founder of [BlueCore Dev](https://github.com/bluecore-dev) IT agency · design, architecture and development of SynthCut
 
 | | |
 |---|---|
@@ -157,7 +157,7 @@ Private by design: access is limited to an allowlist of Telegram users (fails cl
 | Website | [socialmarketing.uz](https://socialmarketing.uz) |
 | Telegram | [@anvarov_911](https://t.me/anvarov_911) |
 | Email | [anvarov1170@gmail.com](mailto:anvarov1170@gmail.com) |
-| GitHub | [@iqtisodiyot01-ops](https://github.com/iqtisodiyot01-ops) |
+| GitHub | [@bluecore-dev](https://github.com/bluecore-dev) |
 
 ## License
 
