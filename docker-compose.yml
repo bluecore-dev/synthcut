@@ -141,6 +141,9 @@ services:
       WORKER_CONCURRENCY: "1"
       SCRATCH_DIR: /scratch
       SPEECH_MODELS_DIR: /models
+      # Hugging Face (and hf_xet) keep locks and chunk caches under HF_HOME; the
+      # image user's home is not writable, the models volume is.
+      HF_HOME: /models/.hf-home
       HF_HUB_DISABLE_TELEMETRY: "1"
     volumes:
       - ${DATA_ROOT:-/srv/synthcut}/scratch:/scratch
