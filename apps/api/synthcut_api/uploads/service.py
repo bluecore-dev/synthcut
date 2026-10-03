@@ -43,6 +43,7 @@ from synthcut_schemas.api import (
     UploadStateOut,
 )
 from synthcut_schemas.enums import (
+    AnalysisStatus,
     AssetStatus,
     EventLevel,
     JobPriority,
@@ -80,6 +81,7 @@ def asset_out(
     *,
     thumbnail: SignedUrl | None = None,
     transcript: tuple[str, str | None, datetime | None] | None = None,
+    analysis: tuple[str, int | None, float | None] | None = None,
 ) -> AssetOut:
     out = AssetOut.model_validate(asset)
     color = (asset.media_info or {}).get("color") or {}
@@ -88,6 +90,9 @@ def asset_out(
     if transcript is not None:
         status, out.transcript_language, out.transcript_finished_at = transcript
         out.transcript_status = TranscriptStatus(status)
+    if analysis is not None:
+        status, out.clip_count, out.usable_avg = analysis
+        out.analysis_status = AnalysisStatus(status)
     if sess is not None and sess.status in _OPEN_SESSION_STATES:
         out.upload = UploadStateOut(
             session_id=sess.id,

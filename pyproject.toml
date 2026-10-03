@@ -16,6 +16,7 @@ members = [
   "packages/storage",
   "packages/media-engine",
   "packages/speech",
+  "packages/analysis",
   "packages/telemetry",
   "packages/agent-sdk",
   "packages/model-router",
@@ -32,6 +33,7 @@ synthcut-timeline = { workspace = true }
 synthcut-storage = { workspace = true }
 synthcut-media = { workspace = true }
 synthcut-speech = { workspace = true }
+synthcut-analysis = { workspace = true }
 synthcut-telemetry = { workspace = true }
 synthcut-agent-sdk = { workspace = true }
 synthcut-model-router = { workspace = true }
@@ -74,3 +76,4 @@ ignore = ["S101", "S311", "RUF001", "RUF002", "RUF003", "B008", "E501"]
 # The media engine runs ffmpeg/ffprobe with argument lists built in code (no shell).
 "packages/media-engine/**" = ["S603", "S607"]
 "packages/speech/**" = ["S603", "S607"]
+"packages/analysis/**" = ["S603", "S607"]

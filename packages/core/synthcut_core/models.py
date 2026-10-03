@@ -28,8 +28,10 @@ from sqlalchemy import (
     func,
     text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from synthcut_schemas.enums import (
+    AnalysisStatus,
     AssetKind,
     AssetStatus,
     EventLevel,
@@ -222,6 +224,56 @@ class AssetTranscript(TimestampMixin, Base):
     runs: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
     started_at: Mapped[datetime | None]
     finished_at: Mapped[datetime | None]
+
+
+class AssetAnalysis(TimestampMixin, Base):
+    """Shot analysis of one video asset (spec §12, Phase 5): the job's state and
+    a summary; the per-shot records are ``clip_analyses``."""
+
+    __tablename__ = "asset_analyses"
+    __table_args__ = (
+        CheckConstraint(_one_of("status", AnalysisStatus), name="status"),
+        Index("ix_asset_analyses_project", "project_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=new_id)
+    asset_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("assets.id", ondelete="CASCADE"), unique=True)
+    project_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    status: Mapped[str] = mapped_column(Text)
+    source: Mapped[str | None] = mapped_column(Text)  # "metrics" | "metrics+vision"
+    clip_count: Mapped[int | None] = mapped_column(Integer)
+    usable_avg: Mapped[float | None] = mapped_column(Float)
+    sample_fps: Mapped[float | None] = mapped_column(Float)
+    error: Mapped[str | None] = mapped_column(Text)
+    runs: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    started_at: Mapped[datetime | None]
+    finished_at: Mapped[datetime | None]
+
+
+class ClipAnalysisRow(TimestampMixin, Base):
+    """One shot of an asset with its ``clipanalysis/1`` record. Hot fields are
+    columns (filtering, sorting, duplicate search); the record is ``data``."""
+
+    __tablename__ = "clip_analyses"
+    __table_args__ = (
+        Index("uq_clip_analyses_asset_shot", "asset_id", "shot_index", unique=True),
+        Index("ix_clip_analyses_project", "project_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=new_id)
+    asset_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("assets.id", ondelete="CASCADE"))
+    project_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    clip_id: Mapped[str] = mapped_column(Text)
+    shot_index: Mapped[int] = mapped_column(Integer)
+    start_sec: Mapped[float] = mapped_column(Float)
+    end_sec: Mapped[float] = mapped_column(Float)
+    shot_type: Mapped[str] = mapped_column(Text)
+    camera_motion: Mapped[str] = mapped_column(Text)
+    usable_score: Mapped[float] = mapped_column(Float)
+    flags: Mapped[list[str]] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
+    dhash: Mapped[str | None] = mapped_column(Text)
+    sheet_key: Mapped[str | None] = mapped_column(Text)
+    data: Mapped[dict[str, Any]]
 
 
 class UploadSession(TimestampMixin, Base):

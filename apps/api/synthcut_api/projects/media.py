@@ -8,12 +8,12 @@ from pathlib import PurePosixPath
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from synthcut_core.models import AssetTranscript, MediaFile
-from synthcut_schemas.api import MediaFileOut, SignedUrl, TranscriptSummary
+from synthcut_core.models import Asset, AssetAnalysis, AssetTranscript, ClipAnalysisRow, MediaFile
+from synthcut_schemas.api import AnalysisSummary, ClipOut, MediaFileOut, SignedUrl, TranscriptSummary
 from synthcut_storage import Storage
 
 # Bookkeeping files are not useful in the browser (the transcript has its own endpoint).
-HIDDEN_KINDS = {"mediainfo", "shots", "audio_speech", "transcript"}
+HIDDEN_KINDS = {"mediainfo", "shots", "audio_speech", "transcript", "clips"}
 
 
 def sign(storage: Storage, key: str, ttl: int, *, download_name: str | None = None) -> SignedUrl:
@@ -96,4 +96,55 @@ async def transcript_summary(
             # SRT downloads under the clip's own name; the VTT feeds the player.
             name = f"{stem}.srt" if kind == "subtitles_srt" else None
             setattr(out, kind, sign(storage, key, ttl, download_name=name))
+    return out
+
+
+AnalysisState = tuple[str, int | None, float | None]  # status, clip count, average usability
+
+
+async def analysis_states(db: AsyncSession, asset_ids: list[uuid.UUID]) -> dict[uuid.UUID, AnalysisState]:
+    if not asset_ids:
+        return {}
+    rows = await db.execute(
+        select(
+            AssetAnalysis.asset_id, AssetAnalysis.status, AssetAnalysis.clip_count, AssetAnalysis.usable_avg
+        ).where(AssetAnalysis.asset_id.in_(asset_ids))
+    )
+    return {asset_id: (status, clips, usable) for asset_id, status, clips, usable in rows.all()}
+
+
+async def analysis_summary(db: AsyncSession, asset_id: uuid.UUID) -> AnalysisSummary | None:
+    row = (
+        await db.execute(select(AssetAnalysis).where(AssetAnalysis.asset_id == asset_id))
+    ).scalar_one_or_none()
+    return AnalysisSummary.model_validate(row) if row is not None else None
+
+
+async def clips_for(
+    db: AsyncSession,
+    storage: Storage,
+    ttl: int,
+    *,
+    asset_id: uuid.UUID | None = None,
+    project_id: uuid.UUID | None = None,
+    min_usable: float | None = None,
+) -> list[ClipOut]:
+    stmt = select(ClipAnalysisRow, Asset.original_filename).join(Asset, Asset.id == ClipAnalysisRow.asset_id)
+    if asset_id is not None:
+        stmt = stmt.where(ClipAnalysisRow.asset_id == asset_id)
+    if project_id is not None:
+        stmt = stmt.where(ClipAnalysisRow.project_id == project_id, Asset.deleted_at.is_(None))
+    if min_usable is not None:
+        stmt = stmt.where(ClipAnalysisRow.usable_score >= min_usable)
+    stmt = stmt.order_by(Asset.sort_index, Asset.created_at, ClipAnalysisRow.shot_index)
+    out: list[ClipOut] = []
+    for row, name in (await db.execute(stmt)).all():
+        out.append(
+            ClipOut(
+                **row.data,
+                asset_id=row.asset_id,
+                asset_name=name,
+                sheet=sign(storage, row.sheet_key, ttl) if row.sheet_key else None,
+            )
+        )
     return out

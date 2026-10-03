@@ -38,8 +38,9 @@ def _job(asset_id: uuid.UUID, project_id: uuid.UUID, language: str, force: bool,
         "queue": JobQueue.CPU,  # no GPU on this host; the gpu queue takes it when one exists
         "payload": {"asset_id": str(asset_id), "language": language, "force": force},
         "project_id": project_id,
-        # Below ingestion (HIGH): every file gets its proxy before speech starts.
-        "priority": JobPriority.NORMAL,
+        # Last on the cpu queue: every file gets its proxy (HIGH) and shot
+        # analysis (NORMAL) before minutes of Whisper start.
+        "priority": JobPriority.LOW,
         "idempotency_key": f"{JobKind.TRANSCRIBE_ASSET}:{asset_id}:r{runs}",
         "max_attempts": 2,
     }

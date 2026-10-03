@@ -19,7 +19,8 @@ render, run by a team of specialist agents behind a Telegram Mini App.
 | 2 Upload | done | resumable multipart, MD5-verified parts, pause/resume, progress, quotas |
 | 3 Media engine | done | ffprobe metadata, colour detection, 720p proxy, thumbnails, speech audio, loudness, shots |
 | 4 Speech | done | Whisper (local CPU, `SPEECH_ROUTE`), word timings, silences, subtitles (VTT/SRT), transcript UI |
-| 5–12 | planned | see ARCHITECTURE.md §15 |
+| 5 Video intelligence | 5a done | per-shot faces/framing, camera motion, sharpness, exposure, speech, duplicates, usability; vision description waits for a model key |
+| 6–12 | planned | see ARCHITECTURE.md §15 |
 
 ## Development
 

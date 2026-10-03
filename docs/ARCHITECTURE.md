@@ -103,6 +103,7 @@ packages/agent-sdk  synthcut_agent_sdk AgentSpec, typed tools, permission gate, 
 packages/model-router synthcut_model_router roles → provider:model, pricing, failover
 packages/media-engine synthcut_media    ffprobe → MediaInfo, colour detection, ffmpeg plans, runner
 packages/speech     synthcut_speech   speech engines (SPEECH_ROUTE), silences, subtitle cues → transcript/1
+packages/analysis   synthcut_analysis shot measurements, YuNet faces, scores and flags → clipanalysis/1
 agents              synthcut_agents   13 agent manifests + tool catalog
 infrastructure/     docker/ nginx/ garage/ deployment/ postgres/ redis/
 docs/               ARCHITECTURE.md (this), ERD.md, adr/, openapi.json
@@ -117,7 +118,8 @@ sees one metadata.
 
 See [ERD.md](ERD.md). Implemented: `users`, `projects`, `project_stages`,
 `assets`, `upload_sessions`, `jobs`, `events` (migration `0001`),
-`media_files` (`0002`), `transcripts` (`0003`). Each later phase adds its
+`media_files` (`0002`), `transcripts` (`0003`), `asset_analyses` and
+`clip_analyses` (`0004`). Each later phase adds its
 tables in its own migration. Migrations are **additive only**
 (ADR-0006).
 
@@ -146,6 +148,9 @@ the single source of truth from database to React.
 | POST | `/api/v1/assets/{id}/reingest` | run ingestion again |
 | GET | `/api/v1/assets/{id}/transcript` | `transcript/1`: words, segments, silences, cues |
 | POST | `/api/v1/assets/{id}/transcribe` | transcribe again (optionally forcing a language) |
+| GET | `/api/v1/assets/{id}/clips` | per-shot `clipanalysis/1` records with sheets |
+| GET | `/api/v1/projects/{id}/clips` | every analysed shot of the project (`min_usable`) |
+| POST | `/api/v1/assets/{id}/analyze` | analyse the shots again |
 | GET | `/api/v1/projects/{id}/jobs` | job history |
 | GET | `/api/v1/projects/{id}/events` | activity log (paged) |
 | GET | `/api/v1/projects/{id}/events/stream` | SSE, resumable with `Last-Event-ID` |
@@ -296,6 +301,32 @@ model fails the transcript permanently with a readable reason instead of
 retrying. Speaker detection, emphasis, CTA and semantic segments (spec §13
 "Qo'shimcha") need language understanding and come with the agents (Phase 5–6).
 
+## 8c. Shot analysis (Phase 5, ADR-0012)
+
+Ingestion of a video queues `analysis.asset` (cpu queue, priority NORMAL —
+after ingestion, before transcription). It works on the 720p proxy only:
+
+* a 320 px grayscale stream (4 fps up to 10 min, 2 fps up to 1 h, then 1 fps),
+  memory-mapped from scratch: mean luma, crushed / clipped share, Laplacian
+  sharpness, phase-correlation shift and frame difference per frame — motion
+  is only measured between frames of the same shot, never across a cut;
+* three colour stills per shot (fast seek on the 2 s keyframe grid): YuNet
+  faces → shot type from the largest face (≥ 0.30 of frame height close-up,
+  ≥ 0.12 medium, else wide; no face "unknown"), position, people count; the
+  stills become a JPEG sheet per shot (`analysis/<asset>/shot_NNN.jpg`);
+* Silero VAD on the speech track → speech share and silent gaps per shot;
+* a dHash per shot → `duplicate_of` an earlier shot of the project with the
+  same framing (a retake).
+
+Each shot is stored as `clipanalysis/1` (`synthcut_schemas.analysis`) in
+`clip_analyses` (hot fields as columns) and `analysis/<asset>/clips.json`;
+`asset_analyses` holds the job state and a summary. Scores and flags are
+heuristics over the measurements, kept in `synthcut_analysis.clips` so they
+can be argued with. `GET /assets/{id}/clips`, `GET /projects/{id}/clips`
+(`min_usable` filter) and `POST /assets/{id}/analyze` serve and re-run it; the
+**Analysis** stage counts it (`skipped` without video). Semantic fields stay
+empty until the vision agent (5b) runs with a model key.
+
 ## 9. Queue design (ADR-0002)
 
 PostgreSQL `jobs` is the ledger; Redis only rings the bell.
@@ -393,7 +424,7 @@ activity log in `events`. `/api/v1/ready` checks database, Redis and storage.
 | 2 | Resumable multipart upload, progress, pause/resume, checksum, asset registration | **done** |
 | 3 | FFprobe, proxies, thumbnails, audio extraction, shot detection, color metadata | **done** |
 | 4 | Whisper, word timestamps, silence, subtitles | **done** (local CPU Whisper; a hosted engine is one provider away) |
-| 5 | Video Analysis agent | needs `ANTHROPIC_API_KEY` |
+| 5 | Video Analysis agent | **5a done** (measured shot analysis); 5b vision description needs `ANTHROPIC_API_KEY` |
 | 6 | Master, Director, Editor, EditPlan persistence | needs `ANTHROPIC_API_KEY` |
 | 7 | Remotion compositions, widget registry, subtitles | |
 | 8 | Color + Audio agents, grading, mixing, ducking | |

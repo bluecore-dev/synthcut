@@ -5,6 +5,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query
 from sqlalchemy import func, select
+from synthcut_core.analysis import request_analysis_async
 from synthcut_core.events import commit_and_publish
 from synthcut_core.jobs import enqueue_async
 from synthcut_core.models import Asset, AssetTranscript, Job, MediaFile, Project, UploadSession
@@ -18,11 +19,17 @@ from synthcut_core.projects import (
 )
 from synthcut_core.speech import ACTIVE as ACTIVE_TRANSCRIPT
 from synthcut_core.speech import request_transcription_async
-from synthcut_core.stages import refresh_ingest_stage_async, refresh_transcription_stage_async
+from synthcut_core.stages import (
+    refresh_analysis_stage_async,
+    refresh_ingest_stage_async,
+    refresh_transcription_stage_async,
+)
 from synthcut_schemas.api import (
+    AnalysisSummary,
     AssetDetail,
     AssetList,
     AssetOut,
+    ClipList,
     ErrorResponse,
     JobList,
     JobOut,
@@ -48,7 +55,15 @@ from synthcut_schemas.speech import Transcript
 from ..deps import AppSettings, CurrentUser, DbSession, RedisClient, StorageClient
 from ..errors import ApiError, not_found
 from ..uploads.service import asset_out
-from .media import files_for, posters, transcript_states, transcript_summary
+from .media import (
+    analysis_states,
+    analysis_summary,
+    clips_for,
+    files_for,
+    posters,
+    transcript_states,
+    transcript_summary,
+)
 
 router = APIRouter(tags=["projects"], responses={404: {"model": ErrorResponse}})
 
@@ -126,6 +141,7 @@ async def list_assets(
     ids = [a.id for a, _ in rows]
     thumbs = await posters(db, storage, ids, settings.media_url_ttl_seconds)
     speech = await transcript_states(db, ids)
+    shots = await analysis_states(db, ids)
     return AssetList(
         items=[
             asset_out(
@@ -133,6 +149,7 @@ async def list_assets(
                 sess if sess and sess.status in _OPEN else None,
                 thumbnail=thumbs.get(asset.id),
                 transcript=speech.get(asset.id),
+                analysis=shots.get(asset.id),
             )
             for asset, sess in rows
         ]
@@ -157,14 +174,69 @@ async def get_asset(
     files, shots = await files_for(db, storage, asset.id, ttl)
     thumbs = await posters(db, storage, [asset.id], ttl)
     transcript = await transcript_summary(db, storage, asset.id, ttl, filename=asset.original_filename)
+    analysis = await analysis_summary(db, asset.id)
     base = asset_out(
         asset,
         thumbnail=thumbs.get(asset.id),
         transcript=(transcript.status, transcript.language, transcript.finished_at) if transcript else None,
+        analysis=(analysis.status, analysis.clip_count, analysis.usable_avg) if analysis else None,
     )
     return AssetDetail(
-        **base.model_dump(), media_info=asset.media_info, files=files, shots=shots, transcript=transcript
+        **base.model_dump(),
+        media_info=asset.media_info,
+        files=files,
+        shots=shots,
+        transcript=transcript,
+        analysis=analysis,
     )
+
+
+@router.get("/assets/{asset_id}/clips", response_model=ClipList)
+async def list_asset_clips(
+    asset_id: uuid.UUID, user: CurrentUser, db: DbSession, storage: StorageClient, settings: AppSettings
+) -> ClipList:
+    """Per-shot analysis (``clipanalysis/1``) with a sheet of three stills per shot."""
+    asset = await _owned_asset(db, user.id, asset_id)
+    return ClipList(items=await clips_for(db, storage, settings.media_url_ttl_seconds, asset_id=asset.id))
+
+
+@router.get("/projects/{project_id}/clips", response_model=ClipList)
+async def list_project_clips(
+    project_id: uuid.UUID,
+    user: CurrentUser,
+    db: DbSession,
+    storage: StorageClient,
+    settings: AppSettings,
+    min_usable: Annotated[float | None, Query(ge=0, le=1)] = None,
+) -> ClipList:
+    """Every analysed shot of the project, in asset order — what the Director will choose from."""
+    if await get_owned_project(db, user.id, project_id) is None:
+        raise not_found("Loyiha")
+    items = await clips_for(
+        db, storage, settings.media_url_ttl_seconds, project_id=project_id, min_usable=min_usable
+    )
+    return ClipList(items=items)
+
+
+@router.post("/assets/{asset_id}/analyze", response_model=AnalysisSummary, status_code=202)
+async def analyze_asset(
+    asset_id: uuid.UUID, user: CurrentUser, db: DbSession, redis: RedisClient
+) -> AnalysisSummary:
+    """Analyse the shots again (after an engine update)."""
+    asset = await _owned_asset(db, user.id, asset_id, lock=True)
+    has_proxy = (
+        await db.execute(
+            select(func.count()).where(MediaFile.asset_id == asset.id, MediaFile.kind == "proxy_720p")
+        )
+    ).scalar_one()
+    if asset.status != AssetStatus.READY.value or asset.kind != "video" or not has_proxy:
+        raise ApiError(409, "not_analyzable", "Faqat tahlildan o'tgan video kadrlarini tahlil qilish mumkin")
+    await request_analysis_async(db, asset_id=asset.id, project_id=asset.project_id, force=True)
+    await refresh_analysis_stage_async(db, asset.project_id, source="api")
+    await commit_and_publish(db, redis)
+    summary = await analysis_summary(db, asset.id)
+    assert summary is not None
+    return summary
 
 
 async def _owned_asset(db, user_id: uuid.UUID, asset_id: uuid.UUID, *, lock: bool = False) -> Asset:

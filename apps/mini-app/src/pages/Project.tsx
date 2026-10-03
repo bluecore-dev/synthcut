@@ -4,6 +4,7 @@ import { useSearchParams, useParams } from "react-router";
 import { api, unwrap, type ProjectOut } from "../api/client";
 import { ActivityLog } from "../components/ActivityLog";
 import { AssetList } from "../components/AssetList";
+import { ProjectClips } from "../components/ProjectClips";
 import { ProjectTranscripts } from "../components/ProjectTranscripts";
 import { StageList } from "../components/StageList";
 import { UploadPanel } from "../components/UploadPanel";
@@ -16,7 +17,6 @@ import { MODE_LABEL, PROJECT_TABS, type ProjectTab } from "../strings";
 import { haptic } from "../telegram";
 
 const LOCKED_COPY: Partial<Record<ProjectTab, string>> = {
-  analysis: "Har bir kadr tahlili: kompozitsiya, fokus, ekspozitsiya, harakat, foydalanish bahosi.",
   timeline: "Director va Editor tuzgan EditPlan: treklar, kesimlar, o'tishlar.",
   decisions: "Agentlar qaysi qarorni nima uchun qabul qilgani.",
   preview: "Render qilingan preview — tomosha va izoh.",
@@ -138,7 +138,7 @@ export function Project() {
     queryKey: ["assets", id],
     queryFn: () => unwrap(api.GET("/api/v1/projects/{project_id}/assets", { params: { path: { project_id: id } } })),
   });
-  const { events, remoteUploads, ingest, speech, stream } = useProjectEvents(id);
+  const { events, remoteUploads, ingest, speech, analysis, stream } = useProjectEvents(id);
   const presets = usePresets();
 
   const setTab = (next: ProjectTab) => {
@@ -221,13 +221,14 @@ export function Project() {
                 {assets.isPending ? (
                   <Skeleton className="m-3 h-14" />
                 ) : (
-                  <AssetList projectId={id} assets={assets.data?.items ?? []} remote={remoteUploads} ingest={ingest} speech={speech} />
+                  <AssetList projectId={id} assets={assets.data?.items ?? []} remote={remoteUploads} ingest={ingest} speech={speech} analysis={analysis} />
                 )}
               </Card>
             </div>
           </div>
         )}
         {tab === "logs" && <Logs projectId={id} events={events} />}
+        {tab === "analysis" && <ProjectClips projectId={id} />}
         {tab === "transcript" && <ProjectTranscripts projectId={id} assets={assets.data?.items ?? []} speech={speech} />}
         {LOCKED_COPY[tab] && (
           <Card>

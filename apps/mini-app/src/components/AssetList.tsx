@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Captions, ChevronRight, FileAudio, FileImage, FileVideo, Files, X } from "lucide-react";
+import { Captions, ChevronRight, Clapperboard, FileAudio, FileImage, FileVideo, Files, X } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
 import { api, unwrap, type AssetOut } from "../api/client";
@@ -38,12 +38,14 @@ export function AssetList({
   remote,
   ingest,
   speech,
+  analysis,
 }: {
   projectId: string;
   assets: AssetOut[];
   remote: Record<string, RemoteUploadProgress>;
   ingest: Record<string, JobProgress>;
   speech: Record<string, JobProgress>;
+  analysis: Record<string, JobProgress>;
 }) {
   const local = useUploads(projectId);
   const qc = useQueryClient();
@@ -103,10 +105,22 @@ export function AssetList({
                 <Badge tone={STATUS_TONE[a.status]}>{a.status === "uploaded" ? "navbatda" : ASSET_STATUS_LABEL[a.status]}</Badge>
               </div>
               <p className="tabular mt-0.5 truncate text-xs text-faint">{meta.join(" · ")}</p>
-              {((a.color_label && a.kind !== "audio") || a.transcript_status) && (
+              {((a.color_label && a.kind !== "audio") || a.transcript_status || a.analysis_status) && (
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
                   {a.color_label && a.kind !== "audio" && <Badge tone={colorTone(a.color_profile)}>{a.color_label}</Badge>}
                   {a.bit_depth && a.bit_depth > 8 && a.kind !== "audio" && <Badge>{a.bit_depth}-bit</Badge>}
+                  {a.analysis_status && (
+                    <Badge tone={SPEECH_TONE[a.analysis_status]}>
+                      <Clapperboard className="size-3" aria-hidden />
+                      {a.analysis_status === "done"
+                        ? `${a.clip_count ?? 0} kadr${a.usable_avg != null ? ` · ${pct(a.usable_avg)}` : ""}`
+                        : a.analysis_status === "failed"
+                          ? "kadrlar xato"
+                          : a.analysis_status === "queued"
+                            ? "kadrlar navbatda"
+                            : `kadrlar ${analysis[a.id] ? pct(analysis[a.id]!.progress) : "…"}`}
+                    </Badge>
+                  )}
                   {a.transcript_status && (
                     <Badge tone={SPEECH_TONE[a.transcript_status]}>
                       <Captions className="size-3" aria-hidden />

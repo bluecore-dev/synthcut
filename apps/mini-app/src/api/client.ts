@@ -17,6 +17,8 @@ export type PresetId = Schemas["ProjectPreset"];
 export type Transcript = Schemas["Transcript"];
 export type TranscriptSummary = Schemas["TranscriptSummary"];
 export type TranscriptStatus = Schemas["TranscriptStatus"];
+export type ClipOut = Schemas["ClipOut"];
+export type AnalysisSummary = Schemas["AnalysisSummary"];
 
 const STORAGE_KEY = "synthcut.token";
 

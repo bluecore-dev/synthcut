@@ -615,6 +615,186 @@
         }
       }
     },
+    "/api/v1/assets/{asset_id}/clips": {
+      "get": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "List Asset Clips",
+        "description": "Per-shot analysis (``clipanalysis/1``) with a sheet of three stills per shot.",
+        "operationId": "list_asset_clips_api_v1_assets__asset_id__clips_get",
+        "parameters": [
+          {
+            "name": "asset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Asset Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClipList"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/clips": {
+      "get": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "List Project Clips",
+        "description": "Every analysed shot of the project, in asset order — what the Director will choose from.",
+        "operationId": "list_project_clips_api_v1_projects__project_id__clips_get",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "min_usable",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "maximum": 1,
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Min Usable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClipList"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/assets/{asset_id}/analyze": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Analyze Asset",
+        "description": "Analyse the shots again (after an engine update).",
+        "operationId": "analyze_asset_api_v1_assets__asset_id__analyze_post",
+        "parameters": [
+          {
+            "name": "asset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Asset Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisSummary"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/assets/{asset_id}/transcript": {
       "get": {
         "tags": [
@@ -1425,6 +1605,96 @@
   },
   "components": {
     "schemas": {
+      "AnalysisStatus": {
+        "type": "string",
+        "enum": [
+          "queued",
+          "running",
+          "done",
+          "failed"
+        ],
+        "title": "AnalysisStatus"
+      },
+      "AnalysisSummary": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/AnalysisStatus"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "clip_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clip Count"
+          },
+          "usable_avg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usable Avg"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "source",
+          "clip_count",
+          "usable_avg",
+          "error",
+          "updated_at",
+          "finished_at"
+        ],
+        "title": "AnalysisSummary",
+        "description": "State of an asset's shot analysis; the shots come from ``GET /assets/{id}/clips``."
+      },
       "ApiErrorBody": {
         "properties": {
           "code": {
@@ -1715,6 +1985,38 @@
             ],
             "title": "Transcript Finished At"
           },
+          "analysis_status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnalysisStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "clip_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clip Count"
+          },
+          "usable_avg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usable Avg"
+          },
           "media_info": {
             "anyOf": [
               {
@@ -1743,6 +2045,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/TranscriptSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "analysis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnalysisSummary"
               },
               {
                 "type": "null"
@@ -2065,6 +2377,38 @@
               }
             ],
             "title": "Transcript Finished At"
+          },
+          "analysis_status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnalysisStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "clip_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clip Count"
+          },
+          "usable_avg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usable Avg"
           }
         },
         "type": "object",
@@ -2213,6 +2557,314 @@
           "user"
         ],
         "title": "AuthResponse"
+      },
+      "ClipList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ClipOut"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "ClipList"
+      },
+      "ClipOut": {
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "const": "clipanalysis/1",
+            "title": "Schema Version",
+            "default": "clipanalysis/1"
+          },
+          "clip_id": {
+            "type": "string",
+            "title": "Clip Id"
+          },
+          "index": {
+            "type": "integer",
+            "title": "Index"
+          },
+          "start": {
+            "type": "number",
+            "title": "Start"
+          },
+          "end": {
+            "type": "number",
+            "title": "End"
+          },
+          "duration": {
+            "type": "number",
+            "title": "Duration"
+          },
+          "resolution": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution"
+          },
+          "fps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fps"
+          },
+          "color_profile": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color Profile"
+          },
+          "shot_type": {
+            "type": "string",
+            "enum": [
+              "close_up",
+              "medium",
+              "wide",
+              "unknown"
+            ],
+            "title": "Shot Type",
+            "default": "unknown"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject"
+          },
+          "face_detected": {
+            "type": "boolean",
+            "title": "Face Detected",
+            "default": false
+          },
+          "face_count": {
+            "type": "integer",
+            "title": "Face Count",
+            "default": 0
+          },
+          "faces": {
+            "items": {
+              "$ref": "#/components/schemas/Face"
+            },
+            "type": "array",
+            "title": "Faces"
+          },
+          "person_position": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "left",
+                  "center",
+                  "right"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Person Position"
+          },
+          "camera_motion": {
+            "type": "string",
+            "enum": [
+              "static",
+              "pan_left",
+              "pan_right",
+              "tilt_up",
+              "tilt_down",
+              "handheld",
+              "moving"
+            ],
+            "title": "Camera Motion",
+            "default": "static"
+          },
+          "sharpness": {
+            "type": "number",
+            "title": "Sharpness"
+          },
+          "exposure": {
+            "$ref": "#/components/schemas/Exposure"
+          },
+          "motion": {
+            "$ref": "#/components/schemas/Motion"
+          },
+          "camera_quality": {
+            "type": "number",
+            "title": "Camera Quality"
+          },
+          "lighting_quality": {
+            "type": "number",
+            "title": "Lighting Quality"
+          },
+          "audio_present": {
+            "type": "boolean",
+            "title": "Audio Present",
+            "default": false
+          },
+          "speech_present": {
+            "type": "boolean",
+            "title": "Speech Present",
+            "default": false
+          },
+          "speech_ratio": {
+            "type": "number",
+            "title": "Speech Ratio",
+            "default": 0.0
+          },
+          "silence_segments": {
+            "items": {
+              "$ref": "#/components/schemas/Span"
+            },
+            "type": "array",
+            "title": "Silence Segments"
+          },
+          "semantic_description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Semantic Description"
+          },
+          "usable_score": {
+            "type": "number",
+            "title": "Usable Score"
+          },
+          "flags": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "black",
+                "blurry",
+                "underexposed",
+                "overexposed",
+                "shaky",
+                "frozen",
+                "too_short",
+                "duplicate"
+              ]
+            },
+            "type": "array",
+            "title": "Flags"
+          },
+          "duplicate_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duplicate Of"
+          },
+          "best_frame": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best Frame"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "metrics",
+              "metrics+vision"
+            ],
+            "title": "Source",
+            "default": "metrics"
+          },
+          "asset_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Asset Id"
+          },
+          "asset_name": {
+            "type": "string",
+            "title": "Asset Name"
+          },
+          "sheet": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SignedUrl"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "schema_version",
+          "clip_id",
+          "index",
+          "start",
+          "end",
+          "duration",
+          "resolution",
+          "fps",
+          "color_profile",
+          "shot_type",
+          "subject",
+          "face_detected",
+          "face_count",
+          "faces",
+          "person_position",
+          "camera_motion",
+          "sharpness",
+          "exposure",
+          "motion",
+          "camera_quality",
+          "lighting_quality",
+          "audio_present",
+          "speech_present",
+          "speech_ratio",
+          "silence_segments",
+          "semantic_description",
+          "usable_score",
+          "flags",
+          "duplicate_of",
+          "best_frame",
+          "source",
+          "asset_id",
+          "asset_name",
+          "sheet"
+        ],
+        "title": "ClipOut"
       },
       "ColorInfo": {
         "properties": {
@@ -2424,6 +3076,57 @@
           "next_after_id"
         ],
         "title": "EventPage"
+      },
+      "Exposure": {
+        "properties": {
+          "mean": {
+            "type": "number",
+            "title": "Mean"
+          },
+          "dark": {
+            "type": "number",
+            "title": "Dark"
+          },
+          "bright": {
+            "type": "number",
+            "title": "Bright"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mean",
+          "dark",
+          "bright"
+        ],
+        "title": "Exposure"
+      },
+      "Face": {
+        "properties": {
+          "x": {
+            "type": "number",
+            "title": "X"
+          },
+          "y": {
+            "type": "number",
+            "title": "Y"
+          },
+          "height": {
+            "type": "number",
+            "title": "Height"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          }
+        },
+        "type": "object",
+        "required": [
+          "x",
+          "y",
+          "height",
+          "score"
+        ],
+        "title": "Face"
       },
       "HTTPValidationError": {
         "properties": {
@@ -2906,6 +3609,34 @@
           "size_bytes"
         ],
         "title": "MediaInfo"
+      },
+      "Motion": {
+        "properties": {
+          "speed": {
+            "type": "number",
+            "title": "Speed"
+          },
+          "shake": {
+            "type": "number",
+            "title": "Shake"
+          },
+          "dx": {
+            "type": "number",
+            "title": "Dx"
+          },
+          "dy": {
+            "type": "number",
+            "title": "Dy"
+          }
+        },
+        "type": "object",
+        "required": [
+          "speed",
+          "shake",
+          "dx",
+          "dy"
+        ],
+        "title": "Motion"
       },
       "PartSignItem": {
         "properties": {
@@ -3631,6 +4362,24 @@
           "end"
         ],
         "title": "Silence"
+      },
+      "Span": {
+        "properties": {
+          "start": {
+            "type": "number",
+            "title": "Start"
+          },
+          "end": {
+            "type": "number",
+            "title": "End"
+          }
+        },
+        "type": "object",
+        "required": [
+          "start",
+          "end"
+        ],
+        "title": "Span"
       },
       "Stage": {
         "type": "string",

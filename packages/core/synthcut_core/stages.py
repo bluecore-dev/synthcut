@@ -19,6 +19,7 @@ from synthcut_schemas.enums import (
     STAGE_LABELS,
     STAGE_ORDER,
     STAGE_WEIGHTS,
+    AnalysisStatus,
     AssetStatus,
     EventLevel,
     Stage,
@@ -29,7 +30,7 @@ from synthcut_schemas.enums import (
 from synthcut_schemas.events import EventType
 
 from .events import emit
-from .models import Asset, AssetTranscript, ProjectStage, UploadSession, utcnow
+from .models import Asset, AssetAnalysis, AssetTranscript, ProjectStage, UploadSession, utcnow
 
 _TERMINAL = {StageStatus.DONE, StageStatus.FAILED, StageStatus.SKIPPED}
 
@@ -342,4 +343,72 @@ async def refresh_transcription_stage_async(
     ingested = int((await session.execute(_ingested_stmt(project_id))).scalar_one()) > 0
     state = _transcription_state(rows, pending, ingested)
     changed = await set_stage_async(session, project_id, Stage.TRANSCRIPTION, state, source=source)
+    return state, changed
+
+
+# --------------------------------------------------------------------------- analysis stage
+
+
+def _analysis_aggregate_stmt(project_id: uuid.UUID):
+    return (
+        select(AssetAnalysis.status, func.count(), func.coalesce(func.sum(AssetAnalysis.clip_count), 0))
+        .join(Asset, Asset.id == AssetAnalysis.asset_id)
+        .where(AssetAnalysis.project_id == project_id, Asset.deleted_at.is_(None))
+        .group_by(AssetAnalysis.status)
+    )
+
+
+def _video_pending_stmt(project_id: uuid.UUID):
+    """Uploaded files that may still turn out to be video, or are video."""
+    return select(func.count()).where(
+        Asset.project_id == project_id,
+        Asset.deleted_at.is_(None),
+        Asset.uploaded_at.is_not(None),
+        (Asset.status.in_([AssetStatus.UPLOADED.value, AssetStatus.INGESTING.value]))
+        | ((Asset.kind == "video") & (Asset.status == AssetStatus.READY.value)),
+    )
+
+
+def _analysis_state(rows: list[tuple[str, int, int]], video_pending: int, ingested: bool) -> StageState:
+    counts = {status: (int(n), int(clips)) for status, n, clips in rows}
+    queued = counts.get(AnalysisStatus.QUEUED.value, (0, 0))[0]
+    running = counts.get(AnalysisStatus.RUNNING.value, (0, 0))[0]
+    done, clips = counts.get(AnalysisStatus.DONE.value, (0, 0))
+    failed = counts.get(AnalysisStatus.FAILED.value, (0, 0))[0]
+    total = queued + running + done + failed
+    if running:
+        return StageState(StageStatus.RUNNING, round((done + failed) / total, 4), f"{done}/{total} tayyor")
+    if queued:
+        return StageState(StageStatus.QUEUED, None, f"{queued} ta video navbatda")
+    if done:
+        detail = f"{done} ta video · {clips} ta kadr" + (f", {failed} ta o'qilmadi" if failed else "")
+        return StageState(StageStatus.DONE, 1.0, detail)
+    if failed:
+        return StageState(StageStatus.FAILED, None, f"{failed} ta video tahlil qilinmadi")
+    if ingested and not video_pending:
+        return StageState(StageStatus.SKIPPED, None, "Video fayl yo'q")
+    return StageState(StageStatus.PENDING, None, None)
+
+
+def refresh_analysis_stage(
+    session: Session, project_id: uuid.UUID, *, source: str
+) -> tuple[StageState, bool]:
+    session.flush()
+    rows = [tuple(r) for r in session.execute(_analysis_aggregate_stmt(project_id)).all()]
+    pending = int(session.execute(_video_pending_stmt(project_id)).scalar_one())
+    ingested = int(session.execute(_ingested_stmt(project_id)).scalar_one()) > 0
+    state = _analysis_state(rows, pending, ingested)
+    changed = set_stage(session, project_id, Stage.ANALYSIS, state, source=source)
+    return state, changed
+
+
+async def refresh_analysis_stage_async(
+    session: AsyncSession, project_id: uuid.UUID, *, source: str
+) -> tuple[StageState, bool]:
+    await session.flush()
+    rows = [tuple(r) for r in (await session.execute(_analysis_aggregate_stmt(project_id))).all()]
+    pending = int((await session.execute(_video_pending_stmt(project_id))).scalar_one())
+    ingested = int((await session.execute(_ingested_stmt(project_id))).scalar_one()) > 0
+    state = _analysis_state(rows, pending, ingested)
+    changed = await set_stage_async(session, project_id, Stage.ANALYSIS, state, source=source)
     return state, changed

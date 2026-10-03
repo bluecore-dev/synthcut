@@ -179,12 +179,12 @@ async def test_worker_runs_maintenance_jobs_and_expires_stale_uploads(client, au
 
 def test_worker_leaves_unknown_kinds_queued(Session, settings):
     """A job for a phase that is not deployed yet waits for a worker that knows it."""
-    _enqueue(Session, kind="analysis.video", queue=JobQueue.CPU)
+    _enqueue(Session, kind="render.preview", queue=JobQueue.CPU)
     worker = Worker(settings, worker_id="test-worker")
-    assert "analysis.video" not in worker.kinds and "ingest.asset" in worker.kinds
+    assert "render.preview" not in worker.kinds and "ingest.asset" in worker.kinds
     assert worker._claim() is None
     with Session() as s:
-        assert s.scalar(select(Job.status).where(Job.kind == "analysis.video")) == "queued"
+        assert s.scalar(select(Job.status).where(Job.kind == "render.preview")) == "queued"
 
 
 def test_crashing_handler_is_retried_and_recorded(Session, settings, monkeypatch):

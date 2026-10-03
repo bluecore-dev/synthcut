@@ -19,10 +19,11 @@ from pathlib import Path
 from typing import Any
 
 from sqlalchemy import func, select
+from synthcut_core.analysis import request_analysis
 from synthcut_core.events import commit_and_publish_sync, emit
 from synthcut_core.models import Asset, Project, utcnow
 from synthcut_core.speech import request_transcription
-from synthcut_core.stages import refresh_ingest_stage, refresh_transcription_stage
+from synthcut_core.stages import refresh_analysis_stage, refresh_ingest_stage, refresh_transcription_stage
 from synthcut_media import (
     MediaError,
     MediaInfo,
@@ -429,6 +430,9 @@ def _finish(ctx: JobContext, ref: AssetRef, outcome: Outcome) -> None:
                 project_id=ref.project_id,
                 language=project.language if project else "auto",
             )
+        if info.kind == "video" and ctx.settings.analysis_auto:
+            request_analysis(s, asset_id=ref.id, project_id=ref.project_id)
+        refresh_analysis_stage(s, ref.project_id, source="worker")
         refresh_transcription_stage(s, ref.project_id, source="worker")
         state, changed = refresh_ingest_stage(s, ref.project_id, source="worker")
         if changed and state.status is StageStatus.DONE and ctx.settings.notify_telegram:

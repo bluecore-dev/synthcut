@@ -208,6 +208,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/assets/{asset_id}/clips": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Asset Clips
+         * @description Per-shot analysis (``clipanalysis/1``) with a sheet of three stills per shot.
+         */
+        get: operations["list_asset_clips_api_v1_assets__asset_id__clips_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/clips": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Project Clips
+         * @description Every analysed shot of the project, in asset order — what the Director will choose from.
+         */
+        get: operations["list_project_clips_api_v1_projects__project_id__clips_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assets/{asset_id}/analyze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Analyze Asset
+         * @description Analyse the shots again (after an engine update).
+         */
+        post: operations["analyze_asset_api_v1_assets__asset_id__analyze_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/assets/{asset_id}/transcript": {
         parameters: {
             query?: never;
@@ -428,6 +488,33 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AnalysisStatus
+         * @enum {string}
+         */
+        AnalysisStatus: "queued" | "running" | "done" | "failed";
+        /**
+         * AnalysisSummary
+         * @description State of an asset's shot analysis; the shots come from ``GET /assets/{id}/clips``.
+         */
+        AnalysisSummary: {
+            status: components["schemas"]["AnalysisStatus"];
+            /** Source */
+            source: string | null;
+            /** Clip Count */
+            clip_count: number | null;
+            /** Usable Avg */
+            usable_avg: number | null;
+            /** Error */
+            error: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Finished At */
+            finished_at: string | null;
+        };
         /** ApiErrorBody */
         ApiErrorBody: {
             /** Code */
@@ -503,12 +590,18 @@ export interface components {
             transcript_language?: string | null;
             /** Transcript Finished At */
             transcript_finished_at?: string | null;
+            analysis_status?: components["schemas"]["AnalysisStatus"] | null;
+            /** Clip Count */
+            clip_count?: number | null;
+            /** Usable Avg */
+            usable_avg?: number | null;
             media_info: components["schemas"]["MediaInfo"] | null;
             /** Files */
             files: components["schemas"]["MediaFileOut"][];
             /** Shots */
             shots: components["schemas"]["ShotOut"][];
             transcript?: components["schemas"]["TranscriptSummary"] | null;
+            analysis?: components["schemas"]["AnalysisSummary"] | null;
         };
         /**
          * AssetKind
@@ -586,6 +679,11 @@ export interface components {
             transcript_language?: string | null;
             /** Transcript Finished At */
             transcript_finished_at?: string | null;
+            analysis_status?: components["schemas"]["AnalysisStatus"] | null;
+            /** Clip Count */
+            clip_count?: number | null;
+            /** Usable Avg */
+            usable_avg?: number | null;
         };
         /**
          * AssetStatus
@@ -624,6 +722,113 @@ export interface components {
              */
             expires_at: string;
             user: components["schemas"]["UserOut"];
+        };
+        /** ClipList */
+        ClipList: {
+            /** Items */
+            items: components["schemas"]["ClipOut"][];
+        };
+        /** ClipOut */
+        ClipOut: {
+            /**
+             * Schema Version
+             * @default clipanalysis/1
+             * @constant
+             */
+            schema_version: "clipanalysis/1";
+            /** Clip Id */
+            clip_id: string;
+            /** Index */
+            index: number;
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
+            /** Duration */
+            duration: number;
+            /** Resolution */
+            resolution: string | null;
+            /** Fps */
+            fps: number | null;
+            /** Color Profile */
+            color_profile: string | null;
+            /**
+             * Shot Type
+             * @default unknown
+             * @enum {string}
+             */
+            shot_type: "close_up" | "medium" | "wide" | "unknown";
+            /** Subject */
+            subject: string | null;
+            /**
+             * Face Detected
+             * @default false
+             */
+            face_detected: boolean;
+            /**
+             * Face Count
+             * @default 0
+             */
+            face_count: number;
+            /** Faces */
+            faces: components["schemas"]["Face"][];
+            /** Person Position */
+            person_position: ("left" | "center" | "right") | null;
+            /**
+             * Camera Motion
+             * @default static
+             * @enum {string}
+             */
+            camera_motion: "static" | "pan_left" | "pan_right" | "tilt_up" | "tilt_down" | "handheld" | "moving";
+            /** Sharpness */
+            sharpness: number;
+            exposure: components["schemas"]["Exposure"];
+            motion: components["schemas"]["Motion"];
+            /** Camera Quality */
+            camera_quality: number;
+            /** Lighting Quality */
+            lighting_quality: number;
+            /**
+             * Audio Present
+             * @default false
+             */
+            audio_present: boolean;
+            /**
+             * Speech Present
+             * @default false
+             */
+            speech_present: boolean;
+            /**
+             * Speech Ratio
+             * @default 0
+             */
+            speech_ratio: number;
+            /** Silence Segments */
+            silence_segments: components["schemas"]["Span"][];
+            /** Semantic Description */
+            semantic_description: string | null;
+            /** Usable Score */
+            usable_score: number;
+            /** Flags */
+            flags: ("black" | "blurry" | "underexposed" | "overexposed" | "shaky" | "frozen" | "too_short" | "duplicate")[];
+            /** Duplicate Of */
+            duplicate_of: string | null;
+            /** Best Frame */
+            best_frame: number | null;
+            /**
+             * Source
+             * @default metrics
+             * @enum {string}
+             */
+            source: "metrics" | "metrics+vision";
+            /**
+             * Asset Id
+             * Format: uuid
+             */
+            asset_id: string;
+            /** Asset Name */
+            asset_name: string;
+            sheet: components["schemas"]["SignedUrl"] | null;
         };
         /**
          * ColorInfo
@@ -716,6 +921,26 @@ export interface components {
             items: components["schemas"]["EventEnvelope"][];
             /** Next After Id */
             next_after_id: number | null;
+        };
+        /** Exposure */
+        Exposure: {
+            /** Mean */
+            mean: number;
+            /** Dark */
+            dark: number;
+            /** Bright */
+            bright: number;
+        };
+        /** Face */
+        Face: {
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+            /** Height */
+            height: number;
+            /** Score */
+            score: number;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -878,6 +1103,17 @@ export interface components {
              */
             has_location: boolean;
             loudness?: components["schemas"]["Loudness"] | null;
+        };
+        /** Motion */
+        Motion: {
+            /** Speed */
+            speed: number;
+            /** Shake */
+            shake: number;
+            /** Dx */
+            dx: number;
+            /** Dy */
+            dy: number;
         };
         /** PartSignItem */
         PartSignItem: {
@@ -1133,6 +1369,13 @@ export interface components {
         };
         /** Silence */
         Silence: {
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
+        };
+        /** Span */
+        Span: {
             /** Start */
             start: number;
             /** End */
@@ -1940,6 +2183,128 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AssetDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_asset_clips_api_v1_assets__asset_id__clips_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                asset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClipList"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_project_clips_api_v1_projects__project_id__clips_get: {
+        parameters: {
+            query?: {
+                min_usable?: number | null;
+            };
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClipList"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    analyze_asset_api_v1_assets__asset_id__analyze_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                asset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisSummary"];
                 };
             };
             /** @description Not Found */

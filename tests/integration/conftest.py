@@ -106,9 +106,10 @@ def settings(s3_env, tmp_path_factory) -> Settings:
         scratch_dir=str(tmp_path_factory.mktemp("scratch")),
         worker_queues="io,cpu",
         worker_lease_seconds=30,
-        # Off unless a test turns it on (with a fake engine): ingestion tests
-        # should not also run Whisper.
+        # Off unless a test turns them on: ingestion tests should not also run
+        # Whisper or shot analysis.
         speech_auto=False,
+        analysis_auto=False,
     )
 
 

@@ -36,6 +36,8 @@ class EventType(StrEnum):
     ASSET_INGEST_FAILED = "asset.ingest_failed"
     TRANSCRIPT_READY = "transcript.ready"
     TRANSCRIPT_FAILED = "transcript.failed"
+    ANALYSIS_READY = "analysis.ready"
+    ANALYSIS_FAILED = "analysis.failed"
 
     STAGE_UPDATED = "stage.updated"
 

@@ -66,6 +66,7 @@ class Settings(BaseSettings):
     speech_threads: int = Field(default=2, ge=1, le=16)
     speech_beam_size: int = Field(default=5, ge=1, le=10)
     speech_auto: bool = True  # transcribe every file with audio once it is ingested
+    analysis_auto: bool = True  # analyse the shots of every video once it is ingested
     # Wins over a detected Turkic neighbour (Whisper hears Uzbek as az/tr/kk); "" disables.
     speech_preferred_language: str = "uz"
     notify_telegram: bool = True

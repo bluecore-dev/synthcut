@@ -23,6 +23,7 @@ export function useProjectEvents(projectId: string) {
   const [remoteUploads, setRemoteUploads] = useState<Record<string, RemoteUploadProgress>>({});
   const [ingest, setIngest] = useState<Record<string, JobProgress>>({});
   const [speech, setSpeech] = useState<Record<string, JobProgress>>({});
+  const [analysis, setAnalysis] = useState<Record<string, JobProgress>>({});
   const [stream, setStream] = useState<StreamState>("connecting");
   const pending = useRef<number | null>(null);
 
@@ -37,6 +38,7 @@ export function useProjectEvents(projectId: string) {
         void qc.invalidateQueries({ queryKey: ["project", projectId] });
         void qc.invalidateQueries({ queryKey: ["assets", projectId] });
         void qc.invalidateQueries({ queryKey: ["jobs", projectId] });
+        void qc.invalidateQueries({ queryKey: ["clips", projectId] });
         void qc.invalidateQueries({ queryKey: ["projects"] });
       }, 500);
     };
@@ -45,7 +47,8 @@ export function useProjectEvents(projectId: string) {
       if (ev.id == null) {
         if (ev.type === "job.progress") {
           const d = ev.data as { asset_id?: string; progress?: number; kind?: string };
-          const set = d.kind === "speech.transcribe" ? setSpeech : d.kind === "ingest.asset" ? setIngest : null;
+          const set =
+            d.kind === "speech.transcribe" ? setSpeech : d.kind === "ingest.asset" ? setIngest : d.kind === "analysis.asset" ? setAnalysis : null;
           if (d.asset_id && set) set((prev) => ({ ...prev, [d.asset_id!]: { progress: d.progress ?? 0, step: ev.message } }));
         }
         if (ev.type === "upload.progress") {
@@ -86,5 +89,5 @@ export function useProjectEvents(projectId: string) {
     };
   }, [projectId, qc]);
 
-  return { events, remoteUploads, ingest, speech, stream };
+  return { events, remoteUploads, ingest, speech, analysis, stream };
 }

@@ -4,13 +4,14 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { api, unwrap, type AssetDetail, type Schemas, type TranscriptSummary } from "../api/client";
 import { colorTone } from "../components/AssetList";
+import { ClipCard } from "../components/ClipCard";
 import { TranscriptView, languageNote } from "../components/TranscriptView";
 import { Badge, Button, Card, Chip, ErrorNote, ProgressBar, SectionLabel, Skeleton } from "../components/ui";
 import { useBackButton } from "../hooks/useBackButton";
 import { useProjectEvents, type JobProgress } from "../hooks/useProjectEvents";
 import { formatBytes, formatDuration, pct } from "../services/format";
 import { stableUrl } from "../services/urlcache";
-import { ASSET_STATUS_LABEL, LANGUAGE_LABEL, TRANSCRIPT_STATUS_LABEL } from "../strings";
+import { ANALYSIS_STATUS_LABEL, ASSET_STATUS_LABEL, LANGUAGE_LABEL, TRANSCRIPT_STATUS_LABEL } from "../strings";
 import { confirmDialog, downloadFile, haptic } from "../telegram";
 
 type File = AssetDetail["files"][number];
@@ -161,6 +162,100 @@ function Speech({
   );
 }
 
+function Shots({
+  asset,
+  live,
+  currentTime,
+  onSeek,
+}: {
+  asset: AssetDetail;
+  live: JobProgress | undefined;
+  currentTime: number | null;
+  onSeek?: (t: number) => void;
+}) {
+  const qc = useQueryClient();
+  const summary = asset.analysis;
+  const done = summary?.status === "done";
+  const clips = useQuery({
+    queryKey: ["asset-clips", asset.id, summary?.finished_at],
+    queryFn: () => unwrap(api.GET("/api/v1/assets/{asset_id}/clips", { params: { path: { asset_id: asset.id } } })),
+    enabled: done,
+    staleTime: Infinity,
+  });
+  const rerun = useMutation({
+    mutationFn: () => unwrap(api.POST("/api/v1/assets/{asset_id}/analyze", { params: { path: { asset_id: asset.id } } })),
+    onSuccess: () => {
+      haptic.success();
+      void qc.invalidateQueries({ queryKey: ["asset", asset.id] });
+    },
+    onError: () => haptic.error(),
+  });
+  const active = summary && ACTIVE.has(summary.status);
+  return (
+    <div>
+      <SectionLabel
+        right={
+          summary ? (
+            <span className="text-xs text-faint">
+              {done ? `${summary.clip_count ?? 0} kadr · ${pct(summary.usable_avg ?? 0)}` : ANALYSIS_STATUS_LABEL[summary.status]}
+            </span>
+          ) : (
+            <span className="text-xs text-faint">{asset.shots.length}</span>
+          )
+        }
+      >
+        Kadrlar
+      </SectionLabel>
+      <Card className="divide-y divide-line">
+        {active && (
+          <div className="px-4 py-3">
+            <ProgressBar value={live?.progress ?? 0} tone="run" />
+            <p className="mt-1.5 text-xs text-run">
+              {summary.status === "queued" ? "Navbatda" : `Kadrlar tahlili · ${live ? `${live.step} · ${pct(live.progress)}` : "boshlanmoqda"}`}
+            </p>
+          </div>
+        )}
+        {summary?.status === "failed" && summary.error && (
+          <div className="px-4 py-3">
+            <ErrorNote>{summary.error}</ErrorNote>
+          </div>
+        )}
+        {done && clips.isPending && <Skeleton className="m-3 h-40" />}
+        {done &&
+          clips.data?.items.map((c) => (
+            <div key={c.clip_id} className={currentTime !== null && currentTime >= c.start && currentTime < c.end ? "bg-accent/10" : undefined}>
+              <ClipCard clip={c} onOpen={onSeek ? () => onSeek(c.start) : undefined} />
+            </div>
+          ))}
+        {!done && !active && asset.shots.length > 0 && (
+          <div className="flex flex-wrap gap-2 px-4 py-3">
+            {asset.shots.map((s) => (
+              <button
+                type="button"
+                key={s.index}
+                disabled={!onSeek}
+                onClick={() => onSeek?.(s.start)}
+                className="tabular inline-flex items-center gap-1.5 rounded-lg border border-line bg-s1 px-2.5 py-1.5 text-xs text-dim active:bg-s2"
+              >
+                <Play className="size-3 text-accent" aria-hidden />
+                {s.index + 1} · {formatDuration(s.start)}–{formatDuration(s.end)}
+              </button>
+            ))}
+          </div>
+        )}
+        {!active && (
+          <div className="px-4 py-3">
+            <Button size="sm" variant="ghost" className="w-full" loading={rerun.isPending} icon={<RefreshCw className="size-4" />} onClick={() => rerun.mutate()}>
+              {summary ? "Kadrlarni qayta tahlil qilish" : "Kadrlarni tahlil qilish"}
+            </Button>
+            {rerun.isError && <ErrorNote>{(rerun.error as Error).message}</ErrorNote>}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
 export function AssetPage() {
   const { id = "", assetId = "" } = useParams();
   const [params] = useSearchParams();
@@ -170,7 +265,7 @@ export function AssetPage() {
   const [time, setTime] = useState<number | null>(null);
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { events, speech } = useProjectEvents(id);
+  const { events, speech, analysis: analysisLive } = useProjectEvents(id);
   const reingest = useMutation({
     mutationFn: () => unwrap(api.POST("/api/v1/assets/{asset_id}/reingest", { params: { path: { asset_id: assetId } } })),
     onSuccess: () => {
@@ -186,7 +281,8 @@ export function AssetPage() {
     queryFn: () => unwrap(api.GET("/api/v1/assets/{asset_id}", { params: { path: { asset_id: assetId } } })),
     staleTime: 10 * 60_000,
     // The live stream drives updates; polling only covers a dropped stream while work is pending.
-    refetchInterval: (query) => (ACTIVE.has(query.state.data?.transcript?.status ?? "") ? 15_000 : false),
+    refetchInterval: (query) =>
+      ACTIVE.has(query.state.data?.transcript?.status ?? "") || ACTIVE.has(query.state.data?.analysis?.status ?? "") ? 15_000 : false,
   });
   const lastEvent = events[events.length - 1];
   useEffect(() => {
@@ -289,23 +385,8 @@ export function AssetPage() {
         </div>
       )}
 
-      {a.shots.length > 0 && (
-        <div>
-          <SectionLabel right={<span className="text-xs text-faint">{a.shots.length}</span>}>Kadr kesimlari (shots)</SectionLabel>
-          <div className="flex flex-wrap gap-2">
-            {a.shots.map((s) => (
-              <button
-                type="button"
-                key={s.index}
-                onClick={() => seek(s.start)}
-                className="tabular inline-flex items-center gap-1.5 rounded-lg border border-line bg-s1 px-2.5 py-1.5 text-xs text-dim active:bg-s2"
-              >
-                <Play className="size-3 text-accent" aria-hidden />
-                {s.index + 1} · {formatDuration(s.start)}–{formatDuration(s.end)}
-              </button>
-            ))}
-          </div>
-        </div>
+      {a.kind === "video" && a.status === "ready" && (
+        <Shots asset={a} live={analysisLive[a.id]} currentTime={time} onSeek={proxy ? seek : undefined} />
       )}
 
       {a.status === "ready" && a.has_audio && (

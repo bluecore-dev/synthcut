@@ -1,6 +1,6 @@
 # SynthCut — Entity relationships
 
-Implemented in migrations `0001_foundation` (Phase 1–2), `0002_ingestion` (Phase 3) and `0003_transcripts` (Phase 4):
+Implemented in migrations `0001_foundation` (Phase 1–2), `0002_ingestion` (Phase 3) `0003_transcripts` (Phase 4) and `0004_clip_analyses` (Phase 5):
 
 ```mermaid
 erDiagram
@@ -13,6 +13,8 @@ erDiagram
     assets ||--o| upload_sessions : "uploaded by"
     assets ||--o{ media_files : "derived files"
     assets ||--o| transcripts : "speech"
+    assets ||--o| asset_analyses : "shot analysis"
+    assets ||--o{ clip_analyses : "one per shot"
     jobs ||--o{ jobs : "parent_id"
 
     users {
@@ -76,6 +78,30 @@ erDiagram
         jsonb data "transcript/1: words, segments, silences, cues"
         int runs "bumped per request (idempotency key)"
     }
+    asset_analyses {
+        uuid id PK
+        uuid asset_id FK,UK
+        text status "queued | running | done | failed"
+        text source "metrics | metrics+vision"
+        int clip_count
+        real usable_avg
+        int runs
+    }
+    clip_analyses {
+        uuid id PK
+        uuid asset_id FK
+        text clip_id "<asset prefix>-sNNN"
+        int shot_index "UK with asset_id"
+        real start_sec
+        real end_sec
+        text shot_type
+        text camera_motion
+        real usable_score
+        jsonb flags
+        text dhash "64-bit, duplicate search"
+        text sheet_key
+        jsonb data "clipanalysis/1"
+    }
     upload_sessions {
         uuid id PK
         uuid asset_id FK,UK
@@ -112,7 +138,6 @@ erDiagram
 
 | Table | Phase | Key columns |
 |---|---|---|
-| `media_analysis` | 5 | asset_id, clip ranges, shot_type, subject, framing, motion, quality scores, semantic_description, usable_score, model, cost |
 | `timeline_versions` | 6 | project_id, version (UNIQUE per project), parent_version, created_by (agent/user), reason |
 | `edit_plans` | 6 | timeline_version_id, schema_version, plan JSONB (EditPlan), validation report |
 | `agent_runs` | 5–6 | project_id, job_id, agent, model, status, steps, tokens in/out/cache, cost_usd, transcript ref |

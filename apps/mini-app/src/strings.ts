@@ -5,6 +5,8 @@ type Language = Schemas["ProjectLanguage"];
 type StageStatus = Schemas["StageStatus"];
 type AssetStatus = Schemas["AssetStatus"];
 type TranscriptStatus = Schemas["TranscriptStatus"];
+type AnalysisStatus = Schemas["AnalysisStatus"];
+type Clip = Schemas["ClipOut"];
 
 export const MODE_LABEL: Record<Mode, { title: string; hint: string }> = {
   auto: { title: "Auto", hint: "AI to'liq mustaqil ishlaydi" },
@@ -45,6 +47,43 @@ export const TRANSCRIPT_STATUS_LABEL: Record<TranscriptStatus, string> = {
   done: "tayyor",
   failed: "xato",
 };
+
+export const ANALYSIS_STATUS_LABEL: Record<AnalysisStatus, string> = {
+  queued: "navbatda",
+  running: "tahlil qilinmoqda",
+  done: "tayyor",
+  failed: "xato",
+};
+
+export const SHOT_TYPE_LABEL: Record<Clip["shot_type"], string> = {
+  close_up: "Yaqin plan",
+  medium: "O'rta plan",
+  wide: "Umumiy plan",
+  unknown: "Odamsiz",
+};
+
+export const CAMERA_MOTION_LABEL: Record<Clip["camera_motion"], string> = {
+  static: "Statik",
+  pan_left: "Chapga panorama",
+  pan_right: "O'ngga panorama",
+  tilt_up: "Yuqoriga",
+  tilt_down: "Pastga",
+  handheld: "Qo'lda",
+  moving: "Harakatli",
+};
+
+export const CLIP_FLAG_LABEL: Record<Clip["flags"][number], string> = {
+  black: "qora kadr",
+  blurry: "xira",
+  underexposed: "qorong'i",
+  overexposed: "o'ta yorug'",
+  shaky: "silkingan",
+  frozen: "qotib qolgan",
+  too_short: "juda qisqa",
+  duplicate: "takror",
+};
+
+export const SUBJECT_LABEL: Record<string, string> = { person: "1 kishi", people: "bir necha kishi", crowd: "olomon" };
 
 /** Whisper language codes we can name; anything else is shown as the code. */
 export const SPEECH_LANGUAGE_NAME: Record<string, string> = {

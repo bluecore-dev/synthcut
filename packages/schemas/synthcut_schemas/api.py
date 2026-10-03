@@ -11,7 +11,9 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .analysis import ClipAnalysis
 from .enums import (
+    AnalysisStatus,
     AssetKind,
     AssetStatus,
     JobQueue,
@@ -213,6 +215,9 @@ class AssetOut(_Out):
     transcript_status: TranscriptStatus | None = None
     transcript_language: str | None = None
     transcript_finished_at: datetime | None = None
+    analysis_status: AnalysisStatus | None = None
+    clip_count: int | None = None
+    usable_avg: float | None = None
 
 
 class AssetList(BaseModel):
@@ -260,6 +265,30 @@ class TranscriptSummary(BaseModel):
     subtitles_srt: SignedUrl | None = None
 
 
+class AnalysisSummary(BaseModel):
+    """State of an asset's shot analysis; the shots come from ``GET /assets/{id}/clips``."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    status: AnalysisStatus
+    source: str | None
+    clip_count: int | None
+    usable_avg: float | None
+    error: str | None
+    updated_at: datetime
+    finished_at: datetime | None
+
+
+class ClipOut(ClipAnalysis):
+    asset_id: UUID
+    asset_name: str
+    sheet: SignedUrl | None = None  # three stills of the shot (early, middle, late)
+
+
+class ClipList(BaseModel):
+    items: list[ClipOut]
+
+
 class TranscribeRequest(_In):
     # None = the project's language; "auto" detects.
     language: ProjectLanguage | None = None
@@ -270,6 +299,7 @@ class AssetDetail(AssetOut):
     files: list[MediaFileOut]
     shots: list[ShotOut]
     transcript: TranscriptSummary | None = None
+    analysis: AnalysisSummary | None = None
 
 
 class UploadCreate(_In):
