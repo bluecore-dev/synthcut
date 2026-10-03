@@ -150,11 +150,15 @@ Private by design: access is limited to an allowlist of Telegram users (fails cl
 
 ## Developer
 
-**Omonjon** — design, architecture and development
+**Omonjon** — full-stack developer, 4+ years of experience · design, architecture and development of SynthCut
 
-- Telegram: [@anvarov_911](https://t.me/anvarov_911)
-- Email: [anvarov1170@gmail.com](mailto:anvarov1170@gmail.com)
-- GitHub: [@iqtisodiyot01-ops](https://github.com/iqtisodiyot01-ops)
+| | |
+|---|---|
+| Phone | [+998 91 911 99 88](tel:+998919119988) |
+| Website | [socialmarketing.uz](https://socialmarketing.uz) |
+| Telegram | [@anvarov_911](https://t.me/anvarov_911) |
+| Email | [anvarov1170@gmail.com](mailto:anvarov1170@gmail.com) |
+| GitHub | [@iqtisodiyot01-ops](https://github.com/iqtisodiyot01-ops) |
 
 ## License
 
@@ -165,3 +169,5 @@ Proprietary — © 2026 Omonjon. All rights reserved. See [LICENSE](LICENSE).
 ### O'zbekcha qisqacha
 
 **SynthCut** — telefondan yuklangan katta hajmdagi videolarni avtomatik tahlil qiladigan (metadata, rang, kadrlar, yuzlar, nutq) va AI agentlar jamoasi yordamida professional montajga aylantiradigan tizim. Boshqaruv Telegram Mini App orqali, og'ir ishlar serverdagi fon ishchilarida bajariladi. Hozir 0–5a bosqichlar tayyor: rezyumli yuklash, media tahlili, nutqni matnga o'girish va subtitrlar, kadrlar tahlili. Keyingi bosqich — Director va Editor agentlari.
+
+**Dasturchi:** Omonjon — 4+ yillik tajribaga ega full-stack dasturchi · [+998 91 911 99 88](tel:+998919119988) · [socialmarketing.uz](https://socialmarketing.uz) · Telegram [@anvarov_911](https://t.me/anvarov_911)

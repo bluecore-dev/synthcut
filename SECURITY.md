@@ -6,6 +6,7 @@ Please report security issues privately — do not open a public issue.
 
 - Email: [anvarov1170@gmail.com](mailto:anvarov1170@gmail.com)
 - Telegram: [@anvarov_911](https://t.me/anvarov_911)
+- Phone: [+998 91 911 99 88](tel:+998919119988)
 
 Include what you found, how to reproduce it and its impact. You will get an
 answer within a few days.
