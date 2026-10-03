@@ -1,6 +1,8 @@
+import os
 import shutil
 import subprocess
 from itertools import pairwise
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -18,6 +20,9 @@ from synthcut_speech.engines import (
 from synthcut_speech.transcript import build_transcript, clean_segments
 
 HAS_FFMPEG = shutil.which("ffmpeg") is not None
+FIXTURES = Path(__file__).parent.parent / "fixtures"
+# A CTranslate2 "tiny" model directory; the real-engine test is skipped without it.
+TINY = Path(os.environ.get("SYNTHCUT_TEST_WHISPER_TINY", Path.home() / ".cache/synthcut-whisper/tiny"))
 
 
 def words(text: str, start: float = 0.0, step: float = 0.3, gap: float = 0.0) -> list[Word]:
@@ -233,3 +238,74 @@ def test_transcription_stage_state():
     # Files still uploading/ingesting may bring speech: keep waiting.
     assert _transcription_state([], 1, True).status is StageStatus.PENDING
     assert _transcription_state([], 0, False).status is StageStatus.PENDING
+
+
+def test_detected_turkic_neighbour_resolves_to_the_preferred_language():
+    from synthcut_speech.engines import resolve_language
+
+    assert resolve_language("az", "uz") == "uz"  # the first real clip, heard by "small"
+    assert resolve_language("kk", "uz") == "uz"
+    assert resolve_language("ru", "uz") == "ru"  # not a neighbour: detection stands
+    assert resolve_language("en", "uz") == "en"
+    assert resolve_language("az", None) == "az"  # preference disabled
+    assert resolve_language("uz", "uz") == "uz"
+
+
+def test_uzbek_output_is_brought_to_uzbek_latin():
+    from synthcut_speech.transcript import normalize_text
+
+    # Lines from large-v3-turbo on the first real clip.
+    assert (
+        normalize_text("ana janim şirin, uçun, tarixı və gözəl", "uz")
+        == "ana janim shirin, uchun, tarixi va go‘zal"
+    )
+    assert normalize_text("Şu ğalaba", "uz") == "Shu g‘alaba"
+    assert normalize_text("şirin", "tr") == "şirin"  # other languages untouched
+    raw = [RawSegment(0.0, 1.0, " Çünki şirin", [RawWord(" Çünki", 0.0, 0.4), RawWord(" şirin", 0.5, 1.0)])]
+    [seg] = clean_segments(raw, 2.0, "uz")
+    assert seg.text == "Chunki shirin" and [w.word for w in seg.words] == ["Chunki", "shirin"]
+
+
+@pytest.mark.skipif(
+    not HAS_FFMPEG or not (TINY / "model.bin").exists(), reason="needs ffmpeg and a tiny model"
+)
+def test_real_whisper_engine_end_to_end(tmp_path):
+    """The fake engine in the integration tests never touches faster-whisper;
+    this runs the real one (tiny model) on a synthetic English clip."""
+    engine = FasterWhisperEngine(
+        str(TINY), models_dir=tmp_path, threads=2, beam_size=1, preferred_language="uz"
+    )
+    pcm = load_pcm(FIXTURES / "speech_en.flac", tmp_path)
+    progress: list[float] = []
+    checks: list[int] = []
+    result = engine.transcribe(
+        pcm, language=None, on_progress=progress.append, check=lambda: checks.append(1)
+    )
+    assert result.language == "en" and result.language_probability  # no Turkic neighbour: detection stands
+    t = build_transcript(
+        result, route=engine.route, duration=len(pcm) / SAMPLE_RATE, language_forced=False, silences=[]
+    )
+    text = t.text.lower()
+    assert "hello" in text and "test" in text
+    assert t.word_count >= 8 and all(w.end >= w.start for w in t.words)
+    assert progress and 0 < progress[-1] <= 1.0 and checks
+    assert t.segments[-1].question  # "Can you hear me?"
+    assert t.cues[0].start < 1.0
+
+
+def test_a_snapshot_with_a_broken_weights_link_is_not_fetched(tmp_path):
+    """Hugging Face snapshots are symlinks into a blob store; deleting the store
+    (it happened while moving a model) must not look like an installed model."""
+    repo = tmp_path / "models--Systran--faster-whisper-tiny"
+    snap = repo / "snapshots" / "abc123"
+    snap.mkdir(parents=True)
+    (repo / "refs").mkdir()
+    (repo / "refs" / "main").write_text("abc123")
+    for name in ("config.json", "tokenizer.json", "vocabulary.txt"):
+        (snap / name).write_text("{}")
+    (snap / "model.bin").symlink_to("../../blobs/gone")
+    engine = FasterWhisperEngine("tiny", models_dir=tmp_path, threads=1)
+    assert not engine.is_fetched()
+    (repo / "blobs").mkdir()
+    (repo / "blobs" / "gone").write_bytes(b"\0" * (2 * 1024 * 1024))
+    assert engine.is_fetched()

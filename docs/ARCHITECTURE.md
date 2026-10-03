@@ -270,9 +270,12 @@ below ingestion, so every file gets its proxy first). The job:
 3. runs the engine named by `SPEECH_ROUTE` (today `faster-whisper:<model>`,
    int8 on two threads, VAD on, no conditioning on previous text, a
    Latin-script prompt for Uzbek) with progress per segment and cancellation
-   between segments;
+   between segments. With language `auto` it detects first; a detected Turkic
+   neighbour (az, tr, kk, …) becomes `SPEECH_PREFERRED_LANGUAGE` (`uz`) —
+   measured: turbo heard the first real Uzbek clip as Kazakh;
 4. cleans the result into **`transcript/1`** (`synthcut_schemas.speech`):
-   words with timings and confidence, segments (≈ sentences, `question`
+   words with timings and confidence (Uzbek mapped from Turkish letters to
+   Uzbek Latin), segments (≈ sentences, `question`
    flagged), silences, and subtitle **cues** (≤ 2 lines × 42 characters, cut at
    sentence ends, pauses ≥ 0.6 s and 6 s; cues index the word list so per-word
    timing survives for animated captions without storing words twice);

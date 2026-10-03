@@ -60,6 +60,24 @@ class SpeechEngine(Protocol):
     ) -> EngineResult: ...
 
 
+# Whisper hears Uzbek as one of its Turkic neighbours (the first real clip came
+# back as Azerbaijani with "small"). When detection lands on one of these, the
+# deployment's preferred language wins; a genuinely Turkish file is forced by
+# picking its language explicitly.
+TURKIC_NEIGHBOURS = frozenset({"uz", "az", "tr", "kk", "ky", "tk", "tt", "ba", "ug"})
+
+
+def resolve_language(detected: str, preferred: str | None) -> str:
+    if (
+        preferred
+        and detected != preferred
+        and detected in TURKIC_NEIGHBOURS
+        and preferred in TURKIC_NEIGHBOURS
+    ):
+        return preferred
+    return detected
+
+
 class EngineUnavailable(RuntimeError):
     """The configured engine cannot run here (model not fetched, bad route)."""
 
@@ -86,12 +104,14 @@ class FasterWhisperEngine:
         threads: int = 2,
         beam_size: int = 5,
         compute_type: str = "int8",
+        preferred_language: str | None = None,
     ) -> None:
         self.model = model
         self.models_dir = Path(models_dir)
         self.threads = threads
         self.beam_size = beam_size
         self.compute_type = compute_type
+        self.preferred_language = preferred_language
 
     @property
     def route(self) -> str:
@@ -105,13 +125,16 @@ class FasterWhisperEngine:
         return Path(download_model(self.model, cache_dir=str(self.models_dir)))
 
     def is_fetched(self) -> bool:
+        """A snapshot folder alone is not enough: its files are symlinks into
+        the cache's blob store, and a broken link must count as missing."""
         from faster_whisper.utils import download_model
 
         try:
-            download_model(self.model, cache_dir=str(self.models_dir), local_files_only=True)
+            path = Path(download_model(self.model, cache_dir=str(self.models_dir), local_files_only=True))
         except Exception:
             return False
-        return True
+        weights = path / "model.bin"
+        return weights.is_file() and weights.stat().st_size > 1024 * 1024
 
     def _load(self):
         from faster_whisper import WhisperModel
@@ -141,6 +164,18 @@ class FasterWhisperEngine:
         duration = len(audio) / SAMPLE_RATE
         model = self._load()
         try:
+            detected_probability: float | None = None
+            if language is None:
+                # Detect first (over a few windows of speech), so the Turkic
+                # mix-up can be corrected before decoding starts.
+                detected, detected_probability, ranked = model.detect_language(
+                    audio, vad_filter=True, language_detection_segments=3
+                )
+                language = resolve_language(detected, self.preferred_language)
+                if language != detected:
+                    detected_probability = dict(ranked).get(language)
+                if check:
+                    check()
             segments, info = model.transcribe(
                 audio,
                 language=language,
@@ -170,7 +205,7 @@ class FasterWhisperEngine:
                     check()
             return EngineResult(
                 language=info.language,
-                language_probability=info.language_probability,
+                language_probability=detected_probability,
                 segments=out,
                 seconds=time.monotonic() - started,
             )
@@ -179,10 +214,23 @@ class FasterWhisperEngine:
             gc.collect()
 
 
-def engine_for(route: str, *, models_dir: Path, threads: int, beam_size: int) -> SpeechEngine:
+def engine_for(
+    route: str,
+    *,
+    models_dir: Path,
+    threads: int,
+    beam_size: int,
+    preferred_language: str | None = None,
+) -> SpeechEngine:
     provider, sep, model = route.partition(":")
     if not sep or not model:
         raise EngineUnavailable(f"SPEECH_ROUTE must be 'provider:model', got {route!r}")
     if provider == FasterWhisperEngine.provider:
-        return FasterWhisperEngine(model, models_dir=models_dir, threads=threads, beam_size=beam_size)
+        return FasterWhisperEngine(
+            model,
+            models_dir=models_dir,
+            threads=threads,
+            beam_size=beam_size,
+            preferred_language=preferred_language,
+        )
     raise EngineUnavailable(f"unknown speech provider {provider!r}")

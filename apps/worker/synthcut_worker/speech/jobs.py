@@ -190,6 +190,7 @@ def _transcribe(ctx: JobContext, target: Target) -> Outcome:
         models_dir=Path(settings.speech_models_dir),
         threads=settings.speech_threads,
         beam_size=settings.speech_beam_size,
+        preferred_language=settings.speech_preferred_language or None,
     )
     forced = target.language != "auto"
     ctx.progress(0.05, "whisper", data=tag)
