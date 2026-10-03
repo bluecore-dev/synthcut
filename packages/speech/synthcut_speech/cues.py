@@ -22,6 +22,9 @@ class CueRules:
     max_duration: float = 6.0
     min_duration: float = 0.8
     pause_break: float = 0.6  # a gap this long between words always starts a new cue
+    # A sentence's last word may stretch the duration this much rather than open
+    # the next cue alone ("berildi." orphaned on the first real clip).
+    sentence_grace: float = 1.5
     min_sentence_chars: int = 12  # do not close a cue after a one-word sentence fragment
     gap_after: float = 0.04  # never touch the next cue
 
@@ -73,7 +76,8 @@ def build_cues(segments: list[Segment], rules: CueRules | None = None) -> list[S
             if current:
                 too_long = not _fits([*current, w], rules)
                 paused = w.start - current[-1].end >= rules.pause_break
-                too_slow = w.end - current[0].start > rules.max_duration
+                limit = rules.max_duration + (rules.sentence_grace if w.word.endswith(SENTENCE_END) else 0.0)
+                too_slow = w.end - current[0].start > limit
                 if too_long or paused or too_slow:
                     groups.append((first, current))
                     first, current = index, []

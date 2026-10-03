@@ -309,3 +309,13 @@ def test_a_snapshot_with_a_broken_weights_link_is_not_fetched(tmp_path):
     (repo / "blobs").mkdir()
     (repo / "blobs" / "gone").write_bytes(b"\0" * (2 * 1024 * 1024))
     assert engine.is_fetched()
+
+
+def test_a_sentence_end_is_not_orphaned_by_the_duration_limit():
+    # From the first real clip: 8 words over 5.7 s, then "berildi." ending the sentence at 6.2 s.
+    ws = words("1989 il, 21 akhtiyabir, uzbek tilida daulat tilida maqamu berildi.", 0.0, step=0.62)
+    ws.append(Word(word="Bu", start=6.5, end=6.7))
+    s = Segment(id=0, start=0.0, end=6.7, text="…", words=ws)
+    cues = build_cues([s])
+    assert cues[0].lines[-1].endswith("berildi.")
+    assert cues[1].lines == ["Bu"]
