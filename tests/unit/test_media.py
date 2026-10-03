@@ -1,5 +1,6 @@
 import shutil
 import subprocess
+import sys
 import threading
 import time
 from pathlib import Path
@@ -243,6 +244,32 @@ def test_runner_classifies_corrupt_input_as_permanent(tmp_path):
     with pytest.raises(MediaError) as exc:
         run_ffmpeg(["ffmpeg", "-hide_banner", "-nostdin", "-i", str(bad), "-f", "null", "-"], timeout=30)
     assert exc.value.permanent
+
+
+def test_runner_explains_a_kill_and_drops_analysis_noise(tmp_path):
+    script = tmp_path / "fake_ffmpeg.py"
+    script.write_text(
+        "import os, signal, sys\n"
+        "for i in range(50):\n"
+        "    print(f'[scdet @ 0x1] lavfi.scd.score: 44.6, lavfi.scd.time: {i}', file=sys.stderr)\n"
+        "sys.stderr.flush()\n"
+        "os.kill(os.getpid(), signal.SIGKILL)\n"
+    )
+    with pytest.raises(MediaError) as exc:
+        run_ffmpeg([sys.executable, str(script)], timeout=30)
+    assert "signal 9" in str(exc.value) and "xotira" in str(exc.value)
+    assert "lavfi.scd" not in str(exc.value) and not exc.value.permanent
+
+    script.write_text(
+        "import sys\n"
+        "print('Error opening output file out.mp4.', file=sys.stderr)\n"
+        "for i in range(50):\n"
+        "    print(f'[scdet @ 0x1] lavfi.scd.score: 1.0, lavfi.scd.time: {i}', file=sys.stderr)\n"
+        "sys.exit(1)\n"
+    )
+    with pytest.raises(MediaError) as exc:
+        run_ffmpeg([sys.executable, str(script)], timeout=30)
+    assert "Error opening output file" in str(exc.value) and "lavfi.scd" not in str(exc.value)
 
 
 def test_display_p3_is_recognised_and_gamut_mapped():

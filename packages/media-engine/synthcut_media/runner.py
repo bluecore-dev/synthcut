@@ -23,6 +23,16 @@ PERMANENT_MARKERS = (
 )
 
 
+# Per-frame analysis lines (scdet, ebur128) say nothing about why FFmpeg
+# failed; keep them out of the error tail.
+NOISE_MARKERS = ("lavfi.scd.", "Parsed_ebur128", "frame=", "size=")
+
+
+def _error_tail(lines: list[str]) -> str:
+    useful = [line for line in lines if line.strip() and not any(m in line for m in NOISE_MARKERS)]
+    return " | ".join(useful[-4:])[-400:]
+
+
 # `nice` execs the command, so the PID we signal is ffmpeg itself. (A
 # preexec_fn would be unsafe here: the worker is multi-threaded and forking
 # with Python code in the child can deadlock.)
@@ -90,8 +100,13 @@ def run_ffmpeg(
             t.join(timeout=5)
 
     text = "\n".join(log)
+    if proc.returncode < 0:
+        # Killed by a signal we did not send: on this host that is the
+        # container's memory limit (OOM killer, SIGKILL). Worth a retry.
+        signal_no = -proc.returncode
+        hint = " — ehtimol xotira yetmadi" if signal_no == 9 else ""
+        raise MediaError(f"FFmpeg to'xtatildi (signal {signal_no}){hint}", permanent=False)
     if proc.returncode != 0:
-        tail = " | ".join(line for line in list(log)[-4:] if line.strip())[-400:]
         permanent = any(marker in text for marker in PERMANENT_MARKERS)
-        raise MediaError(f"FFmpeg xatosi ({proc.returncode}): {tail}", permanent=permanent)
+        raise MediaError(f"FFmpeg xatosi ({proc.returncode}): {_error_tail(list(log))}", permanent=permanent)
     return text
