@@ -69,6 +69,10 @@ class Settings(BaseSettings):
     analysis_auto: bool = True  # analyse the shots of every video once it is ingested
     # Wins over a detected Turkic neighbour (Whisper hears Uzbek as az/tr/kk); "" disables.
     speech_preferred_language: str = "uz"
+    # Motion graphics (Phase 7): the Remotion app with its bundle and headless
+    # Chrome inside the media worker image.
+    remotion_dir: str = "/opt/remotion"
+    remotion_concurrency: int = Field(default=2, ge=1, le=8)
     notify_telegram: bool = True
     telegram_api_base: str = "https://api.telegram.org"
     worker_queues: str = "io"

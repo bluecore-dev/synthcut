@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { api, unwrap, type AssetDetail, type Schemas, type TranscriptSummary } from "../api/client";
 import { colorTone } from "../components/AssetList";
+import { CaptionPreview } from "../components/CaptionPreview";
 import { ClipCard } from "../components/ClipCard";
 import { TranscriptView, languageNote } from "../components/TranscriptView";
 import { Badge, Button, Card, Chip, ErrorNote, ProgressBar, SectionLabel, Skeleton } from "../components/ui";
@@ -71,6 +72,9 @@ function Speech({
   currentTime,
   onSeek,
   filename,
+  isVideo,
+  preview,
+  previewLive,
 }: {
   assetId: string;
   summary: TranscriptSummary | null | undefined;
@@ -78,6 +82,9 @@ function Speech({
   currentTime: number | null;
   onSeek?: (t: number) => void;
   filename: string;
+  isVideo: boolean;
+  preview: AssetDetail["caption_preview"];
+  previewLive: JobProgress | undefined;
 }) {
   const qc = useQueryClient();
   const [language, setLanguage] = useState<Language>(() => (summary?.requested_language as Language | undefined) ?? "auto");
@@ -133,6 +140,9 @@ function Speech({
         )}
         {summary?.status === "done" && (
           <TranscriptView assetId={assetId} version={summary.finished_at} currentTime={currentTime} onSeek={onSeek} />
+        )}
+        {summary?.status === "done" && isVideo && (
+          <CaptionPreview assetId={assetId} filename={filename} state={preview} live={previewLive} />
         )}
         {!active && (
           <div className="space-y-3 px-4 py-3">
@@ -265,7 +275,7 @@ export function AssetPage() {
   const [time, setTime] = useState<number | null>(null);
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { events, speech, analysis: analysisLive } = useProjectEvents(id);
+  const { events, speech, analysis: analysisLive, preview: previewLive } = useProjectEvents(id);
   const reingest = useMutation({
     mutationFn: () => unwrap(api.POST("/api/v1/assets/{asset_id}/reingest", { params: { path: { asset_id: assetId } } })),
     onSuccess: () => {
@@ -282,7 +292,11 @@ export function AssetPage() {
     staleTime: 10 * 60_000,
     // The live stream drives updates; polling only covers a dropped stream while work is pending.
     refetchInterval: (query) =>
-      ACTIVE.has(query.state.data?.transcript?.status ?? "") || ACTIVE.has(query.state.data?.analysis?.status ?? "") ? 15_000 : false,
+      ACTIVE.has(query.state.data?.transcript?.status ?? "") ||
+      ACTIVE.has(query.state.data?.analysis?.status ?? "") ||
+      ACTIVE.has(query.state.data?.caption_preview?.status ?? "")
+        ? 15_000
+        : false,
   });
   const lastEvent = events[events.length - 1];
   useEffect(() => {
@@ -398,6 +412,9 @@ export function AssetPage() {
           currentTime={time}
           onSeek={proxy || files.audio_proxy ? seek : undefined}
           filename={a.original_filename}
+          isVideo={a.kind === "video" && !!proxy}
+          preview={a.caption_preview}
+          previewLive={previewLive[a.id]}
         />
       )}
 

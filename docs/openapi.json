@@ -615,6 +615,70 @@
         }
       }
     },
+    "/api/v1/assets/{asset_id}/caption-preview": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Request Caption Preview",
+        "description": "Render the asset with animated captions (Remotion layer composited by\nFFmpeg over the proxy). A request while one is running returns that one.",
+        "operationId": "request_caption_preview_api_v1_assets__asset_id__caption_preview_post",
+        "parameters": [
+          {
+            "name": "asset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Asset Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaptionPreviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaptionPreviewOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/assets/{asset_id}/clips": {
       "get": {
         "tags": [
@@ -2060,6 +2124,16 @@
                 "type": "null"
               }
             ]
+          },
+          "caption_preview": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CaptionPreviewOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -2557,6 +2631,118 @@
           "user"
         ],
         "title": "AuthResponse"
+      },
+      "CaptionPreviewOut": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "done",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "style": {
+            "type": "string",
+            "enum": [
+              "dynamic",
+              "karaoke",
+              "minimal",
+              "bold"
+            ],
+            "title": "Style"
+          },
+          "position": {
+            "type": "string",
+            "enum": [
+              "bottom",
+              "center",
+              "top"
+            ],
+            "title": "Position"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "video": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SignedUrl"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "download": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SignedUrl"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "style",
+          "position"
+        ],
+        "title": "CaptionPreviewOut",
+        "description": "The asset with animated captions burned in (Phase 7 motion engine)."
+      },
+      "CaptionPreviewRequest": {
+        "properties": {
+          "style": {
+            "type": "string",
+            "enum": [
+              "dynamic",
+              "karaoke",
+              "minimal",
+              "bold"
+            ],
+            "title": "Style",
+            "default": "dynamic"
+          },
+          "position": {
+            "type": "string",
+            "enum": [
+              "bottom",
+              "center",
+              "top"
+            ],
+            "title": "Position",
+            "default": "bottom"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "CaptionPreviewRequest"
       },
       "ClipList": {
         "properties": {

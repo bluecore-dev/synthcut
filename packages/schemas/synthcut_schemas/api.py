@@ -289,6 +289,27 @@ class ClipList(BaseModel):
     items: list[ClipOut]
 
 
+CaptionStyle = Literal["dynamic", "karaoke", "minimal", "bold"]
+CaptionPosition = Literal["bottom", "center", "top"]
+
+
+class CaptionPreviewRequest(_In):
+    style: CaptionStyle = "dynamic"
+    position: CaptionPosition = "bottom"
+
+
+class CaptionPreviewOut(BaseModel):
+    """The asset with animated captions burned in (Phase 7 motion engine)."""
+
+    status: Literal["queued", "running", "done", "failed"]
+    style: CaptionStyle
+    position: CaptionPosition
+    error: str | None = None
+    updated_at: datetime | None = None
+    video: SignedUrl | None = None  # inline playback
+    download: SignedUrl | None = None  # Content-Disposition: attachment
+
+
 class TranscribeRequest(_In):
     # None = the project's language; "auto" detects.
     language: ProjectLanguage | None = None
@@ -300,6 +321,7 @@ class AssetDetail(AssetOut):
     shots: list[ShotOut]
     transcript: TranscriptSummary | None = None
     analysis: AnalysisSummary | None = None
+    caption_preview: CaptionPreviewOut | None = None
 
 
 class UploadCreate(_In):

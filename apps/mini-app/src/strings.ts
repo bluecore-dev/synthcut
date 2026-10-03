@@ -83,6 +83,15 @@ export const CLIP_FLAG_LABEL: Record<Clip["flags"][number], string> = {
   duplicate: "takror",
 };
 
+export const CAPTION_STYLE_LABEL: Record<"dynamic" | "karaoke" | "minimal" | "bold", { title: string; hint: string }> = {
+  dynamic: { title: "Dinamik", hint: "So'zlar aytilishi bilan chiqadi, joriy so'z ajraladi" },
+  karaoke: { title: "Karaoke", hint: "Butun qator ko'rinadi, aytilgan qism bo'yaladi" },
+  minimal: { title: "Oddiy", hint: "Klassik subtitr, qora fon ustida" },
+  bold: { title: "Qalin", hint: "Katta harflar, joriy so'z belgi ostida" },
+};
+
+export const CAPTION_POSITION_LABEL: Record<"bottom" | "center" | "top", string> = { bottom: "Pastda", center: "Markazda", top: "Tepada" };
+
 export const SUBJECT_LABEL: Record<string, string> = { person: "1 kishi", people: "bir necha kishi", crowd: "olomon" };
 
 /** Whisper language codes we can name; anything else is shown as the code. */

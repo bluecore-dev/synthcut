@@ -11,3 +11,5 @@ docs
 !apps/**/README.md
 .env
 .env.*
+apps/remotion/build
+apps/remotion/out

@@ -29,6 +29,8 @@ from synthcut_schemas.api import (
     AssetDetail,
     AssetList,
     AssetOut,
+    CaptionPreviewOut,
+    CaptionPreviewRequest,
     ClipList,
     ErrorResponse,
     JobList,
@@ -58,8 +60,10 @@ from ..uploads.service import asset_out
 from .media import (
     analysis_states,
     analysis_summary,
+    caption_preview_state,
     clips_for,
     files_for,
+    latest_preview_job_stmt,
     posters,
     transcript_states,
     transcript_summary,
@@ -175,6 +179,7 @@ async def get_asset(
     thumbs = await posters(db, storage, [asset.id], ttl)
     transcript = await transcript_summary(db, storage, asset.id, ttl, filename=asset.original_filename)
     analysis = await analysis_summary(db, asset.id)
+    preview = await caption_preview_state(db, storage, asset.id, ttl, filename=asset.original_filename)
     base = asset_out(
         asset,
         thumbnail=thumbs.get(asset.id),
@@ -188,7 +193,58 @@ async def get_asset(
         shots=shots,
         transcript=transcript,
         analysis=analysis,
+        caption_preview=preview,
     )
+
+
+@router.post("/assets/{asset_id}/caption-preview", response_model=CaptionPreviewOut, status_code=202)
+async def request_caption_preview(
+    asset_id: uuid.UUID,
+    body: CaptionPreviewRequest,
+    user: CurrentUser,
+    db: DbSession,
+    redis: RedisClient,
+    storage: StorageClient,
+    settings: AppSettings,
+) -> CaptionPreviewOut:
+    """Render the asset with animated captions (Remotion layer composited by
+    FFmpeg over the proxy). A request while one is running returns that one."""
+    asset = await _owned_asset(db, user.id, asset_id, lock=True)
+    transcript_done = (
+        await db.execute(
+            select(func.count()).where(
+                AssetTranscript.asset_id == asset.id, AssetTranscript.status == TranscriptStatus.DONE.value
+            )
+        )
+    ).scalar_one()
+    if asset.kind != "video" or asset.status != AssetStatus.READY.value or not transcript_done:
+        raise ApiError(409, "no_transcript", "Subtitrli video uchun avval nutq matnga o'girilishi kerak")
+    latest = (await db.execute(latest_preview_job_stmt(asset.id))).scalar_one_or_none()
+    if latest is None or latest.status not in ("queued", "running"):
+        runs = (
+            await db.execute(
+                select(func.count()).where(
+                    Job.kind == JobKind.RENDER_CAPTION_PREVIEW,
+                    Job.payload["asset_id"].astext == str(asset.id),
+                )
+            )
+        ).scalar_one()
+        await enqueue_async(
+            db,
+            kind=JobKind.RENDER_CAPTION_PREVIEW,
+            queue=JobQueue.RENDER,
+            payload={"asset_id": str(asset.id), "style": body.style, "position": body.position},
+            project_id=asset.project_id,
+            priority=JobPriority.HIGH,  # someone is waiting for it
+            idempotency_key=f"{JobKind.RENDER_CAPTION_PREVIEW}:{asset.id}:r{runs + 1}",
+            max_attempts=2,
+        )
+        await commit_and_publish(db, redis)
+    state = await caption_preview_state(
+        db, storage, asset.id, settings.media_url_ttl_seconds, filename=asset.original_filename
+    )
+    assert state is not None
+    return state
 
 
 @router.get("/assets/{asset_id}/clips", response_model=ClipList)

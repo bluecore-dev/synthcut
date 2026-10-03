@@ -1,0 +1,1613 @@
+{
+  "$defs": {
+    "AbacusWidgetProps": {
+      "additionalProperties": false,
+      "properties": {
+        "accent": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "enter": {
+          "default": "pop",
+          "enum": [
+            "fade",
+            "pop",
+            "slide_up",
+            "slide_left",
+            "none"
+          ],
+          "type": "string"
+        },
+        "exit": {
+          "default": "fade",
+          "enum": [
+            "fade",
+            "slide_down",
+            "shrink",
+            "none"
+          ],
+          "type": "string"
+        },
+        "from_value": {
+          "anyOf": [
+            {
+              "maximum": 999999999,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "position": {
+          "default": "center",
+          "enum": [
+            "top",
+            "bottom",
+            "center",
+            "top_left",
+            "top_right",
+            "bottom_left",
+            "bottom_right"
+          ],
+          "type": "string"
+        },
+        "rods": {
+          "default": 5,
+          "maximum": 9,
+          "minimum": 3,
+          "type": "integer"
+        },
+        "value": {
+          "maximum": 999999999,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "enter",
+        "exit",
+        "accent",
+        "value",
+        "rods",
+        "from_value",
+        "position"
+      ],
+      "title": "AbacusWidgetProps",
+      "type": "object"
+    },
+    "AnimatedSubtitleProps": {
+      "additionalProperties": false,
+      "properties": {
+        "accent": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "enter": {
+          "default": "pop",
+          "enum": [
+            "fade",
+            "pop",
+            "slide_up",
+            "slide_left",
+            "none"
+          ],
+          "type": "string"
+        },
+        "exit": {
+          "default": "fade",
+          "enum": [
+            "fade",
+            "slide_down",
+            "shrink",
+            "none"
+          ],
+          "type": "string"
+        },
+        "highlight": {
+          "items": {
+            "maxLength": 30,
+            "type": "string"
+          },
+          "maxItems": 6,
+          "type": "array"
+        },
+        "position": {
+          "default": "bottom",
+          "enum": [
+            "top",
+            "center",
+            "bottom"
+          ],
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 120,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "enter",
+        "exit",
+        "accent",
+        "text",
+        "highlight",
+        "position"
+      ],
+      "title": "AnimatedSubtitleProps",
+      "type": "object"
+    },
+    "CTAProps": {
+      "additionalProperties": false,
+      "properties": {
+        "accent": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "action": {
+          "default": "subscribe",
+          "enum": [
+            "subscribe",
+            "follow",
+            "like",
+            "comment",
+            "link"
+          ],
+          "type": "string"
+        },
+        "enter": {
+          "default": "pop",
+          "enum": [
+            "fade",
+            "pop",
+            "slide_up",
+            "slide_left",
+            "none"
+          ],
+          "type": "string"
+        },
+        "exit": {
+          "default": "fade",
+          "enum": [
+            "fade",
+            "slide_down",
+            "shrink",
+            "none"
+          ],
+          "type": "string"
+        },
+        "handle": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "position": {
+          "default": "bottom",
+          "enum": [
+            "bottom",
+            "center"
+          ],
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 40,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "enter",
+        "exit",
+        "accent",
+        "text",
+        "action",
+        "handle",
+        "position"
+      ],
+      "title": "CTAProps",
+      "type": "object"
+    },
+    "CalloutProps": {
+      "additionalProperties": false,
+      "properties": {
+        "accent": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "enter": {
+          "default": "pop",
+          "enum": [
+            "fade",
+            "pop",
+            "slide_up",
+            "slide_left",
+            "none"
+          ],
+          "type": "string"
+        },
+        "exit": {
+          "default": "fade",
+          "enum": [
+            "fade",
+            "slide_down",
+            "shrink",
+            "none"
+          ],
+          "type": "string"
+        },
+        "side": {
+          "default": "right",
+          "enum": [
+            "left",
+            "right",
+            "top",
+            "bottom"
+          ],
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/$defs/Point"
+        },
+        "text": {
+          "maxLength": 40,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "enter",
+        "exit",
+        "accent",
+        "target",
+        "text",
+        "side"
+      ],
+      "title": "CalloutProps",
+      "type": "object"
+    },
+    "CaptionLine": {
+      "additionalProperties": false,
+      "properties": {
+        "end": {
+          "type": "number"
+        },
+        "start": {
+          "type": "number"
+        },
+        "words": {
+          "items": {
+            "$ref": "#/$defs/OverlayWord"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "words"
+      ],
+      "title": "CaptionLine",
+      "type": "object"
+    },
+    "CaptionsOverlay": {
+      "additionalProperties": false,
+      "properties": {
+        "lines": {
+          "items": {
+            "$ref": "#/$defs/CaptionLine"
+          },
+          "type": "array"
+        },
+        "position": {
+          "enum": [
+            "bottom",
+            "center",
+            "top"
+          ],
+          "type": "string"
+        },
+        "style": {
+          "enum": [
+            "dynamic",
+            "karaoke",
+            "minimal",
+            "bold"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "style",
+        "position",
+        "lines"
+      ],
+      "title": "CaptionsOverlay",
+      "type": "object"
+    },
+    "Chapter": {
+      "additionalProperties": false,
+      "properties": {
+        "at": {
+          "description": "Seconds from the start of the item",
+          "minimum": 0,
+          "type": "number"
+        },
+        "title": {
+          "maxLength": 30,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "at"
+      ],
+      "title": "Chapter",
+      "type": "object"
+    },
+    "ChartProps": {
+      "additionalProperties": false,
+      "properties": {
+        "accent": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "enter": {
+          "default": "pop",
+          "enum": [
+            "fade",
+            "pop",
+            "slide_up",
+            "slide_left",
+            "none"
+          ],
+          "type": "string"
+        },
+        "exit": {
+          "default": "fade",
+          "enum": [
+            "fade",
+            "slide_down",
+            "shrink",
+            "none"
+          ],
+          "type": "string"
+        },
+        "kind": {
+          "default": "bar",
+          "enum": [
+            "bar",
+            "line",
+            "pie"
+          ],
+          "type": "string"
+        },
+        "series": {
+          "items": {
+            "$ref": "#/$defs/Datum"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "type": "array"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "maxLength": 60,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "unit": {
+          "default": "",
+          "maxLength": 10,
+          "type": "string"
+        }
+      },
+      "required": [
+        "enter",
+        "exit",
+        "accent",
+        "kind",
+        "title",
+        "series",
+        "unit"
+      ],
+      "title": "ChartProps",
+      "type": "object"
+    },
+    "ComponentProps": {
+      "properties": {
+        "AbacusWidget": {
+          "$ref": "#/$defs/AbacusWidgetProps"
+        },
+        "AnimatedSubtitle": {
+          "$ref": "#/$defs/AnimatedSubtitleProps"
+        },
+        "CTA": {
+          "$ref": "#/$defs/CTAProps"
+        },
+        "Callout": {
+          "$ref": "#/$defs/CalloutProps"
+        },
+        "Chart": {
+          "$ref": "#/$defs/ChartProps"
+        },
+        "DocumentCard": {
+          "$ref": "#/$defs/DocumentCardProps"
+        },
+        "GamifiedTimer": {
+          "$ref": "#/$defs/GamifiedTimerProps"
+        },
+        "Highlight": {
+          "$ref": "#/$defs/HighlightProps"
+        },
+        "LogoReveal": {
+          "$ref": "#/$defs/LogoRevealProps"
+        },
+        "Notification": {
+          "$ref": "#/$defs/NotificationProps"
+        },
+        "PhoneMockup": {
+          "$ref": "#/$defs/PhoneMockupProps"
+        },
+        "ProgressBar": {
+          "$ref": "#/$defs/ProgressBarProps"
+        },
+        "QuizCard": {
+          "$ref": "#/$defs/QuizCardProps"
+        },
+        "ScoreCounter": {
+          "$ref": "#/$defs/ScoreCounterProps"
+        },
+        "TitleCard": {
+          "$ref": "#/$defs/TitleCardProps"
+        }
+      },
+      "required": [
+        "GamifiedTimer",
+        "QuizCard",
+        "AbacusWidget",
+        "DocumentCard",
+        "ScoreCounter",
+        "AnimatedSubtitle",
+        "TitleCard",
+        "CTA",
+        "LogoReveal",
+        "ProgressBar",
+        "Chart",
+        "PhoneMockup",
+        "Notification",
+        "Highlight",
+        "Callout"
+      ],
+      "title": "ComponentProps",
+      "type": "object"
+    },
+    "Datum": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "maxLength": 20,
+          "minLength": 1,
+          "type": "string"
+        },
+        "value": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "label",
+        "value"
+      ],
+      "title": "Datum",
+      "type": "object"
+    },
+    "DocumentCardProps": {
+      "additionalProperties": false,
+      "properties": {
+        "accent": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "enter": {
+          "default": "pop",
+          "enum": [
+            "fade",
+            "pop",
+            "slide_up",
+            "slide_left",
+            "none"
+          ],
+          "type": "string"
+        },
+        "exit": {
+          "default": "fade",
+          "enum": [
+            "fade",
+            "slide_down",
+            "shrink",
+            "none"
+          ],
+          "type": "string"
+        },
+        "image_asset_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "lines": {
+          "items": {
+            "maxLength": 80,
+            "type": "string"
+          },
+          "maxItems": 6,
+          "type": "array"
+        },
+        "subtitle": {
+          "anyOf": [
+            {
+              "maxLength": 120,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "title": {
+          "maxLength": 80,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "enter",
+        "exit",
+        "accent",
+        "title",
+        "subtitle",
+        "lines",
+        "image_asset_id"
+      ],
+      "title": "DocumentCardProps",
+      "type": "object"
+    },
+    "GamifiedTimerProps": {
+      "additionalProperties": false,
+      "properties": {
+        "accent": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "enter": {
+          "default": "pop",
+          "enum": [
+            "fade",
+            "pop",
+            "slide_up",
+            "slide_left",
+            "none"
+          ],
+          "type": "string"
+        },
+        "exit": {
+          "default": "fade",
+          "enum": [
+            "fade",
+            "slide_down",
+            "shrink",
+            "none"
+          ],
+          "type": "string"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "position": {
+          "default": "top_right",
+          "enum": [
+            "top",
+            "bottom",
+            "center",
+            "top_left",
+            "top_right",
+            "bottom_left",
+            "bottom_right"
+          ],
+          "type": "string"
+        },
+        "total_seconds": {
+          "maximum": 3600,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "warn_at": {
+          "default": 5,
+          "description": "Seconds left when the timer turns red and pulses",
+          "maximum": 60,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "enter",
+        "exit",
+        "accent",
+        "total_seconds",
+        "label",
+        "warn_at",
+        "position"
+      ],
+      "title": "GamifiedTimerProps",
+      "type": "object"
+    },
+    "HighlightProps": {
+      "additionalProperties": false,
+      "properties": {
+        "accent": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "enter": {
+          "default": "pop",
+          "enum": [
+            "fade",
+            "pop",
+            "slide_up",
+            "slide_left",
+            "none"
+          ],
+          "type": "string"
+        },
+        "exit": {
+          "default": "fade",
+          "enum": [
+            "fade",
+            "slide_down",
+            "shrink",
+            "none"
+          ],
+          "type": "string"
+        },
+        "region": {
+          "$ref": "#/$defs/Region"
+        },
+        "shape": {
+          "default": "box",
+          "enum": [
+            "box",
+            "underline",
+            "circle"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "enter",
+        "exit",
+        "accent",
+        "region",
+        "shape"
+      ],
+      "title": "HighlightProps",
+      "type": "object"
+    },
+    "LogoRevealProps": {
+      "additionalProperties": false,
+      "properties": {
+        "accent": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "enter": {
+          "default": "pop",
+          "enum": [
+            "fade",
+            "pop",
+            "slide_up",
+            "slide_left",
+            "none"
+          ],
+          "type": "string"
+        },
+        "exit": {
+          "default": "fade",
+          "enum": [
+            "fade",
+            "slide_down",
+            "shrink",
+            "none"
+          ],
+          "type": "string"
+        },
+        "image_asset_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "style": {
+          "default": "scale",
+          "enum": [
+            "fade",
+            "scale",
+            "glitch"
+          ],
+          "type": "string"
+        },
+        "tagline": {
+          "anyOf": [
+            {
+              "maxLength": 60,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "text": {
+          "maxLength": 30,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "enter",
+        "exit",
+        "accent",
+        "text",
+        "tagline",
+        "image_asset_id",
+        "style"
+      ],
+      "title": "LogoRevealProps",
+      "type": "object"
+    },
+    "NotificationProps": {
+      "additionalProperties": false,
+      "properties": {
+        "accent": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "app": {
+          "default": "Telegram",
+          "maxLength": 24,
+          "minLength": 1,
+          "type": "string"
+        },
+        "body": {
+          "default": "",
+          "maxLength": 90,
+          "type": "string"
+        },
+        "enter": {
+          "default": "slide_left",
+          "enum": [
+            "fade",
+            "pop",
+            "slide_up",
+            "slide_left",
+            "none"
+          ],
+          "type": "string"
+        },
+        "exit": {
+          "default": "fade",
+          "enum": [
+            "fade",
+            "slide_down",
+            "shrink",
+            "none"
+          ],
+          "type": "string"
+        },
+        "icon": {
+          "default": "telegram",
+          "enum": [
+            "telegram",
+            "instagram",
+            "message",
+            "bell"
+          ],
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 40,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "enter",
+        "exit",
+        "accent",
+        "app",
+        "title",
+        "body",
+        "icon"
+      ],
+      "title": "NotificationProps",
+      "type": "object"
+    },
+    "OverlayItem": {
+      "additionalProperties": false,
+      "properties": {
+        "component": {
+          "type": "string"
+        },
+        "duration_frames": {
+          "type": "integer"
+        },
+        "from_frame": {
+          "type": "integer"
+        },
+        "id": {
+          "type": "string"
+        },
+        "layer": {
+          "type": "integer"
+        },
+        "props": {
+          "additionalProperties": true,
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "component",
+        "from_frame",
+        "duration_frames",
+        "layer",
+        "props"
+      ],
+      "title": "OverlayItem",
+      "type": "object"
+    },
+    "OverlayProps": {
+      "additionalProperties": false,
+      "properties": {
+        "assets": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "captions": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CaptionsOverlay"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "duration_in_frames": {
+          "type": "integer"
+        },
+        "fps": {
+          "type": "integer"
+        },
+        "height": {
+          "type": "integer"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/OverlayItem"
+          },
+          "type": "array"
+        },
+        "safe_zone": {
+          "$ref": "#/$defs/SafeZone"
+        },
+        "schema_version": {
+          "const": "overlay/1",
+          "default": "overlay/1",
+          "type": "string"
+        },
+        "theme": {
+          "$ref": "#/$defs/Theme"
+        },
+        "width": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "schema_version",
+        "width",
+        "height",
+        "fps",
+        "duration_in_frames",
+        "safe_zone",
+        "theme",
+        "items",
+        "captions",
+        "assets"
+      ],
+      "title": "OverlayProps",
+      "type": "object"
+    },
+    "OverlayWord": {
+      "additionalProperties": false,
+      "properties": {
+        "end": {
+          "type": "number"
+        },
+        "start": {
+          "type": "number"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "text",
+        "start",
+        "end"
+      ],
+      "title": "OverlayWord",
+      "type": "object"
+    },
+    "PhoneMockupProps": {
+      "additionalProperties": false,
+      "properties": {
+        "accent": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "caption": {
+          "anyOf": [
+            {
+              "maxLength": 60,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "enter": {
+          "default": "pop",
+          "enum": [
+            "fade",
+            "pop",
+            "slide_up",
+            "slide_left",
+            "none"
+          ],
+          "type": "string"
+        },
+        "exit": {
+          "default": "fade",
+          "enum": [
+            "fade",
+            "slide_down",
+            "shrink",
+            "none"
+          ],
+          "type": "string"
+        },
+        "image_asset_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "position": {
+          "default": "right",
+          "enum": [
+            "left",
+            "center",
+            "right"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "enter",
+        "exit",
+        "accent",
+        "image_asset_id",
+        "caption",
+        "position"
+      ],
+      "title": "PhoneMockupProps",
+      "type": "object"
+    },
+    "Point": {
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "y": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "title": "Point",
+      "type": "object"
+    },
+    "ProgressBarProps": {
+      "additionalProperties": false,
+      "properties": {
+        "accent": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "chapters": {
+          "items": {
+            "$ref": "#/$defs/Chapter"
+          },
+          "maxItems": 10,
+          "type": "array"
+        },
+        "enter": {
+          "default": "fade",
+          "enum": [
+            "fade",
+            "pop",
+            "slide_up",
+            "slide_left",
+            "none"
+          ],
+          "type": "string"
+        },
+        "exit": {
+          "default": "fade",
+          "enum": [
+            "fade",
+            "slide_down",
+            "shrink",
+            "none"
+          ],
+          "type": "string"
+        },
+        "position": {
+          "default": "top",
+          "enum": [
+            "top",
+            "bottom"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "enter",
+        "exit",
+        "accent",
+        "chapters",
+        "position"
+      ],
+      "title": "ProgressBarProps",
+      "type": "object"
+    },
+    "QuizCardProps": {
+      "additionalProperties": false,
+      "properties": {
+        "accent": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "correct_index": {
+          "anyOf": [
+            {
+              "maximum": 3,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "enter": {
+          "default": "pop",
+          "enum": [
+            "fade",
+            "pop",
+            "slide_up",
+            "slide_left",
+            "none"
+          ],
+          "type": "string"
+        },
+        "exit": {
+          "default": "fade",
+          "enum": [
+            "fade",
+            "slide_down",
+            "shrink",
+            "none"
+          ],
+          "type": "string"
+        },
+        "options": {
+          "items": {
+            "maxLength": 60,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 4,
+          "minItems": 2,
+          "type": "array"
+        },
+        "question": {
+          "maxLength": 120,
+          "minLength": 1,
+          "type": "string"
+        },
+        "reveal_at": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Seconds after the card appears"
+        }
+      },
+      "required": [
+        "enter",
+        "exit",
+        "accent",
+        "question",
+        "options",
+        "correct_index",
+        "reveal_at"
+      ],
+      "title": "QuizCardProps",
+      "type": "object"
+    },
+    "Region": {
+      "additionalProperties": false,
+      "description": "A box in frame units (0..1), so it survives a change of output size.",
+      "properties": {
+        "height": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "width": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "x": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "y": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "title": "Region",
+      "type": "object"
+    },
+    "SafeZone": {
+      "additionalProperties": false,
+      "description": "Insets (fractions of the frame) that platform UI covers: on 9:16 the\ncaption must clear the like/comment column and the description.",
+      "properties": {
+        "bottom": {
+          "type": "number"
+        },
+        "left": {
+          "type": "number"
+        },
+        "right": {
+          "type": "number"
+        },
+        "top": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "top",
+        "bottom",
+        "left",
+        "right"
+      ],
+      "title": "SafeZone",
+      "type": "object"
+    },
+    "ScoreCounterProps": {
+      "additionalProperties": false,
+      "properties": {
+        "accent": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "decimals": {
+          "default": 0,
+          "maximum": 2,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "enter": {
+          "default": "pop",
+          "enum": [
+            "fade",
+            "pop",
+            "slide_up",
+            "slide_left",
+            "none"
+          ],
+          "type": "string"
+        },
+        "exit": {
+          "default": "fade",
+          "enum": [
+            "fade",
+            "slide_down",
+            "shrink",
+            "none"
+          ],
+          "type": "string"
+        },
+        "from_value": {
+          "default": 0,
+          "type": "number"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "position": {
+          "default": "center",
+          "enum": [
+            "top",
+            "bottom",
+            "center",
+            "top_left",
+            "top_right",
+            "bottom_left",
+            "bottom_right"
+          ],
+          "type": "string"
+        },
+        "prefix": {
+          "default": "",
+          "maxLength": 10,
+          "type": "string"
+        },
+        "suffix": {
+          "default": "",
+          "maxLength": 10,
+          "type": "string"
+        },
+        "to_value": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "enter",
+        "exit",
+        "accent",
+        "to_value",
+        "from_value",
+        "decimals",
+        "prefix",
+        "suffix",
+        "label",
+        "position"
+      ],
+      "title": "ScoreCounterProps",
+      "type": "object"
+    },
+    "Theme": {
+      "additionalProperties": false,
+      "properties": {
+        "accent": {
+          "default": "#00C4FF",
+          "type": "string"
+        },
+        "font": {
+          "default": "Montserrat",
+          "enum": [
+            "Inter",
+            "Montserrat"
+          ],
+          "type": "string"
+        },
+        "highlight": {
+          "default": "#FFD60A",
+          "type": "string"
+        },
+        "primary": {
+          "default": "#1A4F8A",
+          "type": "string"
+        },
+        "text": {
+          "default": "#FFFFFF",
+          "type": "string"
+        }
+      },
+      "required": [
+        "primary",
+        "accent",
+        "text",
+        "highlight",
+        "font"
+      ],
+      "title": "Theme",
+      "type": "object"
+    },
+    "TitleCardProps": {
+      "additionalProperties": false,
+      "properties": {
+        "accent": {
+          "anyOf": [
+            {
+              "pattern": "^#[0-9A-Fa-f]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "enter": {
+          "default": "pop",
+          "enum": [
+            "fade",
+            "pop",
+            "slide_up",
+            "slide_left",
+            "none"
+          ],
+          "type": "string"
+        },
+        "exit": {
+          "default": "fade",
+          "enum": [
+            "fade",
+            "slide_down",
+            "shrink",
+            "none"
+          ],
+          "type": "string"
+        },
+        "subtitle": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "title": {
+          "maxLength": 60,
+          "minLength": 1,
+          "type": "string"
+        },
+        "variant": {
+          "default": "lower_third",
+          "enum": [
+            "full",
+            "lower_third"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "enter",
+        "exit",
+        "accent",
+        "title",
+        "subtitle",
+        "variant"
+      ],
+      "title": "TitleCardProps",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "components": {
+      "$ref": "#/$defs/ComponentProps"
+    },
+    "overlay": {
+      "$ref": "#/$defs/OverlayProps"
+    }
+  },
+  "required": [
+    "overlay",
+    "components"
+  ],
+  "title": "MotionSchema",
+  "type": "object"
+}

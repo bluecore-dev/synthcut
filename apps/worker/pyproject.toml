@@ -10,6 +10,7 @@ dependencies = [
   "synthcut-media",
   "synthcut-speech",
   "synthcut-analysis",
+  "synthcut-timeline",
   "synthcut-telemetry",
   "httpx>=0.28",
 ]

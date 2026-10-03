@@ -208,6 +208,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/assets/{asset_id}/caption-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request Caption Preview
+         * @description Render the asset with animated captions (Remotion layer composited by
+         *     FFmpeg over the proxy). A request while one is running returns that one.
+         */
+        post: operations["request_caption_preview_api_v1_assets__asset_id__caption_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/assets/{asset_id}/clips": {
         parameters: {
             query?: never;
@@ -602,6 +623,7 @@ export interface components {
             shots: components["schemas"]["ShotOut"][];
             transcript?: components["schemas"]["TranscriptSummary"] | null;
             analysis?: components["schemas"]["AnalysisSummary"] | null;
+            caption_preview?: components["schemas"]["CaptionPreviewOut"] | null;
         };
         /**
          * AssetKind
@@ -722,6 +744,48 @@ export interface components {
              */
             expires_at: string;
             user: components["schemas"]["UserOut"];
+        };
+        /**
+         * CaptionPreviewOut
+         * @description The asset with animated captions burned in (Phase 7 motion engine).
+         */
+        CaptionPreviewOut: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "done" | "failed";
+            /**
+             * Style
+             * @enum {string}
+             */
+            style: "dynamic" | "karaoke" | "minimal" | "bold";
+            /**
+             * Position
+             * @enum {string}
+             */
+            position: "bottom" | "center" | "top";
+            /** Error */
+            error?: string | null;
+            /** Updated At */
+            updated_at?: string | null;
+            video?: components["schemas"]["SignedUrl"] | null;
+            download?: components["schemas"]["SignedUrl"] | null;
+        };
+        /** CaptionPreviewRequest */
+        CaptionPreviewRequest: {
+            /**
+             * Style
+             * @default dynamic
+             * @enum {string}
+             */
+            style: "dynamic" | "karaoke" | "minimal" | "bold";
+            /**
+             * Position
+             * @default bottom
+             * @enum {string}
+             */
+            position: "bottom" | "center" | "top";
         };
         /** ClipList */
         ClipList: {
@@ -2183,6 +2247,50 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AssetDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    request_caption_preview_api_v1_assets__asset_id__caption_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                asset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaptionPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaptionPreviewOut"];
                 };
             };
             /** @description Not Found */

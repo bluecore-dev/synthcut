@@ -32,6 +32,7 @@ The core rule: **AI decides, deterministic media engines execute.** Agents never
 | **Upload** | Resumable S3 multipart uploads up to 50 GB straight to object storage; MD5-bound presigned parts; pause, resume on another device, live progress |
 | **Media engine** | ffprobe → versioned `mediainfo/1`; colour detection (Rec.709, Display P3, Rec.2020, HLG, PQ, Apple Log); one decode pass for a 720p proxy, scene cuts, 16 kHz speech track and EBU R128 loudness; HDR tone-mapping; filmstrip and posters |
 | **Speech** | Local Whisper (`large-v3-turbo`, int8 CPU) behind a provider route; word timings, segments, questions, silences; WebVTT / SRT subtitles; Uzbek detection fix and Uzbek-Latin normalisation |
+| **Motion graphics** | Remotion overlay layer: 15 registry widgets, 4 animated caption styles with safe zones, synthesised SFX; FFmpeg composites; captioned MP4 from any clip |
 | **Shot analysis** | Per shot: shot type and people from YuNet faces, camera motion (static / pan / tilt / handheld), sharpness, exposure, speech share, retakes (perceptual hash), usability score and editor-language flags |
 | **Mini App** | Projects, live pipeline (SSE), uploads, asset pages with proxy player + subtitle track, tappable transcript, shot cards, Analysis and Transcript tabs |
 | **Operations** | Postgres-leased job queue with leases, heartbeats, retries and idempotency; release-per-commit deploys with automatic rollback; server-side test stack on real PostgreSQL / Redis / Garage |
@@ -71,7 +72,7 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and twelve [architecture d
 | 4 | Whisper, word timestamps, silences, subtitles | ✅ done |
 | 5 | Video intelligence — measured shot analysis (5a) · vision descriptions (5b) | 🟡 5a done |
 | 6 | Master, Director and Editor agents, EditPlan persistence | ⏳ next (needs model key) |
-| 7 | Remotion compositions, widget registry, animated captions | ⏳ planned |
+| 7 | Remotion compositions, widget registry, animated captions, SFX | ✅ engine done |
 | 8 | Color and Audio agents: grading, Log → Rec.709, mixing, ducking | ⏳ planned |
 | 9 | QA, error classifier, reflection, retries | ⏳ planned |
 | 10 | Memory, preferences, feedback | ⏳ planned |
@@ -88,6 +89,7 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and twelve [architecture d
 | Speech | faster-whisper (CTranslate2), Silero VAD |
 | Storage | Garage v2 (S3-compatible), presigned multipart |
 | Frontend | React 19, Vite 7, Tailwind CSS 4, TanStack Query, openapi-fetch, Telegram WebApp SDK |
+| Motion | Remotion 4 (React), Chrome Headless Shell, ProRes 4444 layers, Montserrat / Inter (OFL) |
 | Bot | aiogram 3 (webhook only) |
 | Infrastructure | Docker Compose, nginx, Let's Encrypt, release directories with rollback |
 | Quality | pytest (unit + integration on real services), Vitest, Ruff, TypeScript strict, GitHub Actions |
@@ -100,6 +102,7 @@ apps/
   worker/       background jobs: ingestion, speech, analysis, delivery, maintenance
   bot/          Telegram bot (webhook): /start /new /projects /status
   mini-app/     React Telegram Mini App
+  remotion/     motion graphics: registry widgets, captions, overlay render
 packages/
   schemas/      shared contracts: API DTOs, events, jobs, mediainfo/1, transcript/1, clipanalysis/1
   core/         settings, database, models, migrations, queue, events, stages
@@ -167,6 +170,6 @@ Proprietary — © 2026 Omonjon. All rights reserved. See [LICENSE](LICENSE).
 
 ### O'zbekcha qisqacha
 
-**SynthCut** — telefondan yuklangan katta hajmdagi videolarni avtomatik tahlil qiladigan (metadata, rang, kadrlar, yuzlar, nutq) va AI agentlar jamoasi yordamida professional montajga aylantiradigan tizim. Boshqaruv Telegram Mini App orqali, og'ir ishlar serverdagi fon ishchilarida bajariladi. Hozir 0–5a bosqichlar tayyor: rezyumli yuklash, media tahlili, nutqni matnga o'girish va subtitrlar, kadrlar tahlili. Keyingi bosqich — Director va Editor agentlari.
+**SynthCut** — telefondan yuklangan katta hajmdagi videolarni avtomatik tahlil qiladigan (metadata, rang, kadrlar, yuzlar, nutq) va AI agentlar jamoasi yordamida professional montajga aylantiradigan tizim. Boshqaruv Telegram Mini App orqali, og'ir ishlar serverdagi fon ishchilarida bajariladi. Hozir 0–5a va 7 bosqichlar tayyor: rezyumli yuklash, media tahlili, nutqni matnga o'girish va subtitrlar, kadrlar tahlili, Remotion motion grafika va animatsion subtitrli video. Keyingi bosqich — Director va Editor agentlari.
 
 **Dasturchi:** Omonjon — 4+ yillik tajribaga ega full-stack dasturchi · [+998 91 911 99 88](tel:+998919119988) · [socialmarketing.uz](https://socialmarketing.uz) · Telegram [@anvarov_911](https://t.me/anvarov_911)

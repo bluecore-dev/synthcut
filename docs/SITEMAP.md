@@ -26,6 +26,7 @@ flowchart TD
     A --> A2[Filmstrip]
     A --> A3[Kadrlar — shot cards: stills, type, motion, scores, flags]
     A --> A4[Nutq — tappable transcript, SRT download, re-run with a language]
+    A4 --> A6[Subtitrli video — 4 caption styles, 3 positions, player + MP4 download]
     A --> A5[Video · Rang · Audio · Kamera · Fayl metadata]
 ```
 
@@ -67,6 +68,7 @@ Webhook only (`/telegram/webhook/<hash of the secret>` plus the secret header); 
 | Assets | `GET /projects/{id}/assets`, `GET /assets/{id}`, `POST /assets/{id}/reingest` |
 | Speech | `GET /assets/{id}/transcript`, `POST /assets/{id}/transcribe` |
 | Analysis | `GET /assets/{id}/clips`, `GET /projects/{id}/clips`, `POST /assets/{id}/analyze` |
+| Motion | `POST /assets/{id}/caption-preview` (state in `GET /assets/{id}` → `caption_preview`) |
 | Activity | `GET /projects/{id}/jobs`, `GET /projects/{id}/events`, `GET /projects/{id}/events/stream` (SSE) |
 
 Full contract: [openapi.json](openapi.json). Another user's object is always a 404.
@@ -78,13 +80,15 @@ Full contract: [openapi.json](openapi.json). Another user's object is always a 4
 | `ingest.asset` | cpu | high | upload complete, re-ingest | `mediainfo/1`, proxy, posters, filmstrip, speech track, shots |
 | `analysis.asset` | cpu | normal | ingestion (video) | `clipanalysis/1` per shot, shot sheets |
 | `speech.transcribe` | cpu | low | ingestion (audio present) | `transcript/1`, VTT, SRT |
+| `render.caption_preview` | render | high | the user (asset page) | `overlay/1` → Remotion ProRes 4444 layer → `captions.mp4` |
 | `notify.telegram` | io | high | stage turns done | a Telegram message |
 | `maintenance.expire_uploads` | io | low | scheduler | expired upload sessions closed |
 | `maintenance.sweep_orphan_uploads` | io | low | scheduler | orphaned multipart uploads aborted |
 | `maintenance.prune_jobs` | io | low | scheduler | old system jobs removed |
 
-Workers: `worker-cpu` (queue `cpu`, concurrency 1, 2 CPUs / 3 GB) and
-`worker-io` (queues `io,llm`, scheduler). Planned queues: `gpu`, `render`.
+Workers: `worker-cpu` (media image with Node + Remotion + headless Chrome;
+queues `cpu,render`, concurrency 1, 2 CPUs / 3 GB) and `worker-io` (queues
+`io,llm`, scheduler). Planned queue: `gpu`.
 
 ## 5. Storage layout
 
@@ -96,9 +100,10 @@ projects/<project>/thumbnails/<asset>/poster.jpg | sprite.jpg | preview.jpg
 projects/<project>/analysis/<asset>/mediainfo.json | shots.json | clips.json
 projects/<project>/analysis/<asset>/shot_NNN.jpg               one sheet per shot
 projects/<project>/analysis/<asset>/transcript.json | subtitles.vtt | subtitles.srt
+projects/<project>/previews/<asset>/captions.mp4               caption preview (Phase 7)
 ```
 
-Reserved areas for later phases: `timeline/`, `previews/`, `renders/`, `exports/`.
+Reserved areas for later phases: `timeline/`, `renders/`, `exports/`.
 
 ## 6. Pipeline stages
 
@@ -125,6 +130,7 @@ Reserved areas for later phases: `timeline/`, `previews/`, `renders/`, `exports/
 | `mediainfo/1` | `synthcut_schemas.media` | `assets.media_info`, `mediainfo.json` |
 | `transcript/1` | `synthcut_schemas.speech` | `transcripts.data`, `transcript.json` |
 | `clipanalysis/1` | `synthcut_schemas.analysis` | `clip_analyses.data`, `clips.json` |
+| `overlay/1` | `synthcut_timeline.overlay` | render scratch (`overlay.json`) |
 | `EditPlan v1` | `synthcut_timeline` | Phase 6 |
 
 ## 8. Documentation

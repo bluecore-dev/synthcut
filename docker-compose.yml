@@ -134,10 +134,18 @@ services:
 
   worker-cpu:
     <<: *app
+    # The media image: the app plus Node, the Remotion bundle and headless Chrome.
+    image: synthcut/media:${SYNTHCUT_RELEASE:-dev}
+    build:
+      context: .
+      dockerfile: infrastructure/docker/python.Dockerfile
+      target: media
     command: ["python", "-m", "synthcut_worker"]
     environment:
       <<: *base-env
-      WORKER_QUEUES: cpu
+      # One worker, one job at a time, for everything that burns CPU: ingestion,
+      # analysis, Whisper and motion renders never run side by side on the shared host.
+      WORKER_QUEUES: cpu,render
       WORKER_CONCURRENCY: "1"
       SCRATCH_DIR: /scratch
       SPEECH_MODELS_DIR: /models

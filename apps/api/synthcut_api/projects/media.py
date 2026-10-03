@@ -8,12 +8,20 @@ from pathlib import PurePosixPath
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from synthcut_core.models import Asset, AssetAnalysis, AssetTranscript, ClipAnalysisRow, MediaFile
-from synthcut_schemas.api import AnalysisSummary, ClipOut, MediaFileOut, SignedUrl, TranscriptSummary
+from synthcut_core.models import Asset, AssetAnalysis, AssetTranscript, ClipAnalysisRow, Job, MediaFile
+from synthcut_schemas.api import (
+    AnalysisSummary,
+    CaptionPreviewOut,
+    ClipOut,
+    MediaFileOut,
+    SignedUrl,
+    TranscriptSummary,
+)
+from synthcut_schemas.jobs import JobKind
 from synthcut_storage import Storage
 
 # Bookkeeping files are not useful in the browser (the transcript has its own endpoint).
-HIDDEN_KINDS = {"mediainfo", "shots", "audio_speech", "transcript", "clips"}
+HIDDEN_KINDS = {"mediainfo", "shots", "audio_speech", "transcript", "clips", "caption_preview"}
 
 
 def sign(storage: Storage, key: str, ttl: int, *, download_name: str | None = None) -> SignedUrl:
@@ -148,3 +156,58 @@ async def clips_for(
             )
         )
     return out
+
+
+def latest_preview_job_stmt(asset_id: uuid.UUID):
+    return (
+        select(Job)
+        .where(Job.kind == JobKind.RENDER_CAPTION_PREVIEW, Job.payload["asset_id"].astext == str(asset_id))
+        .order_by(Job.created_at.desc())
+        .limit(1)
+    )
+
+
+async def caption_preview_state(
+    db: AsyncSession, storage: Storage, asset_id: uuid.UUID, ttl: int, *, filename: str
+) -> CaptionPreviewOut | None:
+    """Latest request (the job) plus the latest finished file, if any."""
+    job = (await db.execute(latest_preview_job_stmt(asset_id))).scalar_one_or_none()
+    done = (
+        await db.execute(
+            select(MediaFile).where(MediaFile.asset_id == asset_id, MediaFile.kind == "caption_preview")
+        )
+    ).scalar_one_or_none()
+    if job is None and done is None:
+        return None
+    links = {}
+    if done is not None:
+        stem = PurePosixPath(filename).stem or "video"
+        links = {
+            "video": sign(storage, done.storage_key, ttl),
+            "download": sign(storage, done.storage_key, ttl, download_name=f"{stem}_subtitr.mp4"),
+        }
+    if job is not None and job.status in ("queued", "running"):
+        status, error = job.status, None
+    elif (
+        job is not None
+        and job.status in ("dead", "cancelled")
+        and (done is None or done.updated_at < job.updated_at)
+    ):
+        status, error = "failed", ((job.error or {}).get("message") or "xato")[:300]
+    else:
+        status, error = "done", None
+    source = (
+        job.payload
+        if job is not None and status != "done"
+        else (done.meta if done is not None else job.payload)
+    )
+    return CaptionPreviewOut(
+        status=status,
+        style=source.get("style", "dynamic"),
+        position=source.get("position", "bottom"),
+        error=error,
+        updated_at=(
+            job.updated_at if job is not None and status != "done" else (done.updated_at if done else None)
+        ),
+        **(links if done is not None else {}),
+    )

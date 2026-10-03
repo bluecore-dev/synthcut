@@ -209,3 +209,21 @@ def scene_detect(proxy: Path, *, threshold: float = 12.0, binary: str = "ffmpeg"
         binary, *BASE, "-loglevel", "info", "-i", str(proxy), "-an",
         "-vf", f"scale=320:-2,scdet=threshold={threshold}", "-f", "null", "-",
     ]  # fmt: skip
+
+
+def composite_overlay(
+    background: str | Path, overlay: Path, out: Path, *, threads: int = 2, crf: int = 21
+) -> list[str]:
+    """The motion layer (transparent ProRes 4444 from Remotion) over the
+    picture (spec rule 19: Remotion draws, FFmpeg composites). Frames are
+    matched by timestamp, so a 30 fps layer sits correctly on 29.97 fps footage."""
+    return [
+        "ffmpeg", "-hide_banner", "-nostdin", "-y", "-threads", str(threads),
+        "-i", str(background),
+        "-i", str(overlay),
+        "-filter_complex", "[0:v][1:v]overlay=0:0:format=auto:eof_action=pass,format=yuv420p[v]",
+        "-map", "[v]", "-map", "0:a?",
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", str(crf), "-pix_fmt", "yuv420p",
+        "-c:a", "copy", "-movflags", "+faststart",
+        "-progress", "pipe:1", "-nostats", str(out),
+    ]  # fmt: skip

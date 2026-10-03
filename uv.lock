@@ -1776,6 +1776,7 @@ dependencies = [
     { name = "synthcut-speech" },
     { name = "synthcut-storage" },
     { name = "synthcut-telemetry" },
+    { name = "synthcut-timeline" },
 ]
 
 [package.metadata]
@@ -1788,6 +1789,7 @@ requires-dist = [
     { name = "synthcut-speech", editable = "packages/speech" },
     { name = "synthcut-storage", editable = "packages/storage" },
     { name = "synthcut-telemetry", editable = "packages/telemetry" },
+    { name = "synthcut-timeline", editable = "packages/timeline" },
 ]
 
 [[package]]

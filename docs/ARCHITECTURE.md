@@ -93,7 +93,6 @@ apps/api            synthcut_api      routers/ auth/ projects/ uploads/ renders/
 apps/worker         synthcut_worker   maintenance/ ingestion/ analysis/ speech/ render/ delivery/
 apps/bot            synthcut_bot      handlers/ keyboards/
 apps/mini-app       React + TS + Vite + Tailwind 4
-apps/remotion       Phase 7
 packages/core       synthcut_core     settings, db, models, jobs, events, stages, projects, migrations
 packages/schemas    synthcut_schemas  enums, API DTOs, event + job payload contracts
 packages/timeline   synthcut_timeline EditPlan v1, validation, registry, versioning
@@ -104,6 +103,7 @@ packages/model-router synthcut_model_router roles → provider:model, pricing, f
 packages/media-engine synthcut_media    ffprobe → MediaInfo, colour detection, ffmpeg plans, runner
 packages/speech     synthcut_speech   speech engines (SPEECH_ROUTE), silences, subtitle cues → transcript/1
 packages/analysis   synthcut_analysis shot measurements, YuNet faces, scores and flags → clipanalysis/1
+apps/remotion       Remotion app   registry widgets, captions, overlay composition, render script
 agents              synthcut_agents   13 agent manifests + tool catalog
 infrastructure/     docker/ nginx/ garage/ deployment/ postgres/ redis/
 docs/               ARCHITECTURE.md (this), ERD.md, adr/, openapi.json
@@ -151,6 +151,7 @@ the single source of truth from database to React.
 | GET | `/api/v1/assets/{id}/clips` | per-shot `clipanalysis/1` records with sheets |
 | GET | `/api/v1/projects/{id}/clips` | every analysed shot of the project (`min_usable`) |
 | POST | `/api/v1/assets/{id}/analyze` | analyse the shots again |
+| POST | `/api/v1/assets/{id}/caption-preview` | render the clip with animated captions (style, position) |
 | GET | `/api/v1/projects/{id}/jobs` | job history |
 | GET | `/api/v1/projects/{id}/events` | activity log (paged) |
 | GET | `/api/v1/projects/{id}/events/stream` | SSE, resumable with `Last-Event-ID` |
@@ -327,6 +328,35 @@ can be argued with. `GET /assets/{id}/clips`, `GET /projects/{id}/clips`
 **Analysis** stage counts it (`skipped` without video). Semantic fields stay
 empty until the vision agent (5b) runs with a model key.
 
+## 8d. Motion graphics and captions (Phase 7, ADR-0013)
+
+* **Registry** — 15 components (`GamifiedTimer`, `QuizCard`, `AbacusWidget`,
+  `DocumentCard`, `ScoreCounter`, `AnimatedSubtitle`, `TitleCard`, `CTA`,
+  `LogoReveal`, `ProgressBar`, `Chart`, `PhoneMockup`, `Notification`,
+  `Highlight`, `Callout`), each with a typed props model (text limits are
+  layout limits), a shared entrance / exit (`enter`, `exit`), an optional
+  accent colour and a default sound effect (`sfx/pop`, `whoosh`, `ding`,
+  `tick`, `notify` — synthesised, `assets/sfx`).
+* **`overlay/1`** (`synthcut_timeline.overlay.build_overlay`) — frames, filled
+  props, safe zones (9:16 keeps clear of the like/comment column and the
+  description), theme, asset image URLs, and caption lines on the output
+  timeline: words mapped through clip source ranges and speed, at most
+  `max_words_per_line` per line (3 on vertical, 4 on horizontal), broken at
+  sentence ends, pauses ≥ 0.6 s, 3 s and cuts.
+* **Remotion** (`apps/remotion`) — one `Overlay` composition draws every
+  component and the captions (styles `dynamic`, `karaoke`, `minimal`, `bold`)
+  on a transparent background; `scripts/render.mjs` renders ProRes 4444.
+  `Widget-<Name>` compositions preview each component in Remotion Studio.
+* **Compositing** — FFmpeg overlays the layer on the picture by timestamp
+  (`synthcut_media.composite_overlay`).
+
+Until the Director exists (Phase 6) the engine is exercised by the **caption
+preview**: `POST /assets/{id}/caption-preview` (style, position) queues
+`render.caption_preview` (render queue, high priority), which builds a
+one-clip plan from the proxy, validates it, renders the layer and composites
+it over the proxy into `previews/<asset>/captions.mp4`. The Motion and
+Captions *stages* stay locked until plans exist.
+
 ## 9. Queue design (ADR-0002)
 
 PostgreSQL `jobs` is the ledger; Redis only rings the bell.
@@ -426,7 +456,7 @@ activity log in `events`. `/api/v1/ready` checks database, Redis and storage.
 | 4 | Whisper, word timestamps, silence, subtitles | **done** (local CPU Whisper; a hosted engine is one provider away) |
 | 5 | Video Analysis agent | **5a done** (measured shot analysis); 5b vision description needs `ANTHROPIC_API_KEY` |
 | 6 | Master, Director, Editor, EditPlan persistence | needs `ANTHROPIC_API_KEY` |
-| 7 | Remotion compositions, widget registry, subtitles | |
+| 7 | Remotion compositions, widget registry, subtitles | **engine done** (15 components, captions, SFX, caption preview); stages run once Phase 6 makes plans |
 | 8 | Color + Audio agents, grading, mixing, ducking | |
 | 9 | QA, error classifier, reflection, retries | |
 | 10 | Memory, preferences, feedback | |

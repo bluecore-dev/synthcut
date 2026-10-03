@@ -48,9 +48,40 @@ def run_ffmpeg(
     timeout: float = 3600,
     keep_lines: int = 4000,
 ) -> str:
-    """Run and return stderr (log) text. ``check`` is called about twice a
-    second and may raise to abort (cancellation, shutdown); the process is then
-    terminated and the exception propagates."""
+    """Run FFmpeg and return stderr (log) text. ``check`` is called about twice
+    a second and may raise to abort (cancellation, shutdown); the process is
+    then terminated and the exception propagates."""
+
+    def progress(line: str) -> float | None:
+        seconds = parse_progress_seconds(line)
+        return min(1.0, seconds / duration) if seconds is not None and duration else None
+
+    return run_tool(
+        args,
+        name="FFmpeg",
+        progress=progress,
+        on_progress=on_progress,
+        check=check,
+        timeout=timeout,
+        keep_lines=keep_lines,
+    )
+
+
+def run_tool(
+    args: list[str],
+    *,
+    name: str,
+    progress: Callable[[str], float | None] | None = None,
+    on_progress: Callable[[float], None] | None = None,
+    check: Callable[[], None] | None = None,
+    timeout: float = 3600,
+    keep_lines: int = 4000,
+    permanent_markers: tuple[str, ...] = PERMANENT_MARKERS,
+    env: dict[str, str] | None = None,
+    cwd: str | None = None,
+) -> str:
+    """Any media tool under the worker's rules (nice, cancellable, bounded).
+    ``progress`` turns one stdout line into a 0..1 fraction (or None)."""
     proc = subprocess.Popen(
         [*NICE, *args],
         stdout=subprocess.PIPE,
@@ -58,6 +89,8 @@ def run_ffmpeg(
         stdin=subprocess.DEVNULL,
         text=True,
         errors="replace",
+        env=env,
+        cwd=cwd,
     )
     log: deque[str] = deque(maxlen=keep_lines)
 
@@ -69,9 +102,9 @@ def run_ffmpeg(
     def read_stdout() -> None:
         assert proc.stdout is not None
         for line in proc.stdout:
-            seconds = parse_progress_seconds(line)
-            if seconds is not None and duration and on_progress:
-                on_progress(min(1.0, seconds / duration))
+            fraction = progress(line) if progress else None
+            if fraction is not None and on_progress:
+                on_progress(fraction)
 
     readers = [
         threading.Thread(target=read_stderr, daemon=True),
@@ -85,7 +118,7 @@ def run_ffmpeg(
             if check is not None:
                 check()
             if time.monotonic() > deadline:
-                raise MediaError("FFmpeg vaqt chegarasidan oshdi", permanent=False)
+                raise MediaError(f"{name} vaqt chegarasidan oshdi", permanent=False)
             time.sleep(0.5)
     except BaseException:
         proc.terminate()
@@ -105,8 +138,8 @@ def run_ffmpeg(
         # container's memory limit (OOM killer, SIGKILL). Worth a retry.
         signal_no = -proc.returncode
         hint = " — ehtimol xotira yetmadi" if signal_no == 9 else ""
-        raise MediaError(f"FFmpeg to'xtatildi (signal {signal_no}){hint}", permanent=False)
+        raise MediaError(f"{name} to'xtatildi (signal {signal_no}){hint}", permanent=False)
     if proc.returncode != 0:
-        permanent = any(marker in text for marker in PERMANENT_MARKERS)
-        raise MediaError(f"FFmpeg xatosi ({proc.returncode}): {_error_tail(list(log))}", permanent=permanent)
+        permanent = any(marker in text for marker in permanent_markers)
+        raise MediaError(f"{name} xatosi ({proc.returncode}): {_error_tail(list(log))}", permanent=permanent)
     return text

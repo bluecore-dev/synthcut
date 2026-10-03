@@ -38,6 +38,8 @@ class EventType(StrEnum):
     TRANSCRIPT_FAILED = "transcript.failed"
     ANALYSIS_READY = "analysis.ready"
     ANALYSIS_FAILED = "analysis.failed"
+    PREVIEW_READY = "preview.ready"
+    PREVIEW_FAILED = "preview.failed"
 
     STAGE_UPDATED = "stage.updated"
 

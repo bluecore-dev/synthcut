@@ -61,7 +61,7 @@ erDiagram
     media_files {
         uuid id PK
         uuid asset_id FK
-        text kind "proxy_720p | poster | sprite | audio_speech | audio_proxy | preview | shots | mediainfo | transcript | subtitles_vtt | subtitles_srt"
+        text kind "proxy_720p | poster | sprite | audio_speech | audio_proxy | preview | shots | mediainfo | transcript | subtitles_vtt | subtitles_srt | clips | caption_preview"
         text storage_key UK "projects/<p>/<area>/<a>/<name>"
         bigint size_bytes
         jsonb metadata "tiles, interval, shots, tonemapped..."

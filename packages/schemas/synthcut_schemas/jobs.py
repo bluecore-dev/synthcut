@@ -7,6 +7,7 @@ permanently instead of crashing deep inside media code.
 
 from __future__ import annotations
 
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -16,6 +17,7 @@ class JobKind:
     INGEST_ASSET = "ingest.asset"
     TRANSCRIBE_ASSET = "speech.transcribe"
     ANALYZE_ASSET = "analysis.asset"
+    RENDER_CAPTION_PREVIEW = "render.caption_preview"
     EXPIRE_UPLOADS = "maintenance.expire_uploads"
     SWEEP_ORPHAN_UPLOADS = "maintenance.sweep_orphan_uploads"
     PRUNE_JOBS = "maintenance.prune_jobs"
@@ -26,6 +28,7 @@ JOB_LABELS: dict[str, str] = {
     JobKind.INGEST_ASSET: "Media ingest",
     JobKind.TRANSCRIBE_ASSET: "Nutqni matnga o'girish",
     JobKind.ANALYZE_ASSET: "Kadrlar tahlili",
+    JobKind.RENDER_CAPTION_PREVIEW: "Subtitrli video",
     JobKind.EXPIRE_UPLOADS: "Eskirgan yuklashlarni tozalash",
     JobKind.SWEEP_ORPHAN_UPLOADS: "Yetim multipart yuklashlarni tozalash",
     JobKind.PRUNE_JOBS: "Eski tizim job'larini tozalash",
@@ -61,6 +64,12 @@ class AnalyzeAssetPayload(_Payload):
     force: bool = False  # re-run on an asset whose analysis is already done
 
 
+class CaptionPreviewPayload(_Payload):
+    asset_id: UUID
+    style: Literal["dynamic", "karaoke", "minimal", "bold"] = "dynamic"
+    position: Literal["bottom", "center", "top"] = "bottom"
+
+
 class ExpireUploadsPayload(_Payload):
     pass
 
@@ -83,6 +92,7 @@ PAYLOAD_MODELS: dict[str, type[_Payload]] = {
     JobKind.INGEST_ASSET: IngestAssetPayload,
     JobKind.TRANSCRIBE_ASSET: TranscribeAssetPayload,
     JobKind.ANALYZE_ASSET: AnalyzeAssetPayload,
+    JobKind.RENDER_CAPTION_PREVIEW: CaptionPreviewPayload,
     JobKind.EXPIRE_UPLOADS: ExpireUploadsPayload,
     JobKind.SWEEP_ORPHAN_UPLOADS: SweepOrphanUploadsPayload,
     JobKind.PRUNE_JOBS: PruneJobsPayload,

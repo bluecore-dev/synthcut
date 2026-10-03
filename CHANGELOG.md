@@ -5,6 +5,16 @@ All notable changes, phase by phase. Releases are deployed as
 
 ## [Unreleased]
 
+## Phase 7 — motion graphics engine · 2026-10-04
+
+- Remotion app (`apps/remotion`): one transparent `Overlay` composition, the 15 registry widgets, a shared enter / exit animation system, bundled Montserrat / Inter with Uzbek Latin and Cyrillic coverage, Studio previews per widget.
+- Caption engine: transcript words mapped through the edit to the output timeline, short lines (never across a cut), four styles — dynamic, karaoke, minimal, bold — inside platform safe zones.
+- Typed props for every component (`E_COMPONENT_PROPS` now enforced); TypeScript types generated from the Python registry.
+- Procedural SFX library (pop, whoosh, ding, tick, notify) synthesised with FFmpeg.
+- Layer rendered as ProRes 4444 (5.6× faster than VP8 + alpha) and composited by FFmpeg.
+- Caption preview: animated captions burned into any transcribed clip, with player and MP4 download in the Mini App.
+- Media image: Node, the Remotion bundle and Chrome Headless Shell; the media worker takes `cpu` and `render`.
+
 - Deploys keep 3 releases instead of 5; SynthCut images carry a label so only their own dangling images are pruned on the shared host.
 
 ## Phase 5a — measured shot analysis · 2026-10-04

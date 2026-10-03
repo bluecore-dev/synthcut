@@ -7,6 +7,7 @@ from .commands import (
     ProxyPlan,
     SpritePlan,
     audio_main_pass,
+    composite_overlay,
     has_filter,
     image_preview,
     plan_proxy,
@@ -22,7 +23,7 @@ from .errors import MediaError
 from .models import AudioStream, ColorInfo, Loudness, MediaInfo, VideoStream
 from .parse import parse_loudness, parse_progress_seconds, parse_scene_cuts, shots_from_cuts
 from .probe import normalize, run_ffprobe
-from .runner import run_ffmpeg
+from .runner import run_ffmpeg, run_tool
 
 __all__ = [
     "AudioStream",
@@ -35,6 +36,7 @@ __all__ = [
     "VideoStream",
     "audio_main_pass",
     "classify_color",
+    "composite_overlay",
     "has_filter",
     "image_preview",
     "normalize",
@@ -47,6 +49,7 @@ __all__ = [
     "proxy_size",
     "run_ffmpeg",
     "run_ffprobe",
+    "run_tool",
     "scene_detect",
     "shots_from_cuts",
     "sprite",

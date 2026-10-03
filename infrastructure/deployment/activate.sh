@@ -33,7 +33,7 @@ PREV=$( [ -n "$PREV_DIR" ] && basename "$PREV_DIR" || true )
 log() { printf '\n== %s\n' "$*"; }
 
 log "build $REL"
-compose "$DIR" "$REL" build migrate web
+compose "$DIR" "$REL" build migrate web worker-cpu
 
 log "nginx + certificate (before the bot registers its webhook)"
 install_site() { # install_site <template>; restores the previous file if nginx -t fails
@@ -121,7 +121,7 @@ for ((i = 0; i < count - KEEP_RELEASES; i++)); do
   old=${releases[$i]}
   if [ "$old" = "$REL" ] || [ "$old" = "$PREV" ]; then continue; fi
   rm -rf -- "${ROOT:?}/releases/${old:?}"
-  docker image rm "synthcut/app:$old" "synthcut/web:$old" >/dev/null 2>&1 || true
+  docker image rm "synthcut/app:$old" "synthcut/web:$old" "synthcut/media:$old" >/dev/null 2>&1 || true
   echo "pruned $old"
 done
 # Untagged leftovers of earlier SynthCut builds only (label-scoped; the host is shared).
