@@ -37,9 +37,7 @@ from synthcut_media import (
     poster,
     run_ffmpeg,
     run_ffprobe,
-    scene_detect,
     shots_from_cuts,
-    sprite,
     video_main_pass,
 )
 from synthcut_schemas.enums import AssetStatus, EventLevel, JobPriority, JobQueue, StageStatus
@@ -98,7 +96,9 @@ class Outcome:
 # --------------------------------------------------------------------------- lifecycle
 
 
-def _start(ctx: JobContext, asset_id: uuid.UUID) -> tuple[AssetRef | None, str | None]:
+def _start(
+    ctx: JobContext, asset_id: uuid.UUID, *, force: bool = False
+) -> tuple[AssetRef | None, str | None]:
     with ctx.session() as s:
         asset = s.get(Asset, asset_id, with_for_update=True)
         if asset is None or asset.deleted_at is not None:
@@ -106,12 +106,13 @@ def _start(ctx: JobContext, asset_id: uuid.UUID) -> tuple[AssetRef | None, str |
         if asset.project_id != ctx.job.project_id:
             # Worker sandbox (spec §39): a job may only touch its own project.
             raise PermanentError("asset belongs to another project")
-        if asset.status == AssetStatus.READY.value:
+        if asset.status == AssetStatus.READY.value and not force:
             return None, "already_ready"
         if asset.status not in (
             AssetStatus.UPLOADED.value,
             AssetStatus.INGESTING.value,
             AssetStatus.FAILED.value,
+            AssetStatus.READY.value,
         ):
             raise PermanentError(f"asset is {asset.status}, not uploaded")
         asset.status = AssetStatus.INGESTING.value
@@ -157,7 +158,7 @@ def _fail(ctx: JobContext, ref: AssetRef, message: str) -> None:
 
 @handler(JobKind.INGEST_ASSET, queue=JobQueue.CPU)
 def ingest_asset(ctx: JobContext, payload: IngestAssetPayload) -> dict[str, Any]:
-    ref, skipped = _start(ctx, payload.asset_id)
+    ref, skipped = _start(ctx, payload.asset_id, force=payload.force)
     if ref is None:
         return {"skipped": skipped}
     try:
@@ -238,10 +239,22 @@ def _ingest(ctx: JobContext, ref: AssetRef) -> Outcome:
         plan = plan_proxy(info, short_side=settings.media_proxy_short_side)
         proxy = work / "proxy_720p.mp4"
         speech = work / "speech_16k.flac" if info.audio else None
+        sprite_path = work / "sprite.jpg"
+        duration = info.duration or 0.0
+        tiles = max(1, min(12, int(duration)))
         log = run_ffmpeg(
-            video_main_pass(url, plan=plan, proxy=proxy, speech=speech, threads=settings.media_threads),
+            video_main_pass(
+                url,
+                plan=plan,
+                proxy=proxy,
+                speech=speech,
+                sprite_path=sprite_path,
+                sprite_tiles=tiles,
+                duration=duration,
+                threads=settings.media_threads,
+            ),
             duration=info.duration,
-            on_progress=progress(0.15, 0.70, "proxy"),
+            on_progress=progress(0.15, 0.80, "proxy"),
             check=ctx.check,
             timeout=_timeout(info.duration),
         )
@@ -267,31 +280,27 @@ def _ingest(ctx: JobContext, ref: AssetRef) -> Outcome:
                 Derived("audio_speech", speech, "audio/flac", duration=duration, meta={"rate": 16000})
             )
 
-        ctx.progress(0.86, "thumbnails", data=tag)
+        ctx.progress(0.96, "thumbnails", data=tag)
         poster_path = work / "poster.jpg"
         run_ffmpeg(poster(proxy, poster_path, at=min(1.0, duration * 0.1)), check=ctx.check, timeout=120)
         files.append(Derived("poster", poster_path, "image/jpeg", *_image_size(poster_path)))
-        tiles = max(1, min(12, int(duration)))
-        sprite_path = work / "sprite.jpg"
-        run_ffmpeg(sprite(proxy, sprite_path, duration=duration, tiles=tiles), check=ctx.check, timeout=300)
-        sw, sh = _image_size(sprite_path)
-        files.append(
-            Derived(
-                "sprite",
-                sprite_path,
-                "image/jpeg",
-                sw,
-                sh,
-                meta={
-                    "tiles": tiles,
-                    "tile_width": (sw or 0) // tiles,
-                    "interval": round(duration / tiles, 3),
-                },
+        if sprite_path.exists():
+            sw, sh = _image_size(sprite_path)
+            files.append(
+                Derived(
+                    "sprite",
+                    sprite_path,
+                    "image/jpeg",
+                    sw,
+                    sh,
+                    meta={
+                        "tiles": tiles,
+                        "tile_width": (sw or 0) // tiles,
+                        "interval": round(duration / tiles, 3),
+                    },
+                )
             )
-        )
 
-        ctx.progress(0.92, "shots", data=tag)
-        log = run_ffmpeg(scene_detect(proxy), check=ctx.check, timeout=_timeout(duration) / 4)
         cuts = parse_scene_cuts(log.splitlines())
         shots = shots_from_cuts(cuts, duration)
         shots_path = work / "shots.json"

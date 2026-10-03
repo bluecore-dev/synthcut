@@ -39,6 +39,9 @@ class _Payload(BaseModel):
 
 class IngestAssetPayload(_Payload):
     asset_id: UUID
+    # Re-run on an asset that is already ready (the media engine improved).
+    # Only derived files are rewritten; the original is never touched.
+    force: bool = False
 
 
 class ExpireUploadsPayload(_Payload):

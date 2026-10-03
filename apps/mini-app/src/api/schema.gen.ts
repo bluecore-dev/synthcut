@@ -225,6 +225,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/assets/{asset_id}/reingest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reingest Asset
+         * @description Run ingestion again (after a media-engine update). Derived files are
+         *     rewritten in place; the original is only read.
+         */
+        post: operations["reingest_asset_api_v1_assets__asset_id__reingest_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/uploads": {
         parameters: {
             query?: never;
@@ -564,7 +585,7 @@ export interface components {
              * Profile
              * @enum {string}
              */
-            profile: "rec709" | "rec2020_sdr" | "hlg" | "pq" | "apple_log" | "log_suspected" | "srgb" | "unknown";
+            profile: "rec709" | "rec2020_sdr" | "display_p3" | "hlg" | "pq" | "apple_log" | "log_suspected" | "srgb" | "unknown";
             /** Label */
             label: string;
             /**
@@ -1764,6 +1785,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobList"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reingest_asset_api_v1_assets__asset_id__reingest_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                asset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetOut"];
                 };
             };
             /** @description Not Found */

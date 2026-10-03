@@ -9,6 +9,7 @@ Rules, in order of how much the tags can be trusted:
   what Log footage looks like from the outside: Apple Log when the camera is
   an Apple device (medium), otherwise "Log (suspected)" (low). The user can
   correct it later; the original is never altered either way.
+* P3 primaries with an SDR transfer → Display P3 (Apple's SDR default).
 * BT.709-family transfer/primaries → Rec.709. Untagged 8-bit → Rec.709, low.
 """
 
@@ -87,6 +88,9 @@ def classify_color(
             reasons=[*reasons, "10-bit, transfer not declared"],
         )
 
+    if prim in ("smpte432", "smpte431") and (trc in _SDR_709_TRC or trc in _UNSET):
+        # Apple devices record SDR in Display P3 (P3-D65 primaries, BT.709 transfer).
+        return ColorInfo(profile="display_p3", label="Display P3", confidence="high", reasons=reasons)
     if prim == "bt2020" and trc in _SDR_709_TRC | {"bt2020-10", "bt2020-12"}:
         return ColorInfo(profile="rec2020_sdr", label="Rec.2020 SDR", confidence="medium", reasons=reasons)
     if trc in _SDR_709_TRC or prim in _709_PRIMARIES:

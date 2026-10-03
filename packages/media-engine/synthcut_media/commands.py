@@ -48,6 +48,7 @@ class ProxyPlan:
     height: int
     tonemap: bool
     color_note: str  # what the proxy shows, for the UI and later agents
+    gamut_to_709: bool = False
 
 
 def plan_proxy(info: MediaInfo, *, short_side: int = 720, zscale: bool | None = None) -> ProxyPlan:
@@ -63,6 +64,8 @@ def plan_proxy(info: MediaInfo, *, short_side: int = 720, zscale: bool | None = 
         return ProxyPlan(
             w, h, False, f"{color.label} — flat Log image, no transform (Phase 8 colour pipeline)"
         )
+    if color and color.profile in ("display_p3", "rec2020_sdr") and zscale:
+        return ProxyPlan(w, h, False, f"{color.label} → Rec.709 (gamut)", gamut_to_709=True)
     return ProxyPlan(w, h, False, color.label if color else "Rec.709")
 
 
@@ -77,6 +80,8 @@ def video_filter(plan: ProxyPlan) -> str:
             "tonemap=tonemap=hable:desat=0",
             "zscale=t=bt709:m=bt709:r=tv",
         ]
+    elif plan.gamut_to_709:
+        chain += ["zscale=p=bt709:t=bt709:m=bt709:r=tv"]
     chain += ["setsar=1", "format=yuv420p"]
     return ",".join(chain)
 
@@ -90,15 +95,28 @@ def video_main_pass(
     plan: ProxyPlan,
     proxy: Path,
     speech: Path | None,
+    sprite_path: Path,
+    sprite_tiles: int,
+    duration: float,
     threads: int = 2,
+    scene_threshold: float = 12.0,
     binary: str = "ffmpeg",
 ) -> list[str]:
-    """One decode of the original produces the proxy, the speech track for
-    Whisper and the loudness measurement (the decode is the expensive part)."""
+    """One decode of the original feeds everything: the scaled frames are split
+    into the proxy encoder, scene detection and the filmstrip, and the audio
+    into the proxy, the Whisper track and the loudness meter. Decoding is the
+    expensive part; separate passes over the proxy for cuts and the filmstrip
+    cost ~40% more on the shared VPS (measured)."""
+    rate = sprite_tiles / max(duration, 0.1)
+    graph = (
+        f"[0:v:0]{video_filter(plan)},split=3[proxy][cuts][strip];"
+        f"[cuts]scale=320:-2,scdet=threshold={scene_threshold},nullsink;"
+        f"[strip]fps={rate:.6f},scale=-2:120,tile={sprite_tiles}x1[sprite]"
+    )
     args = [binary, *BASE, "-loglevel", "info", "-progress", "pipe:1", "-threads", str(threads), "-i", source]
     args += [
-        "-map", "0:v:0",
-        "-vf", video_filter(plan),
+        "-filter_complex", graph,
+        "-map", "[proxy]",
         "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-profile:v", "high", "-pix_fmt", "yuv420p",
         "-threads", str(threads),
         "-force_key_frames", "expr:gte(t,n_forced*2)",
@@ -110,6 +128,7 @@ def video_main_pass(
     else:
         args += ["-an"]
     args += ["-sn", "-dn", "-movflags", "+faststart", str(proxy)]
+    args += ["-map", "[sprite]", "-frames:v", "1", "-q:v", "4", str(sprite_path)]
     if speech is not None:
         args += speech_outputs(speech)
     return args

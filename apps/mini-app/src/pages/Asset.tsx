@@ -1,15 +1,15 @@
-import { useQuery } from "@tanstack/react-query";
-import { Play } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Play, RefreshCw } from "lucide-react";
 import { useRef, type ReactNode } from "react";
-import { useParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 import { api, unwrap, type AssetDetail } from "../api/client";
 import { colorTone } from "../components/AssetList";
-import { Badge, Card, ErrorNote, SectionLabel, Skeleton } from "../components/ui";
+import { Badge, Button, Card, ErrorNote, SectionLabel, Skeleton } from "../components/ui";
 import { useBackButton } from "../hooks/useBackButton";
 import { formatBytes, formatDuration } from "../services/format";
 import { stableUrl } from "../services/urlcache";
 import { ASSET_STATUS_LABEL } from "../strings";
-import { haptic } from "../telegram";
+import { confirmDialog, haptic } from "../telegram";
 
 type File = AssetDetail["files"][number];
 
@@ -61,6 +61,18 @@ export function AssetPage() {
   const { id = "", assetId = "" } = useParams();
   useBackButton(`/p/${id}?tab=assets`);
   const video = useRef<HTMLVideoElement>(null);
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+  const reingest = useMutation({
+    mutationFn: () => unwrap(api.POST("/api/v1/assets/{asset_id}/reingest", { params: { path: { asset_id: assetId } } })),
+    onSuccess: () => {
+      haptic.success();
+      void qc.invalidateQueries({ queryKey: ["asset", assetId] });
+      void qc.invalidateQueries({ queryKey: ["assets", id] });
+      navigate(`/p/${id}?tab=assets`, { replace: true });
+    },
+    onError: () => haptic.error(),
+  });
   const q = useQuery({
     queryKey: ["asset", assetId],
     queryFn: () => unwrap(api.GET("/api/v1/assets/{asset_id}", { params: { path: { asset_id: assetId } } })),
@@ -205,6 +217,24 @@ export function AssetPage() {
         <Row label="SHA-256">{a.sha256 ? <span className="font-mono text-[11px]">{a.sha256}</span> : null}</Row>
         <Row label="Original">o'zgartirilmaydi (immutable)</Row>
       </Section>
+
+      {(a.status === "ready" || a.status === "failed") && (
+        <div>
+          <Button
+            className="w-full"
+            loading={reingest.isPending}
+            icon={<RefreshCw className="size-4" />}
+            onClick={async () => {
+              if (await confirmDialog("Fayl qayta tahlil qilinsinmi? Proxy va thumbnail'lar yangidan yaratiladi, original o'zgarmaydi.")) {
+                reingest.mutate();
+              }
+            }}
+          >
+            Qayta tahlil qilish
+          </Button>
+          {reingest.isError && <ErrorNote>{(reingest.error as Error).message}</ErrorNote>}
+        </div>
+      )}
     </div>
   );
 }

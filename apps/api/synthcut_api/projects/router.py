@@ -4,8 +4,9 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Query
-from sqlalchemy import select
+from sqlalchemy import func, select
 from synthcut_core.events import commit_and_publish
+from synthcut_core.jobs import enqueue_async
 from synthcut_core.models import Asset, Job, Project, UploadSession
 from synthcut_core.projects import (
     archive_project,
@@ -15,9 +16,11 @@ from synthcut_core.projects import (
     project_detail,
     update_project,
 )
+from synthcut_core.stages import refresh_ingest_stage_async
 from synthcut_schemas.api import (
     AssetDetail,
     AssetList,
+    AssetOut,
     ErrorResponse,
     JobList,
     JobOut,
@@ -27,10 +30,11 @@ from synthcut_schemas.api import (
     ProjectOut,
     ProjectUpdate,
 )
-from synthcut_schemas.enums import PRESET_SPECS, UploadSessionStatus
+from synthcut_schemas.enums import PRESET_SPECS, AssetStatus, JobPriority, JobQueue, UploadSessionStatus
+from synthcut_schemas.jobs import JobKind
 
 from ..deps import AppSettings, CurrentUser, DbSession, RedisClient, StorageClient
-from ..errors import not_found
+from ..errors import ApiError, not_found
 from ..uploads.service import asset_out
 from .media import files_for, posters
 
@@ -147,3 +151,44 @@ async def list_jobs(
         select(Job).where(Job.project_id == project_id).order_by(Job.created_at.desc()).limit(limit)
     )
     return JobList(items=[JobOut.model_validate(j) for j in rows.scalars()])
+
+
+@router.post("/assets/{asset_id}/reingest", response_model=AssetOut, status_code=202)
+async def reingest_asset(
+    asset_id: uuid.UUID, user: CurrentUser, db: DbSession, redis: RedisClient
+) -> AssetOut:
+    """Run ingestion again (after a media-engine update). Derived files are
+    rewritten in place; the original is only read."""
+    asset = (
+        await db.execute(
+            select(Asset)
+            .join(Project, Project.id == Asset.project_id)
+            .where(Asset.id == asset_id, Project.owner_id == user.id, Asset.deleted_at.is_(None))
+            .with_for_update(of=Asset)
+        )
+    ).scalar_one_or_none()
+    if asset is None:
+        raise not_found("Fayl")
+    if asset.status not in (AssetStatus.READY.value, AssetStatus.FAILED.value) or asset.uploaded_at is None:
+        raise ApiError(409, "not_ingestable", "Bu fayl hozir qayta tahlil qilinmaydi")
+    runs = (
+        await db.execute(
+            select(func.count()).where(
+                Job.kind == JobKind.INGEST_ASSET, Job.payload["asset_id"].astext == str(asset.id)
+            )
+        )
+    ).scalar_one()
+    asset.status = AssetStatus.UPLOADED.value
+    asset.error = None
+    await enqueue_async(
+        db,
+        kind=JobKind.INGEST_ASSET,
+        queue=JobQueue.CPU,
+        payload={"asset_id": str(asset.id), "force": True},
+        project_id=asset.project_id,
+        priority=JobPriority.HIGH,
+        idempotency_key=f"{JobKind.INGEST_ASSET}:{asset.id}:r{runs}",
+    )
+    await refresh_ingest_stage_async(db, asset.project_id, source="api")
+    await commit_and_publish(db, redis)
+    return asset_out(asset)

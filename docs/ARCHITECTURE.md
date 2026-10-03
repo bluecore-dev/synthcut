@@ -139,7 +139,9 @@ the single source of truth from database to React.
 | GET/POST | `/api/v1/projects` | list / create |
 | GET/PATCH | `/api/v1/projects/{id}` | detail (stages, progress, cost) / update |
 | POST | `/api/v1/projects/{id}/archive` | archive |
-| GET | `/api/v1/projects/{id}/assets` | assets incl. live upload state |
+| GET | `/api/v1/projects/{id}/assets` | assets incl. live upload state and poster |
+| GET | `/api/v1/assets/{id}` | MediaInfo, shots, proxy/poster/filmstrip links |
+| POST | `/api/v1/assets/{id}/reingest` | run ingestion again |
 | GET | `/api/v1/projects/{id}/jobs` | job history |
 | GET | `/api/v1/projects/{id}/events` | activity log (paged) |
 | GET | `/api/v1/projects/{id}/events/stream` | SSE, resumable with `Last-Event-ID` |
@@ -217,16 +219,19 @@ streamed from Garage over the private network — never copied to scratch:
    (`has_location` only).
 2. **Colour detection** (§11): PQ/HLG/Dolby Vision from tags (high), Apple Log
    from an explicit tag (high) or Apple camera + 10-bit + undeclared transfer
-   (medium), other undeclared 10-bit = "Log (suspected)" (low), Rec.709 /
+   (medium), other undeclared 10-bit = "Log (suspected)" (low), Display P3
+   (Apple's SDR default — found on the first real upload), Rec.709 /
    Rec.2020 SDR. Phase 8 builds transforms on top; the user can correct it.
 3. **SHA-256** of the original, streamed.
-4. **One decode pass** of the original produces the 720p H.264 proxy
-   (short side 720, never upscaled, keyframe every 2 s, ≤ 60 fps, AAC), the
-   16 kHz mono FLAC speech track for Whisper (Phase 4) and an EBU R128
-   loudness measurement. HDR is tone-mapped to SDR **after** scaling (zscale in
-   float at 720p, not 4K); Log stays flat (no guessing a transform).
-5. From the proxy: poster, a filmstrip sprite (≤ 12 tiles) and scene cuts
-   (`scdet`) → shots, flashes shorter than 0.4 s merged.
+4. **One decode pass** of the original feeds everything: the scaled frames are
+   split into the 720p H.264 proxy (short side 720, never upscaled, keyframe
+   every 2 s, ≤ 60 fps, AAC), scene detection (`scdet` → shots, flashes
+   < 0.4 s merged) and the filmstrip sprite (≤ 12 tiles); the audio into the
+   16 kHz mono FLAC for Whisper (Phase 4) and an EBU R128 loudness meter.
+   Separate passes over the proxy cost ~40% more on the shared VPS (measured).
+   HDR is tone-mapped to SDR **after** scaling (zscale in float at 720p, not
+   4K); Display P3 / Rec.2020 SDR are gamut-mapped to Rec.709; Log stays flat.
+5. A poster frame from the proxy.
 6. Derived files go to deterministic keys (`proxies/`, `audio/`,
    `thumbnails/`, `analysis/`), one `media_files` row per (asset, kind) —
    re-running overwrites, never duplicates.
@@ -238,6 +243,8 @@ retries, asset `failed`, stage shows it); I/O errors retry. When a project's
 ingest stage turns `done`, the owner gets one Telegram message
 (`notify.telegram`, worker → Bot API, token never in errors).
 
+`POST /api/v1/assets/{id}/reingest` re-runs ingestion after an engine
+improvement (derived files rewritten in place, original only read).
 `GET /api/v1/assets/{id}` returns the typed `MediaInfo`, shots and presigned
 links (proxy with HTTP range for the player, poster, filmstrip); the list
 carries a poster per asset. The Mini App keeps the first presigned URL per

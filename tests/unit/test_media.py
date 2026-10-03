@@ -152,10 +152,20 @@ def test_main_pass_arguments_are_a_safe_list():
     info = normalize(IPHONE_HDR, size_bytes=1)
     plan = plan_proxy(info, zscale=False)
     hostile = "http://x/a.mov; rm -rf / #"
-    args = video_main_pass(hostile, plan=plan, proxy=Path("/s/p.mp4"), speech=Path("/s/a.flac"))
+    common = {
+        "plan": plan,
+        "proxy": Path("/s/p.mp4"),
+        "sprite_path": Path("/s/sp.jpg"),
+        "sprite_tiles": 12,
+        "duration": 12.5,
+    }
+    args = video_main_pass(hostile, speech=Path("/s/a.flac"), **common)
     assert args[args.index("-i") + 1] == hostile  # one argv element, never parsed by a shell
-    assert "/s/a.flac" in args and args.count("-map") == 4
-    silent = video_main_pass("u", plan=plan, proxy=Path("/s/p.mp4"), speech=None)
+    assert "/s/a.flac" in args and "/s/sp.jpg" in args and args.count("-map") == 5
+    graph = args[args.index("-filter_complex") + 1]
+    # one decode feeds the proxy, scene detection and the filmstrip
+    assert "split=3" in graph and "scdet=" in graph and "tile=12x1" in graph and "fps=0.960000" in graph
+    silent = video_main_pass("u", speech=None, **common)
     assert "-an" in silent and "flac" not in silent
 
 
@@ -233,3 +243,18 @@ def test_runner_classifies_corrupt_input_as_permanent(tmp_path):
     with pytest.raises(MediaError) as exc:
         run_ffmpeg(["ffmpeg", "-hide_banner", "-nostdin", "-i", str(bad), "-f", "null", "-"], timeout=30)
     assert exc.value.permanent
+
+
+def test_display_p3_is_recognised_and_gamut_mapped():
+    raw = probe(
+        stream(codec_name="h264", pix_fmt="yuv420p", color_primaries="smpte432", color_transfer="bt709")
+    )
+    info = normalize(raw, size_bytes=1)
+    assert (info.color.profile, info.color.label, info.color.confidence) == (
+        "display_p3",
+        "Display P3",
+        "high",
+    )
+    plan = plan_proxy(info, zscale=True)
+    assert plan.gamut_to_709 and "zscale=p=bt709" in video_filter(plan)
+    assert not plan_proxy(info, zscale=False).gamut_to_709

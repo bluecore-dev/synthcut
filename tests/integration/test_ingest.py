@@ -9,7 +9,7 @@ import uuid
 
 import httpx
 import pytest
-from sqlalchemy import select
+from sqlalchemy import func, select
 from synthcut_core.models import Asset, Event, Job, MediaFile, ProjectStage
 from synthcut_media import has_filter
 from synthcut_worker.main import Worker
@@ -49,6 +49,11 @@ def media(tmp_path_factory):
         "-f", "lavfi", "-i", "testsrc2=size=1280x720:rate=25:duration=2",
         "-vf", "format=yuv420p10le,setparams=color_primaries=bt2020:color_trc=arib-std-b67:colorspace=bt2020nc",
         "-c:v", "libx264", "-preset", "ultrafast", str(d / "HDR_hlg.mov"),
+    )  # fmt: skip
+    ff(
+        "-f", "lavfi", "-i", "testsrc2=size=1280x720:rate=30:duration=2",
+        "-vf", "setparams=color_primaries=smpte432:color_trc=bt709:colorspace=bt709",
+        "-c:v", "libx264", "-preset", "ultrafast", str(d / "IMG_p3.mov"),
     )  # fmt: skip
     ff("-f", "lavfi", "-i", "sine=frequency=220:sample_rate=48000:duration=4", str(d / "voice.wav"))
     ff("-f", "lavfi", "-i", "testsrc2=size=800x600:duration=1", "-frames:v", "1", str(d / "logo.png"))
@@ -248,3 +253,27 @@ def test_notify_handler_sends_and_hides_the_token(settings, monkeypatch, Session
         assert ok.status == "succeeded" and ok.result["message_id"] == 7
         assert blocked.status == "dead" and "blocked" in blocked.error["message"]
         assert settings.telegram_bot_token.get_secret_value() not in str(blocked.error)
+
+
+async def test_display_p3_and_reingest(client, auth, settings, media, Session):
+    project = await make_project(client, auth)
+    asset = await upload(client, auth, project["id"], media / "IMG_p3.mov", "video/quicktime")
+    run_worker(settings)
+    detail = (await client.get(f"/api/v1/assets/{asset['id']}", headers=auth)).json()
+    assert detail["color_profile"] == "display_p3" and detail["color_label"] == "Display P3"
+    proxy = next(f for f in detail["files"] if f["kind"] == "proxy_720p")
+    assert ("gamut" in proxy["metadata"]["color"]) is has_filter("zscale")
+
+    r = await client.post(f"/api/v1/assets/{asset['id']}/reingest", headers=auth)
+    assert r.status_code == 202 and r.json()["status"] == "uploaded"
+    assert (await client.post(f"/api/v1/assets/{asset['id']}/reingest", headers=auth)).status_code == 409
+    assert run_worker(settings) == ["ingest.asset"]
+    with Session() as s:
+        jobs = s.scalars(select(Job).where(Job.kind == "ingest.asset").order_by(Job.created_at)).all()
+        assert [j.status for j in jobs] == ["succeeded", "succeeded"] and jobs[1].payload["force"] is True
+        assert "skipped" not in jobs[1].result
+        assert s.get(Asset, uuid.UUID(asset["id"])).status == "ready"
+        count = s.scalar(
+            select(func.count()).select_from(MediaFile).where(MediaFile.asset_id == uuid.UUID(asset["id"]))
+        )
+        assert count == 5  # proxy, poster, sprite, shots, mediainfo (no audio track)

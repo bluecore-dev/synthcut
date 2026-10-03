@@ -15,6 +15,7 @@ MediaKind = Literal["video", "audio", "image", "other"]
 ColorProfileId = Literal[
     "rec709",
     "rec2020_sdr",
+    "display_p3",
     "hlg",
     "pq",
     "apple_log",

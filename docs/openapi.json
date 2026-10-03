@@ -680,6 +680,60 @@
         }
       }
     },
+    "/api/v1/assets/{asset_id}/reingest": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Reingest Asset",
+        "description": "Run ingestion again (after a media-engine update). Derived files are\nrewritten in place; the original is only read.",
+        "operationId": "reingest_asset_api_v1_assets__asset_id__reingest_post",
+        "parameters": [
+          {
+            "name": "asset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Asset Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/projects/{project_id}/uploads": {
       "post": {
         "tags": [
@@ -1973,6 +2027,7 @@
             "enum": [
               "rec709",
               "rec2020_sdr",
+              "display_p3",
               "hlg",
               "pq",
               "apple_log",
