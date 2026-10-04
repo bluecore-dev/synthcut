@@ -1,7 +1,7 @@
 """Phase 7 end to end: caption preview = one-clip plan → overlay/1 → motion
 layer → FFmpeg composite over the proxy → previews/<asset>/captions.mp4.
-The Remotion step is replaced by an FFmpeg-made transparent ProRes 4444 layer
-of the right size and length (the real renderer is tested in tests/unit)."""
+The Remotion step is replaced by FFmpeg-made transparent PNG frames of the
+right size and count (the real renderer is tested in tests/unit)."""
 
 import shutil
 import subprocess
@@ -12,7 +12,7 @@ import pytest
 from sqlalchemy import select
 from synthcut_core.models import Event, Job, MediaFile
 from synthcut_worker.render import jobs as render_jobs
-from synthcut_worker.render.remotion import RemotionUnavailable
+from synthcut_worker.render.remotion import OverlayFrames, RemotionUnavailable
 from synthcut_worker.speech import jobs as speech_jobs
 
 from . import test_speech
@@ -31,17 +31,19 @@ def fake_layer(monkeypatch):
 
     def render(props, work, **kwargs):
         rendered.append(props)
-        out = work / "overlay.mov"
-        seconds = props.duration_in_frames / props.fps
+        out = work / "overlay"
+        out.mkdir()
+        pad = len(str(props.duration_in_frames - 1))
         subprocess.run(
             ["ffmpeg", "-v", "error", "-y", "-f", "lavfi",
-             "-i", f"color=c=white@0.0:s={props.width}x{props.height}:r={props.fps}:d={seconds}",
-             "-vf", "format=yuva444p10le", "-c:v", "prores_ks", "-profile:v", "4444", str(out)],
+             "-i", f"color=c=white@0.0:s={props.width}x{props.height}:r={props.fps}",
+             "-frames:v", str(props.duration_in_frames), "-vf", "format=rgba", "-start_number", "0",
+             str(out / f"frame-%0{pad}d.png")],
             check=True,
         )  # fmt: skip
         if kwargs.get("on_progress"):
             kwargs["on_progress"](1.0)
-        return out
+        return OverlayFrames(out, str(out / f"frame-%0{pad}d.png"), props.fps, props.duration_in_frames)
 
     monkeypatch.setattr(render_jobs, "render_overlay", render)
     monkeypatch.setattr(speech_jobs, "engine_for", lambda *a, **k: FakeEngine())

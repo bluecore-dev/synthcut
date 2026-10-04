@@ -1,12 +1,13 @@
 """Caption preview (Phase 7): one asset with animated captions burned in —
 the motion engine end to end before the Director exists. A one-clip
-EditPlan → ``overlay/1`` → Remotion (transparent ProRes 4444) → FFmpeg over
+EditPlan → ``overlay/1`` → Remotion (transparent PNG frames) → FFmpeg over
 the 720p proxy → ``previews/<asset>/captions.mp4``.
 """
 
 from __future__ import annotations
 
 import math
+import shutil
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -158,13 +159,15 @@ def _render(ctx: JobContext, target: Target) -> tuple[Path, int]:
     out = work / "captions.mp4"
     background = ctx.storage.internal_get_url(target.proxy_key, INTERNAL_URL_TTL)
     run_ffmpeg(
-        composite_overlay(background, layer, out, threads=ctx.settings.media_threads),
+        composite_overlay(
+            background, layer.pattern, out, overlay_fps=layer.fps, threads=ctx.settings.media_threads
+        ),
         duration=target.plan.sequence.duration,
         on_progress=lambda f: ctx.progress(0.76 + 0.22 * f, "kompozit", data=tag),
         check=ctx.check,
         timeout=600 + target.plan.sequence.duration * 10,
     )
-    layer.unlink(missing_ok=True)
+    shutil.rmtree(layer.directory, ignore_errors=True)
     return out, lines
 
 

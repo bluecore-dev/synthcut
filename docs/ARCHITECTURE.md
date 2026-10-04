@@ -345,10 +345,12 @@ empty until the vision agent (5b) runs with a model key.
   sentence ends, pauses ≥ 0.6 s, 3 s and cuts.
 * **Remotion** (`apps/remotion`) — one `Overlay` composition draws every
   component and the captions (styles `dynamic`, `karaoke`, `minimal`, `bold`)
-  on a transparent background; `scripts/render.mjs` renders ProRes 4444.
+  on a transparent background; `scripts/render.mjs` renders PNG frames
+  (no intermediate video — an extra ProRes encode cost 2.5× the capture on
+  the VPS).
   `Widget-<Name>` compositions preview each component in Remotion Studio.
-* **Compositing** — FFmpeg overlays the layer on the picture by timestamp
-  (`synthcut_media.composite_overlay`).
+* **Compositing** — FFmpeg reads the frames as an image2 sequence and
+  overlays them on the picture by timestamp (`synthcut_media.composite_overlay`).
 
 Until the Director exists (Phase 6) the engine is exercised by the **caption
 preview**: `POST /assets/{id}/caption-preview` (style, position) queues

@@ -212,15 +212,28 @@ def scene_detect(proxy: Path, *, threshold: float = 12.0, binary: str = "ffmpeg"
 
 
 def composite_overlay(
-    background: str | Path, overlay: Path, out: Path, *, threads: int = 2, crf: int = 21
+    background: str | Path,
+    overlay: str | Path,
+    out: Path,
+    *,
+    overlay_fps: int | None = None,
+    threads: int = 2,
+    crf: int = 21,
 ) -> list[str]:
-    """The motion layer (transparent ProRes 4444 from Remotion) over the
-    picture (spec rule 19: Remotion draws, FFmpeg composites). Frames are
-    matched by timestamp, so a 30 fps layer sits correctly on 29.97 fps footage."""
+    """The motion layer over the picture (spec rule 19: Remotion draws, FFmpeg
+    composites). ``overlay`` is a transparent video, or — with
+    ``overlay_fps`` — an image2 pattern of PNG frames numbered from 0.
+    Frames are matched by timestamp, so a 30 fps layer sits correctly on
+    29.97 fps footage, and the picture keeps playing after the layer ends."""
+    layer = (
+        ["-framerate", str(overlay_fps), "-start_number", "0", "-i", str(overlay)]
+        if overlay_fps
+        else ["-i", str(overlay)]
+    )
     return [
         "ffmpeg", "-hide_banner", "-nostdin", "-y", "-threads", str(threads),
         "-i", str(background),
-        "-i", str(overlay),
+        *layer,
         "-filter_complex", "[0:v][1:v]overlay=0:0:format=auto:eof_action=pass,format=yuv420p[v]",
         "-map", "[v]", "-map", "0:a?",
         "-c:v", "libx264", "-preset", "veryfast", "-crf", str(crf), "-pix_fmt", "yuv420p",

@@ -11,7 +11,7 @@ All notable changes, phase by phase. Releases are deployed as
 - Caption engine: transcript words mapped through the edit to the output timeline, short lines (never across a cut), four styles — dynamic, karaoke, minimal, bold — inside platform safe zones.
 - Typed props for every component (`E_COMPONENT_PROPS` now enforced); TypeScript types generated from the Python registry.
 - Procedural SFX library (pop, whoosh, ding, tick, notify) synthesised with FFmpeg.
-- Layer rendered as ProRes 4444 (5.6× faster than VP8 + alpha) and composited by FFmpeg.
+- Layer rendered as transparent PNG frames that FFmpeg composites directly (no intermediate encode: the first production preview took 24 min with a ProRes layer).
 - Caption preview: animated captions burned into any transcribed clip, with player and MP4 download in the Mini App.
 - Media image: Node, the Remotion bundle and Chrome Headless Shell; the media worker takes `cpu` and `render`.
 

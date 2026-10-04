@@ -1,11 +1,13 @@
 """Running the Remotion app (apps/remotion) from a job: ``overlay/1`` props in,
-a transparent ProRes 4444 layer out. Same rules as FFmpeg — nice, cancellable,
-bounded — through ``synthcut_media.run_tool``."""
+a transparent PNG sequence out (FFmpeg composites it directly). Same rules as
+FFmpeg — nice, cancellable, bounded — through ``synthcut_media.run_tool``."""
 
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 
 from synthcut_media import MediaError, run_tool
@@ -36,6 +38,16 @@ def _progress(line: str) -> float | None:
     return float(value) if isinstance(value, (int, float)) else None
 
 
+@dataclass(frozen=True, slots=True)
+class OverlayFrames:
+    """A rendered layer: ``pattern`` is an FFmpeg image2 pattern (``frame-%04d.png``)."""
+
+    directory: Path
+    pattern: str
+    fps: int
+    count: int
+
+
 def render_overlay(
     props: OverlayProps,
     work: Path,
@@ -44,16 +56,17 @@ def render_overlay(
     concurrency: int = 2,
     on_progress: Callable[[float], None] | None = None,
     check: Callable[[], None] | None = None,
-) -> Path:
+) -> OverlayFrames:
     bundle = remotion_dir / "build"
     script = remotion_dir / "scripts" / "render.mjs"
     if not (bundle / "index.html").exists() or not script.exists():
         raise RemotionUnavailable(f"Remotion bundle not found in {remotion_dir}")
     props_path = work / "overlay.json"
     props_path.write_text(props.model_dump_json())
-    out = work / "overlay.mov"
-    # Generous: capture + ProRes run at ~25 fps on four Mac cores; assume 4 on the VPS.
-    timeout = 600 + props.duration_in_frames / 4
+    out = work / "overlay"
+    out.mkdir(exist_ok=True)
+    # Measured on the VPS: ~11 frames/s of 720p capture on two cores.
+    timeout = 600 + props.duration_in_frames / 3
     run_tool(
         ["node", str(script), str(props_path), str(out), str(bundle), str(concurrency)],
         name="Remotion",
@@ -64,6 +77,14 @@ def render_overlay(
         permanent_markers=PERMANENT,
         cwd=str(remotion_dir),
     )
-    if not out.exists() or out.stat().st_size == 0:
-        raise MediaError("Remotion produced no output", permanent=False)
-    return out
+    # Remotion pads frame numbers to the width of the last one; read it back
+    # from the files rather than assuming it.
+    frames = sorted(out.glob("frame-*.png"))
+    if len(frames) != props.duration_in_frames:
+        raise MediaError(
+            f"Remotion rendered {len(frames)} of {props.duration_in_frames} frames", permanent=False
+        )
+    match = re.fullmatch(r"frame-(\d+)\.png", frames[0].name)
+    if match is None:
+        raise MediaError(f"unexpected frame name {frames[0].name}", permanent=True)
+    return OverlayFrames(out, str(out / f"frame-%0{len(match.group(1))}d.png"), props.fps, len(frames))

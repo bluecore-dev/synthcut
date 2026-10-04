@@ -1,6 +1,6 @@
 """The real motion engine: Python builds overlay/1, Node + Remotion render it,
-the result is a transparent ProRes 4444 layer of the right size and length
-with pixels only where the caption is. Needs the bundle and headless Chrome
+the result is a transparent PNG sequence of the right size and length with
+pixels only where the caption is, and FFmpeg composites it. Needs the bundle and headless Chrome
 (``cd apps/remotion && npm ci && npm run bundle && npx remotion browser ensure``);
 skipped otherwise. In the worker image both are built in."""
 
@@ -12,6 +12,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from synthcut_media import composite_overlay
 from synthcut_schemas.speech import Segment, Transcript, Word
 from synthcut_timeline.overlay import build_overlay
 from synthcut_worker.render.jobs import preview_plan
@@ -51,20 +52,33 @@ def test_captions_render_to_a_transparent_layer(tmp_path):
     )
     props = build_overlay(plan, {asset: transcript})
     seen: list[float] = []
-    out = render_overlay(props, tmp_path, remotion_dir=REMOTION, concurrency=2, on_progress=seen.append)
-
-    info = subprocess.run(
-        ["ffprobe", "-v", "error", "-show_entries", "stream=codec_name,width,height,pix_fmt,nb_frames",
-         "-of", "default=nw=1", str(out)],
-        check=True, capture_output=True, text=True,
-    ).stdout  # fmt: skip
-    assert "codec_name=prores" in info and "width=360" in info and "height=640" in info
-    assert "pix_fmt=yuva444p" in info  # alpha survived
+    layer = render_overlay(props, tmp_path, remotion_dir=REMOTION, concurrency=2, on_progress=seen.append)
+    assert layer.count == props.duration_in_frames == 36  # 1.2 s at 30 fps
     assert seen and seen[-1] == pytest.approx(1.0)
 
-    caption = alpha_plane(out, 0.8, 360, 640)
+    def alpha_at(seconds: float) -> np.ndarray:
+        frame = Path(layer.pattern % round(seconds * layer.fps))
+        return alpha_plane(frame, 0, 360, 640)
+
+    caption = alpha_at(0.8)
     assert caption[0, 0] == 0 and caption[-1, -1] == 0  # corners stay transparent
-    middle = caption[250:390, :]
-    assert (middle > 200).sum() > 500  # opaque caption pixels around the centre line
-    empty = alpha_plane(out, 0.0, 360, 640)  # before the first word
-    assert (empty > 0).sum() == 0
+    assert (caption[250:390, :] > 200).sum() > 500  # opaque caption pixels around the centre line
+    assert (alpha_at(0.0) > 0).sum() == 0  # before the first word
+
+    background = tmp_path / "bg.mp4"
+    subprocess.run(
+        ["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "color=c=0x204060:s=360x640:r=30:d=1.2",
+         "-c:v", "libx264", "-pix_fmt", "yuv420p", str(background)],
+        check=True,
+    )  # fmt: skip
+    out = tmp_path / "out.mp4"
+    subprocess.run(
+        composite_overlay(background, layer.pattern, out, overlay_fps=layer.fps),
+        check=True,
+        capture_output=True,
+    )
+    info = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "stream=codec_name,width,height", "-of", "default=nw=1", str(out)],
+        check=True, capture_output=True, text=True,
+    ).stdout  # fmt: skip
+    assert "codec_name=h264" in info and "width=360" in info and "height=640" in info

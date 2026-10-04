@@ -89,7 +89,7 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and twelve [architecture d
 | Speech | faster-whisper (CTranslate2), Silero VAD |
 | Storage | Garage v2 (S3-compatible), presigned multipart |
 | Frontend | React 19, Vite 7, Tailwind CSS 4, TanStack Query, openapi-fetch, Telegram WebApp SDK |
-| Motion | Remotion 4 (React), Chrome Headless Shell, ProRes 4444 layers, Montserrat / Inter (OFL) |
+| Motion | Remotion 4 (React), Chrome Headless Shell, transparent PNG layers, Montserrat / Inter (OFL) |
 | Bot | aiogram 3 (webhook only) |
 | Infrastructure | Docker Compose, nginx, Let's Encrypt, release directories with rollback |
 | Quality | pytest (unit + integration on real services), Vitest, Ruff, TypeScript strict, GitHub Actions |

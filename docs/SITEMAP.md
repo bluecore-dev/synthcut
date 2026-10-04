@@ -80,7 +80,7 @@ Full contract: [openapi.json](openapi.json). Another user's object is always a 4
 | `ingest.asset` | cpu | high | upload complete, re-ingest | `mediainfo/1`, proxy, posters, filmstrip, speech track, shots |
 | `analysis.asset` | cpu | normal | ingestion (video) | `clipanalysis/1` per shot, shot sheets |
 | `speech.transcribe` | cpu | low | ingestion (audio present) | `transcript/1`, VTT, SRT |
-| `render.caption_preview` | render | high | the user (asset page) | `overlay/1` → Remotion ProRes 4444 layer → `captions.mp4` |
+| `render.caption_preview` | render | high | the user (asset page) | `overlay/1` → Remotion PNG frames → FFmpeg → `captions.mp4` |
 | `notify.telegram` | io | high | stage turns done | a Telegram message |
 | `maintenance.expire_uploads` | io | low | scheduler | expired upload sessions closed |
 | `maintenance.sweep_orphan_uploads` | io | low | scheduler | orphaned multipart uploads aborted |
