@@ -16,6 +16,7 @@ import shutil
 import time
 import uuid
 from dataclasses import dataclass
+from html import escape
 from pathlib import Path
 from typing import Any
 
@@ -30,9 +31,12 @@ from synthcut_core.stages import StageState, set_stage
 from synthcut_media import MediaError, has_filter, normalize, run_ffmpeg, run_ffprobe
 from synthcut_media.final import (
     TELEGRAM_LIMIT,
+    Duck,
+    MusicInput,
     OverlayLayer,
     SegmentSpec,
     SfxInput,
+    Sound,
     chat_copy_plan,
     concat_list,
     intermediate_bytes,
@@ -57,6 +61,7 @@ from synthcut_timeline import AssetFacts, EditPlan, load_plan, validate_plan
 from synthcut_timeline.overlay import build_overlay, sfx_cues
 
 from ..context import JobCancelled, JobContext, JobInterrupted, LeaseLost, PermanentError, RetryableError
+from ..delivery.owner import notify_owner
 from ..registry import handler
 from .remotion import RemotionUnavailable, render_overlay
 
@@ -117,7 +122,9 @@ def _start(ctx: JobContext, payload: RenderFinalPayload) -> Work | None:
         if plan_row is None:
             raise PermanentError("plan_missing")
         plan = load_plan(plan_row.plan)
-        ids = {c.asset_id for t in plan.video_tracks for c in t.clips}
+        ids = {c.asset_id for t in plan.video_tracks for c in t.clips} | {
+            c.source.asset_id for t in plan.audio_tracks for c in t.clips if c.source.asset_id is not None
+        }
         assets = {
             a.id: a for a in s.scalars(select(Asset).where(Asset.id.in_(ids), Asset.deleted_at.is_(None)))
         }
@@ -172,8 +179,14 @@ def _unsupported(plan: EditPlan) -> str | None:
     main = [t for t in plan.video_tracks if t.role == "main"]
     if len(plan.video_tracks) > 1 and any(t.clips for t in plan.video_tracks if t not in main[:1]):
         return "Qo'shimcha video treklar (B-roll ustma-ust) hali render qilinmaydi"
-    if any(t.clips for t in plan.audio_tracks):
-        return "Musiqa va alohida audio treklar hali render qilinmaydi"
+    for t in plan.audio_tracks:
+        if t.clips and t.role != "music":
+            return "Alohida ovoz / SFX treklari hali render qilinmaydi"
+        for c in t.clips:
+            if c.source.library_id is not None:
+                return "Musiqa kutubxonasi hali yo'q — loyihaga musiqa faylini yuklang"
+            if c.speed != 1.0 or c.keyframes:
+                return "Musiqa tezligi va keyframe'lari hali render qilinmaydi"
     for c in main[0].clips:
         if c.speed != 1.0:
             return "Tezlikni o'zgartirish hali render qilinmaydi"
@@ -240,6 +253,41 @@ class LutCache:
         if digest not in self.paths:
             self.paths[digest] = write_cube(bake(grade), self.work / f"grade-{digest}.cube")
         return self.paths[digest]
+
+
+def music_inputs(plan: EditPlan, job: Work, ctx: JobContext) -> list[MusicInput]:
+    """The plan's music clips, read from the uploaded originals."""
+    out: list[MusicInput] = []
+    for track in plan.audio_tracks:
+        if track.role != "music":
+            continue
+        for c in sorted(track.clips, key=lambda c: c.timeline_start):
+            src = job.sources[c.source.asset_id]
+            out.append(
+                MusicInput(
+                    source=ctx.storage.internal_get_url(src.key, INTERNAL_URL_TTL),
+                    start=c.source_in,
+                    duration=c.timeline_duration,
+                    at=c.timeline_start,
+                    gain_db=c.gain_db,
+                    fade_in=c.fade_in,
+                    fade_out=c.fade_out,
+                )
+            )
+    return out
+
+
+def music_duck(plan: EditPlan) -> Duck | None:
+    """The plan's ducking as a sidechain compressor: the deeper the duck, the
+    harder the music yields (the same mapping as ``synthcut_audio``)."""
+    d = next((t.ducking for t in plan.audio_tracks if t.role == "music" and t.ducking), None)
+    if d is None:
+        return None
+    return Duck(
+        ratio=max(2.0, min(20.0, 10 ** (-d.amount_db / 20))),
+        attack_ms=d.attack * 1000,
+        release_ms=d.release * 1000,
+    )
 
 
 def _render(ctx: JobContext, job: Work) -> Output:
@@ -328,17 +376,21 @@ def _render(ctx: JobContext, job: Work) -> Output:
     # 3. Sound: voice chain + effects, loudness measured over the whole timeline -----------
     on = progress.step("loudness", "ovoz balandligi")
     mix = MixPlan.model_validate(plan.metadata["mix"]) if plan.metadata.get("mix") else MixPlan()
-    voice = voice_filters(mix, noise_floor_db=plan.metadata.get("noise_floor_db")) if audio_any else []
     sfx_dir = Path(ctx.settings.sfx_dir)
-    sfx = [
-        SfxInput(path=sfx_dir / f"{name.removeprefix('sfx/')}.flac", at=at)
-        for at, name in sfx_cues(plan)
-        if (sfx_dir / f"{name.removeprefix('sfx/')}.flac").exists()
-    ]
+    sound = Sound(
+        voice=voice_filters(mix, noise_floor_db=plan.metadata.get("noise_floor_db")) if audio_any else [],
+        music=music_inputs(plan, job, ctx),
+        duck=music_duck(plan),
+        sfx=[
+            SfxInput(path=sfx_dir / f"{name.removeprefix('sfx/')}.flac", at=at)
+            for at, name in sfx_cues(plan)
+            if (sfx_dir / f"{name.removeprefix('sfx/')}.flac").exists()
+        ],
+    )
     tail = "anull"
-    if audio_any or sfx:
+    if audio_any or sound.music or sound.sfx:
         log = run_ffmpeg(
-            loudness_pass(joined, sfx, voice, loudnorm_measure(mix)),
+            loudness_pass(joined, sound, loudnorm_measure(mix)),
             check=ctx.check,
             timeout=600 + seq.duration * 3,
         )
@@ -356,7 +408,7 @@ def _render(ctx: JobContext, job: Work) -> Output:
     run_ffmpeg(
         master_command(
             joined, final, width=seq.width, height=seq.height, fps=seq.fps, duration=seq.duration,
-            overlay=layer, voice=voice, loudness=tail, sfx=sfx, threads=ctx.settings.media_threads,
+            overlay=layer, sound=sound, loudness=tail, threads=ctx.settings.media_threads,
             chat=(chat_copy_plan(seq.duration, seq.width, seq.height), chat) if chat else None,
         ),
         duration=seq.duration,
@@ -385,7 +437,7 @@ def _render(ctx: JobContext, job: Work) -> Output:
             height=seq.height,
             fps=seq.fps,
             duration=round(round(seq.duration * seq.fps) / seq.fps, 6),
-            audio=audio_any,
+            audio=audio_any or bool(sound.music),
             target_lufs=mix.loudness.target_lufs if tail != "anull" else None,
             true_peak_db=mix.loudness.true_peak_db,
         ),
@@ -429,6 +481,15 @@ def _fail(ctx: JobContext, render_id: uuid.UUID, message: str, *, retrying: bool
         row.status = RenderStatus.FAILED.value
         row.error = message[:500]
         row.finished_at = utcnow()
+        if row.deliver:  # the owner is waiting for the video in the chat
+            notify_owner(
+                s,
+                row.project_id,
+                text=lambda name: (
+                    f"🎬 <b>{name}</b>\nRender v{row.plan_version} bajarilmadi: {escape(message[:300])}"
+                ),
+                idempotency_key=f"notify.render_failed:{row.id}:r{row.runs}",
+            )
         set_stage(
             s,
             row.project_id,
@@ -516,6 +577,16 @@ def _store(ctx: JobContext, job: Work, out: Output) -> dict[str, Any]:
                 Stage.DELIVERY,
                 StageState(StageStatus.BLOCKED, None, "QA xatosi sababli yuborilmadi"),
                 source=SOURCE,
+            )
+            failed = "; ".join(c.message for c in out.qa.checks if c.status == "fail")
+            notify_owner(
+                s,
+                row.project_id,
+                text=lambda name: (
+                    f"🎬 <b>{name}</b>\nVideo tayyor, lekin sifat nazoratidan o'tmadi: {escape(failed[:300])}.\n"
+                    "Chatga yuborilmadi — Mini App'da ko'rib chiqing."
+                ),
+                idempotency_key=f"notify.qa_blocked:{row.id}:r{row.runs}",
             )
         emit(
             s,

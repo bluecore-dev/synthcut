@@ -21,6 +21,7 @@ def notify_owner(
     *,
     text: Callable[[str], str],
     idempotency_key: str,
+    auto_edit: bool = False,
 ) -> None:
     """``text`` gets the HTML-escaped project name and returns the message."""
     row = s.execute(
@@ -39,6 +40,7 @@ def notify_owner(
             "chat_id": row.telegram_id,
             "text": text(escape(row.name)),
             "open_project_id": str(project_id),
+            **({"auto_edit_project_id": str(project_id)} if auto_edit else {}),
         },
         project_id=project_id,
         idempotency_key=idempotency_key,

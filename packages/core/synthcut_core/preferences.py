@@ -37,6 +37,8 @@ KEY_LABELS: dict[str, str] = {
     "intensity": "Rang kuchi",
     "loudness": "Ovoz balandligi",
     "denoise": "Shovqin tozalash",
+    "music": "Fon musiqasi",
+    "music_gain_db": "Musiqa balandligi",
     "deliver": "Telegramga yuborish",
 }
 
@@ -62,6 +64,8 @@ def describe(key: str, value: Any) -> str:
         return f"{value:g} s dan uzun"
     if key == "intensity":
         return f"{round(value * 100)}%"
+    if key == "music_gain_db":
+        return f"{value:g} dB"
     if isinstance(value, bool):
         return "ha" if value else "yo'q"
     return VALUE_WORDS.get(str(value), str(value))
@@ -123,6 +127,12 @@ FEEDBACK_RULES: dict[str, tuple[str, Rule]] = {
     "noise_left": ("Shovqin qolgan", lambda p: {"denoise": _denoise_up(p.denoise)}),
     "too_quiet": ("Ovoz past", lambda p: {"loudness": _louder(p.loudness)}),
     "too_loud": ("Ovoz baland", lambda p: {"loudness": _quieter(p.loudness)}),
+    "music_too_loud": ("Musiqa baland", lambda p: {"music_gain_db": max(-40.0, p.music_gain_db - 4)}),
+    "music_too_quiet": (
+        "Musiqa past",
+        lambda p: {"music_gain_db": min(-6.0, p.music_gain_db + 4), "music": True},
+    ),
+    "no_music": ("Musiqa kerak emas", lambda p: {"music": False}),
 }
 
 assert set(FEEDBACK_RULES) == set(FeedbackCode.__args__)  # type: ignore[attr-defined]

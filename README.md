@@ -60,7 +60,7 @@ flowchart LR
 * **Storage** — originals are immutable; derived files live under deterministic keys, so re-running a job overwrites instead of duplicating.
 * **Agents** — own agent loop with a permission gate per tool, step and cost limits, and a provider-neutral model router (`provider:model` per role).
 
-Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and sixteen [architecture decision records](docs/adr/).
+Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and seventeen [architecture decision records](docs/adr/).
 
 ## Roadmap
 

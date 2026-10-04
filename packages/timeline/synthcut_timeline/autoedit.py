@@ -30,7 +30,11 @@ from synthcut_schemas.grade import ColorGrade, MixPlan
 from synthcut_schemas.speech import Transcript
 
 from .models import (
+    AudioClip,
+    AudioSource,
+    AudioTrack,
     CaptionTrack,
+    Ducking,
     EditPlan,
     EffectRef,
     GraphicsItem,
@@ -77,6 +81,16 @@ class Options:
     captions: CaptionTrack | None = None
     title: str | None = None
     cta: str | None = None
+    music_gain_db: float = -18.0
+
+
+@dataclass(frozen=True)
+class Music:
+    """An uploaded music file (an audio asset without speech)."""
+
+    asset_id: UUID
+    name: str
+    duration: float
 
 
 @dataclass(frozen=True)
@@ -207,6 +221,41 @@ def placements(
     return out
 
 
+LOOP_FADE = 0.5  # seconds of fade at each join when the music repeats
+
+
+def music_track(music: Music, duration: float, opts: Options) -> AudioTrack | None:
+    """The music under the whole timeline: repeated if shorter, faded in and
+    out, ducked under the voice (spec: "Music avtomatik duck qilinadi")."""
+    length = math.floor(music.duration * opts.fps) / opts.fps
+    if length < 2.0 or duration < 2.0:
+        return None
+    clips: list[AudioClip] = []
+    t = 0.0
+    while t < duration - 1e-6:
+        piece = min(length, round(duration - t, 6))
+        first, last = not clips, t + piece >= duration - 1e-6
+        fade_in = min(1.0 if first else LOOP_FADE, piece / 2)
+        fade_out = min(2.0 if last else LOOP_FADE, piece / 2)
+        clips.append(
+            AudioClip(
+                id=f"m{len(clips) + 1:02d}",
+                source=AudioSource(asset_id=music.asset_id),
+                source_in=0.0,
+                source_out=piece,
+                timeline_start=round(t, 6),
+                timeline_end=round(t + piece, 6),
+                gain_db=opts.music_gain_db,
+                fade_in=round(fade_in, 3),
+                fade_out=round(fade_out, 3),
+            )
+        )
+        t = round(t + piece, 6)
+    return AudioTrack(
+        track=1, role="music", clips=clips, ducking=Ducking(amount_db=-12.0, attack=0.15, release=0.5)
+    )
+
+
 def build_plan(
     *,
     project_id: UUID,
@@ -215,6 +264,7 @@ def build_plan(
     opts: Options,
     mix: MixPlan | None = None,
     noise_floor_db: float | None = None,
+    music: Music | None = None,
 ) -> EditPlan:
     pieces: list[Piece] = []
     pauses = bad = 0.0
@@ -294,11 +344,17 @@ def build_plan(
         notes.append("Tik video gorizontal kadrga xiralashtirilgan fon ustida joylandi")
     if trimmed and opts.target_duration:
         notes.append(f"Maqsadli davomiylik {opts.target_duration:.0f} s — qolgan qism kiritilmadi")
+    audio_tracks: list[AudioTrack] = []
+    if music is not None and (track := music_track(music, duration, opts)) is not None:
+        audio_tracks.append(track)
+        loops = f", {len(track.clips)} marta takrorlanadi" if len(track.clips) > 1 else ""
+        notes.append(f"Fon musiqasi: {music.name} ({opts.music_gain_db:g} dB{loops}), gapirilganda pasayadi")
     return EditPlan(
         project_id=project_id,
         version=version,
         sequence=Sequence(fps=opts.fps, width=opts.width, height=opts.height, duration=duration),
         video_tracks=[VideoTrack(track=1, role="main", clips=clips)],
+        audio_tracks=audio_tracks,
         graphics=graphics,
         captions=opts.captions,
         notes="\n".join(notes),

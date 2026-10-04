@@ -31,6 +31,8 @@ class EditDefaults(BaseModel):
     intensity: float = Field(0.8, ge=0, le=1)
     loudness: Loudness = "social"
     denoise: Denoise = "auto"
+    music: bool = True  # an uploaded music file (an audio file without speech) goes under the voice
+    music_gain_db: float = Field(-18.0, ge=-40, le=-6, description="Music level before ducking")
     deliver: bool = True
 
 
@@ -47,6 +49,9 @@ FeedbackCode = Literal[
     "noise_left",
     "too_quiet",
     "too_loud",
+    "music_too_loud",
+    "music_too_quiet",
+    "no_music",
 ]
 
 PreferenceSource = Literal["choice", "feedback", "agent"]

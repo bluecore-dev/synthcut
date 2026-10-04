@@ -427,6 +427,17 @@ The Color / Audio *stages* and agent tools (`analyze_color`, `generate_grade`,
   agent; `remake` queues a new version keeping format, length, title and CTA.
   `GET /projects/{id}/feedback` lists them; `feedback.recorded` events.
 
+## 8h. Tez montaj from the chat, music bed (ADR-0017)
+
+* **Chat** — "✂️ Tez montaj" button on the speech-ready notification
+  (`tm:<project id>`), `/montaj` for the latest project; both call
+  `synthcut_core.renders.start_auto_edit_async` with the remembered settings
+  and delivery to the chat; failures and QA blocks are reported in the chat.
+* **Music** — the project's longest audio file with < 25 % speech becomes an
+  `audio_tracks[role=music]` bed (repeated, faded, `ducking`); the renderer
+  mixes it per clip, ducks it with `sidechaincompress` keyed by the voice
+  chain, and normalises loudness over the whole mix.
+
 ## 9. Queue design (ADR-0002)
 
 PostgreSQL `jobs` is the ledger; Redis only rings the bell.

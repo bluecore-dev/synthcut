@@ -282,8 +282,9 @@ def _finish(ctx: JobContext, target: Target, outcome: Outcome) -> None:
                 target.project_id,
                 text=lambda name: (
                     f"📝 <b>{name}</b>\nNutq matnga o'girildi: {escape(detail)}.\n"
-                    "Transkript va subtitrlar tayyor."
+                    "Transkript va subtitrlar tayyor — «Tez montaj» bilan tayyor videoni shu yerga olish mumkin."
                 ),
                 idempotency_key=f"notify.transcripts_done:{target.project_id}:{done}:{row.runs}",
+                auto_edit=True,
             )
         commit_and_publish_sync(s, ctx.redis)

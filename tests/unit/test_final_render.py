@@ -15,8 +15,11 @@ from synthcut_color.grade import bake, write_cube
 from synthcut_media import normalize, run_ffmpeg, run_ffprobe
 from synthcut_media.final import (
     TELEGRAM_LIMIT,
+    Duck,
+    MusicInput,
     SegmentSpec,
     SfxInput,
+    Sound,
     concat_list,
     cover_filters,
     loudness_pass,
@@ -175,15 +178,13 @@ def test_segments_concat_and_master_to_target_loudness(tmp_path):
         segs.append((out, d))
     joined = concat_list(segs, tmp_path / "t.ffconcat", 30)
     mix = MixPlan()
-    sfx = [SfxInput(path=SFX, at=1.6)]
-    measured = parse_loudnorm(
-        run_ffmpeg(loudness_pass(joined, sfx, ["highpass=f=80"], loudnorm_measure(mix)))
-    )
+    sound = Sound(voice=["highpass=f=80"], sfx=[SfxInput(path=SFX, at=1.6)])
+    measured = parse_loudnorm(run_ffmpeg(loudness_pass(joined, sound, loudnorm_measure(mix))))
     final = tmp_path / "final.mp4"
     run_ffmpeg(
         master_command(
             joined, final, width=360, height=640, fps=30, duration=3.3, overlay=None,
-            voice=["highpass=f=80"], loudness=loudnorm_apply(mix, measured), sfx=sfx,
+            sound=sound, loudness=loudnorm_apply(mix, measured),
         )
     )  # fmt: skip
     info = normalize(run_ffprobe(str(final)), size_bytes=final.stat().st_size)
@@ -327,8 +328,8 @@ def test_master_writes_the_chat_copy_in_the_same_pass(tmp_path):
     final, chat = tmp_path / "final.mp4", tmp_path / "chat.mp4"
     run_ffmpeg(
         master_command(
-            joined, final, width=640, height=360, fps=30, duration=2.0, overlay=None, voice=[],
-            loudness="anull", sfx=[], chat=(ChatCopy(320, 180, 300_000), chat),
+            joined, final, width=640, height=360, fps=30, duration=2.0, overlay=None, sound=Sound(voice=[]),
+            loudness="anull", chat=(ChatCopy(320, 180, 300_000), chat),
         )
     )  # fmt: skip
     p_final, p_chat = _probe(final), _probe(chat)
@@ -339,3 +340,47 @@ def test_master_writes_the_chat_copy_in_the_same_pass(tmp_path):
     assert likely_over_limit(120, 1920, 1080, 30) and not likely_over_limit(20, 1920, 1080, 30)
     short, long = chat_copy_plan(120, 1920, 1080), chat_copy_plan(600, 1080, 1920)
     assert (short.width, short.height, long.width, long.height) == (1280, 720, 540, 960)
+
+
+@needs_ffmpeg
+def test_music_is_ducked_under_the_voice_in_the_master(tmp_path):
+    rate = 48000
+    talk = tmp_path / "talk.mp4"  # a voice-like 1 kHz tone from 1.0 to 2.0 s only
+    subprocess.run(
+        ["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "color=c=gray:s=320x240:r=30:d=3",
+         "-f", "lavfi", "-i", f"aevalsrc='if(between(t,1,2),0.3*sin(2*PI*1000*t),0)':s={rate}:d=3",
+         "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", str(talk)],
+        check=True,
+    )  # fmt: skip
+    music = tmp_path / "music.wav"
+    subprocess.run(
+        ["ffmpeg", "-v", "error", "-f", "lavfi", "-i", f"aevalsrc='0.4*sin(2*PI*300*t)':s={rate}:d=4", str(music)],
+        check=True,
+    )  # fmt: skip
+    seg = tmp_path / "seg.mkv"
+    run_ffmpeg(segment_command(SegmentSpec(source=str(talk), start=0, duration=3.0, src_w=320, src_h=240),
+                               seg, width=320, height=240, fps=30, zscale=False))  # fmt: skip
+    joined = concat_list([(seg, 3.0)], tmp_path / "t.ffconcat", 30)
+    sound = Sound(
+        voice=[],
+        music=[MusicInput(source=str(music), start=0.5, duration=3.0, at=0.0, gain_db=0.0)],
+        duck=Duck(ratio=10, attack_ms=20, release_ms=200),
+    )
+    out = tmp_path / "final.mp4"
+    run_ffmpeg(master_command(joined, out, width=320, height=240, fps=30, duration=3.0, overlay=None,
+                              sound=sound, loudness="anull"))  # fmt: skip
+    raw = subprocess.run(
+        ["ffmpeg", "-v", "error", "-i", str(out), "-ac", "1", "-f", "f32le", "-"], capture_output=True
+    )
+    pcm = np.frombuffer(raw.stdout, np.float32)
+
+    def level(a: float, b: float, freq: float) -> float:
+        part = pcm[int(a * rate) : int(b * rate)]
+        t = np.arange(part.size) / rate
+        sin, cos = np.sin(2 * np.pi * freq * t), np.cos(2 * np.pi * freq * t)
+        return float(np.hypot((part * sin).mean(), (part * cos).mean()) * 2)
+
+    alone, under = level(0.2, 0.8, 300), level(1.3, 1.8, 300)
+    assert alone > 0.2  # the music is there (0.4 peak at 0 dB; AAC and the mono fold-down lose a little)
+    assert under < alone * 0.5  # at least 6 dB down while the voice speaks
+    assert level(1.3, 1.8, 1000) > 0.1  # and the voice is untouched

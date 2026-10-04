@@ -11,7 +11,7 @@ from sqlalchemy import select
 from synthcut_core.events import commit_and_publish, emit
 from synthcut_core.models import EditPlanRow, Feedback, Project, Render
 from synthcut_core.preferences import FEEDBACK_RULES, apply_feedback, effective_defaults, store
-from synthcut_core.renders import request_auto_edit_async
+from synthcut_core.renders import not_ready_reason_async, request_auto_edit_async
 from synthcut_core.stages import StageState, set_stage_async
 from synthcut_schemas.api import (
     EditPreferencesOut,
@@ -27,7 +27,7 @@ from synthcut_schemas.jobs import AutoEditOptions
 
 from ..deps import CurrentUser, DbSession, RedisClient
 from ..errors import ApiError, not_found
-from .edits import not_ready_reason, owned_project
+from .edits import owned_project
 
 router = APIRouter(tags=["memory"], responses={404: {"model": ErrorResponse}})
 
@@ -70,7 +70,7 @@ async def give_feedback(
     if body.remake:
         if project.status != ProjectStatus.ACTIVE.value:
             raise ApiError(409, "archived", "Arxivdagi loyihani montaj qilib bo'lmaydi")
-        reason = await not_ready_reason(db, project.id)
+        reason = await not_ready_reason_async(db, project.id)
         if reason is not None:
             raise ApiError(409, *reason)
 
@@ -110,7 +110,7 @@ async def give_feedback(
             if k in PER_VIDEO and v is not None
         }
         options = AutoEditOptions(**updated.model_dump(), **kept, render=True)
-        remake_job = await request_auto_edit_async(db, project.id, options)
+        remake_job, _ = await request_auto_edit_async(db, project.id, options)
         await set_stage_async(
             db,
             project.id,

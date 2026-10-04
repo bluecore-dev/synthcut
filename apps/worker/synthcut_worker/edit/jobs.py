@@ -11,6 +11,7 @@ from __future__ import annotations
 import statistics
 import uuid
 from dataclasses import dataclass, field
+from html import escape
 from typing import Any
 
 from sqlalchemy import select
@@ -49,9 +50,10 @@ from synthcut_schemas.speech import Transcript
 from synthcut_speech.audio import load_pcm
 from synthcut_speech.vad import speech_spans
 from synthcut_timeline import AssetFacts, CaptionTrack, EditPlan, validate_plan
-from synthcut_timeline.autoedit import Options, Source, build_plan
+from synthcut_timeline.autoedit import Music, Options, Source, build_plan
 
 from ..context import JobCancelled, JobContext, JobInterrupted, LeaseLost, PermanentError, RetryableError
+from ..delivery.owner import notify_owner
 from ..registry import handler
 
 INTERNAL_URL_TTL = 6 * 3600
@@ -86,6 +88,7 @@ class Brief:
     target_duration: float | None
     language: str | None
     material: list[Material]
+    music: Music | None = None
 
 
 def _stage(s, project_id: uuid.UUID, stage: Stage, status: StageStatus, detail: str | None, progress=None):
@@ -155,6 +158,7 @@ def _gather(ctx: JobContext, payload: AutoEditPayload) -> Brief:
             )
         if not material:
             raise PermanentError("Videolarning proxy fayli yo'q")
+        music = _music(s, project.id) if payload.music else None
         target = payload.target_duration or (
             float(project.target_duration_sec) if project.target_duration_sec else None
         )
@@ -174,9 +178,40 @@ def _gather(ctx: JobContext, payload: AutoEditPayload) -> Brief:
             height=spec.height,
             fps=project.fps,
             target_duration=target,
+            music=music,
             language=project.language if project.language not in ("auto", None) else None,
             material=material,
         )
+
+
+MUSIC_MAX_SPEECH = 0.25  # an audio file with less speech than this share is music
+
+
+def _music(s, project_id: uuid.UUID) -> Music | None:
+    """The longest ready audio file of the project with (almost) no speech in
+    it — a song with lyrics reads as speech and is not used as a bed."""
+    rows = s.execute(
+        select(Asset, AssetTranscript)
+        .outerjoin(AssetTranscript, AssetTranscript.asset_id == Asset.id)
+        .where(
+            Asset.project_id == project_id,
+            Asset.deleted_at.is_(None),
+            Asset.kind == "audio",
+            Asset.status == AssetStatus.READY.value,
+            Asset.duration_sec.is_not(None),
+        )
+    ).all()
+    candidates = [
+        a
+        for a, t in rows
+        if t is None
+        or t.status != TranscriptStatus.DONE.value
+        or (t.speech_sec or 0.0) < MUSIC_MAX_SPEECH * float(a.duration_sec)
+    ]
+    if not candidates:
+        return None
+    best = max(candidates, key=lambda a: a.duration_sec)
+    return Music(asset_id=best.id, name=best.original_filename, duration=float(best.duration_sec))
 
 
 def _grades(ctx: JobContext, brief: Brief, payload: AutoEditPayload) -> list[ColorGrade]:
@@ -256,6 +291,7 @@ def _plan(
         captions=captions,
         title=payload.title,
         cta=payload.cta,
+        music_gain_db=payload.music_gain_db,
     )
     try:
         plan = build_plan(
@@ -265,6 +301,7 @@ def _plan(
             opts=opts,
             mix=mix,
             noise_floor_db=voice.noise_floor_db if voice else None,
+            music=brief.music,
         )
     except ValueError as exc:
         raise PermanentError(str(exc)) from exc
@@ -272,6 +309,8 @@ def _plan(
         m.asset_id: AssetFacts(kind="video", duration=m.duration, has_audio=m.has_audio)
         for m in brief.material
     }
+    if brief.music is not None:
+        facts[brief.music.asset_id] = AssetFacts(kind="audio", duration=brief.music.duration)
     report = validate_plan(plan, assets=facts)  # plans are executed only after validation (spec rule 6)
     if not report.ok:
         raise PermanentError(
@@ -294,7 +333,8 @@ def _summaries(plan: EditPlan, mix: MixPlan | None, payload: AutoEditPayload) ->
             StageState(
                 done,
                 1.0,
-                f"{mix.loudness.target_lufs:g} LUFS · shovqin tozalash: {DENOISE_WORDS[mix.voice.denoise]}",
+                f"{mix.loudness.target_lufs:g} LUFS · shovqin tozalash: {DENOISE_WORDS[mix.voice.denoise]}"
+                + (" · fon musiqasi" if plan.audio_tracks else ""),
             )
             if mix
             else StageState(StageStatus.SKIPPED, None, "Ovozli video yo'q")
@@ -361,11 +401,18 @@ def _save(
         return {"version": plan.version, "plan_id": str(row.id), "render_id": render_id}
 
 
-def _fail(ctx: JobContext, message: str) -> None:
+def _fail(ctx: JobContext, message: str, *, notify: bool) -> None:
     if ctx.job.project_id is None:
         return
     with ctx.session() as s:
         _stage(s, ctx.job.project_id, Stage.EDITOR, StageStatus.FAILED, message[:200])
+        if notify:  # the owner is waiting for the video in the chat
+            notify_owner(
+                s,
+                ctx.job.project_id,
+                text=lambda name: f"✂️ <b>{name}</b>\nTez montaj bajarilmadi: {escape(message[:300])}",
+                idempotency_key=f"notify.edit_failed:{ctx.job.id}",
+            )
         emit(
             s,
             project_id=ctx.job.project_id,
@@ -396,14 +443,14 @@ def auto_edit(ctx: JobContext, payload: AutoEditPayload) -> dict[str, Any]:
     except (LeaseLost, JobInterrupted, JobCancelled):
         raise
     except PermanentError as exc:
-        _fail(ctx, str(exc))
+        _fail(ctx, str(exc), notify=payload.deliver)
         raise
     except MediaError as exc:
         if exc.permanent or ctx.job.attempts >= ctx.job.max_attempts:
-            _fail(ctx, str(exc))
+            _fail(ctx, str(exc), notify=payload.deliver)
             raise PermanentError(str(exc)) from exc
         raise RetryableError(str(exc)) from exc
     except Exception as exc:
         if ctx.job.attempts >= ctx.job.max_attempts:
-            _fail(ctx, f"{type(exc).__name__}: {exc}")
+            _fail(ctx, f"{type(exc).__name__}: {exc}", notify=payload.deliver)
         raise

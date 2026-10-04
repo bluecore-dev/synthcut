@@ -21,7 +21,7 @@ Every command is an argument list; URLs and paths never reach a shell.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from .commands import TONEMAP_PROFILES
@@ -194,39 +194,104 @@ class SfxInput:
     gain_db: float = -8.0
 
 
-def audio_graph(voice: list[str], sfx: list[SfxInput], *, first_sfx_input: int, tail: str) -> str:
-    """``[0:a]`` through the voice chain, sound effects mixed in at their
-    times, then ``tail`` (the loudnorm measuring or applying filter) → ``[a]``."""
-    chain = ",".join(voice) if voice else "anull"
-    parts = [f"[0:a]{chain}[voice]"]
-    labels = ["[voice]"]
-    for i, cue in enumerate(sfx):
-        delay = max(0, round(cue.at * 1000))
-        parts.append(
-            f"[{first_sfx_input + i}:a]aresample={RATE},aformat=channel_layouts=stereo,"
-            f"volume={cue.gain_db:g}dB,adelay={delay}:all=1[s{i}]"
-        )
-        labels.append(f"[s{i}]")
-    if sfx:
-        parts.append(f"{''.join(labels)}amix=inputs={len(labels)}:normalize=0:duration=first[pre]")
-        parts.append(f"[pre]{tail},aresample={RATE}[a]")
-    else:
-        parts[0] = f"[0:a]{chain},{tail},aresample={RATE}[a]"
-    return ";".join(parts)
+@dataclass(frozen=True, slots=True)
+class MusicInput:
+    """One music clip of the plan: ``duration`` seconds read from ``start`` of
+    the source, placed at timeline second ``at``."""
+
+    source: str
+    start: float
+    duration: float
+    at: float
+    gain_db: float = -18.0
+    fade_in: float = 0.0
+    fade_out: float = 0.0
 
 
-def sfx_inputs(sfx: list[SfxInput]) -> list[str]:
-    args: list[str] = []
-    for cue in sfx:
-        args += ["-i", str(cue.path)]
-    return args
+@dataclass(frozen=True, slots=True)
+class Duck:
+    """Sidechain ducking of the music under the voice."""
+
+    ratio: float = 4.0
+    attack_ms: float = 150.0
+    release_ms: float = 500.0
+    threshold: float = 0.02  # linear key level (~−34 dBFS) above which the music yields
 
 
-def loudness_pass(concat: Path, sfx: list[SfxInput], voice: list[str], measure: str) -> list[str]:
-    graph = audio_graph(voice, sfx, first_sfx_input=1, tail=measure)
+@dataclass(frozen=True, slots=True)
+class Sound:
+    """Everything under the picture: the voice chain over the timeline's own
+    sound, music clips (ducked under the voice) and sound effects."""
+
+    voice: list[str]
+    music: list[MusicInput] = field(default_factory=list)
+    duck: Duck | None = None
+    sfx: list[SfxInput] = field(default_factory=list)
+
+    def inputs(self) -> list[str]:
+        args: list[str] = []
+        for m in self.music:
+            args += ["-ss", f"{m.start:.6f}", "-t", f"{m.duration:.6f}", "-i", m.source]
+        for cue in self.sfx:
+            args += ["-i", str(cue.path)]
+        return args
+
+    def graph(self, *, first_input: int, tail: str) -> str:
+        """``[0:a]`` through the voice chain, music mixed under it, effects at
+        their times, then ``tail`` (the loudnorm measuring or applying filter)
+        → ``[a]``. Music and effects are inputs from ``first_input`` on."""
+        chain = ",".join(self.voice) if self.voice else "anull"
+        parts = [f"[0:a]{chain}[voice]"]
+        voice = "[voice]"
+        if self.music:
+            labels = []
+            for i, m in enumerate(self.music):
+                fades = []
+                if m.fade_in > 0:
+                    fades.append(f"afade=t=in:d={m.fade_in:g}")
+                if m.fade_out > 0:
+                    fades.append(f"afade=t=out:st={max(0.0, m.duration - m.fade_out):.6f}:d={m.fade_out:g}")
+                parts.append(
+                    f"[{first_input + i}:a]aresample={RATE},aformat=channel_layouts=stereo,"
+                    f"volume={m.gain_db:g}dB,{','.join([*fades, ''])}adelay={max(0, round(m.at * 1000))}:all=1[m{i}]"
+                )
+                labels.append(f"[m{i}]")
+            music = labels[0]
+            if len(labels) > 1:
+                parts.append(
+                    f"{''.join(labels)}amix=inputs={len(labels)}:normalize=0:duration=longest[music]"
+                )
+                music = "[music]"
+            if self.duck is not None:
+                d = self.duck
+                parts.append(
+                    f"[voice]asplit=2[vkey][vmain];{music}[vkey]sidechaincompress=threshold={d.threshold:g}"
+                    f":ratio={d.ratio:.1f}:attack={d.attack_ms:g}:release={d.release_ms:g}:makeup=1[ducked];"
+                    f"[vmain][ducked]amix=inputs=2:normalize=0:duration=first[bed]"
+                )
+            else:
+                parts.append(f"[voice]{music}amix=inputs=2:normalize=0:duration=first[bed]")
+            voice = "[bed]"
+        labels = [voice]
+        first_sfx = first_input + len(self.music)
+        for i, cue in enumerate(self.sfx):
+            delay = max(0, round(cue.at * 1000))
+            parts.append(
+                f"[{first_sfx + i}:a]aresample={RATE},aformat=channel_layouts=stereo,"
+                f"volume={cue.gain_db:g}dB,adelay={delay}:all=1[s{i}]"
+            )
+            labels.append(f"[s{i}]")
+        if len(labels) > 1:
+            parts.append(f"{''.join(labels)}amix=inputs={len(labels)}:normalize=0:duration=first[pre]")
+            voice = "[pre]"
+        parts.append(f"{voice}{tail},aresample={RATE}[a]")
+        return ";".join(parts)
+
+
+def loudness_pass(concat: Path, sound: Sound, measure: str) -> list[str]:
     return [
-        *BASE, "-nostats", "-f", "concat", "-safe", "0", "-i", str(concat), *sfx_inputs(sfx),
-        "-filter_complex", graph, "-map", "[a]", "-vn", "-f", "null", "-",
+        *BASE, "-nostats", "-f", "concat", "-safe", "0", "-i", str(concat), *sound.inputs(),
+        "-filter_complex", sound.graph(first_input=1, tail=measure), "-map", "[a]", "-vn", "-f", "null", "-",
     ]  # fmt: skip
 
 
@@ -324,9 +389,8 @@ def master_command(
     fps: int,
     duration: float,
     overlay: OverlayLayer | None,
-    voice: list[str],
+    sound: Sound,
     loudness: str,
-    sfx: list[SfxInput],
     threads: int = 2,
     chat: tuple[ChatCopy, Path] | None = None,
 ) -> list[str]:
@@ -344,10 +408,10 @@ def master_command(
         str(threads),
     ]
     args += ["-f", "concat", "-safe", "0", "-i", str(concat)]
-    first_sfx = 1
+    first_audio = 1
     if overlay is not None:
         args += ["-framerate", str(overlay.fps), "-start_number", "0", "-i", str(overlay.pattern)]
-        first_sfx = 2
+        first_audio = 2
         size = (
             ""
             if (overlay.width, overlay.height) == (width, height)
@@ -359,8 +423,8 @@ def master_command(
         )
     else:
         video = "[0:v]null[vout]"
-    args += sfx_inputs(sfx)
-    audio = audio_graph(voice, sfx, first_sfx_input=first_sfx, tail=loudness)
+    args += sound.inputs()
+    audio = sound.graph(first_input=first_audio, tail=loudness)
     if chat is None:
         graph = f"{video};[vout]null[v];{audio}"
     else:

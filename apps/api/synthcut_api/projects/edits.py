@@ -8,13 +8,13 @@ import uuid
 from pathlib import PurePosixPath
 
 from fastapi import APIRouter
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from synthcut_core.events import commit_and_publish
-from synthcut_core.models import Asset, AssetAnalysis, AssetTranscript, EditPlanRow, Job, Project, Render
+from synthcut_core.models import Asset, EditPlanRow, Job, Project, Render
 from synthcut_core.preferences import remember_choice
 from synthcut_core.projects import get_owned_project
-from synthcut_core.renders import request_auto_edit_async, request_delivery_async, request_render_async
+from synthcut_core.renders import request_delivery_async, request_render_async, start_auto_edit_async
 from synthcut_core.stages import StageState, set_stage_async
 from synthcut_schemas.api import (
     AutoEditRequest,
@@ -31,13 +31,9 @@ from synthcut_schemas.api import (
     RenderRequest,
 )
 from synthcut_schemas.enums import (
-    AnalysisStatus,
-    AssetStatus,
-    ProjectStatus,
     RenderStatus,
     Stage,
     StageStatus,
-    TranscriptStatus,
 )
 from synthcut_schemas.jobs import JobKind
 from synthcut_storage import Storage
@@ -145,52 +141,6 @@ async def edit_state(db: AsyncSession, storage: Storage, ttl: int, project: Proj
 # --------------------------------------------------------------------------- endpoints
 
 
-async def not_ready_reason(db: AsyncSession, project_id: uuid.UUID) -> tuple[str, str] | None:
-    videos = (
-        await db.execute(
-            select(Asset.status, func.count())
-            .where(Asset.project_id == project_id, Asset.deleted_at.is_(None), Asset.uploaded_at.is_not(None))
-            .group_by(Asset.status)
-        )
-    ).all()
-    counts = {status: int(n) for status, n in videos}
-    if counts.get(AssetStatus.UPLOADED.value) or counts.get(AssetStatus.INGESTING.value):
-        return "ingest_running", "Fayllar hali o'qilmoqda — tugashini kuting"
-    ready_videos = (
-        await db.execute(
-            select(func.count()).where(
-                Asset.project_id == project_id,
-                Asset.deleted_at.is_(None),
-                Asset.kind == "video",
-                Asset.status == AssetStatus.READY.value,
-            )
-        )
-    ).scalar_one()
-    if not ready_videos:
-        return "no_video", "Loyihada tayyor video yo'q"
-    speech = (
-        await db.execute(
-            select(func.count()).where(
-                AssetTranscript.project_id == project_id,
-                AssetTranscript.status.in_([TranscriptStatus.QUEUED.value, TranscriptStatus.RUNNING.value]),
-            )
-        )
-    ).scalar_one()
-    if speech:
-        return "speech_running", "Nutq hali matnga o'girilmoqda — montaj nutq bo'yicha kesadi, kuting"
-    analysis = (
-        await db.execute(
-            select(func.count()).where(
-                AssetAnalysis.project_id == project_id,
-                AssetAnalysis.status.in_([AnalysisStatus.QUEUED.value, AnalysisStatus.RUNNING.value]),
-            )
-        )
-    ).scalar_one()
-    if analysis:
-        return "analysis_running", "Kadrlar tahlili hali tugamagan — kuting"
-    return None
-
-
 @router.post("/projects/{project_id}/auto-edit", response_model=EditStateOut, status_code=202)
 async def auto_edit(
     project_id: uuid.UUID,
@@ -205,20 +155,10 @@ async def auto_edit(
     captioned — then rendered from the originals and (optionally) sent to
     the chat. A second request while one is running returns that one."""
     project = await owned_project(db, user.id, project_id)
-    if project.status != ProjectStatus.ACTIVE.value:
-        raise ApiError(409, "archived", "Arxivdagi loyihani montaj qilib bo'lmaydi")
-    reason = await not_ready_reason(db, project.id)
-    if reason is not None:
-        raise ApiError(409, *reason)
-    await request_auto_edit_async(db, project.id, body)
+    started = await start_auto_edit_async(db, project, body, source="api")
+    if started.refused is not None:
+        raise ApiError(409, *started.refused)
     await remember_choice(db, user.id, body)  # the next Tez montaj starts from these
-    await set_stage_async(
-        db,
-        project.id,
-        Stage.EDITOR,
-        StageState(StageStatus.QUEUED, None, "Tez montaj navbatda"),
-        source="api",
-    )
     await commit_and_publish(db, redis)
     return await edit_state(db, storage, settings.media_url_ttl_seconds, project)
 

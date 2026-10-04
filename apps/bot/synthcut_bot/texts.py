@@ -27,6 +27,7 @@ WELCOME = (
     "/new <i>nom</i> — yangi loyiha\n"
     "/projects — loyihalar ro'yxati\n"
     "/status — oxirgi loyiha holati\n"
+    "/montaj — oxirgi loyihani Tez montaj qilib, videoni shu yerga olish\n"
     "/help — yordam"
 )
 
@@ -34,7 +35,8 @@ HELP = (
     "<b>SynthCut buyruqlari</b>\n\n"
     "/new <i>nom</i> — yangi loyiha (masalan: <code>/new Kuzgi reel</code>)\n"
     "/projects — oxirgi loyihalar\n"
-    "/status — oxirgi loyihaning pipeline holati\n\n"
+    "/status — oxirgi loyihaning pipeline holati\n"
+    "/montaj — oxirgi loyihani Tez montaj: pauzalar kesiladi, rang, ovoz, subtitr — tayyor video shu chatga keladi\n\n"
     "Videolar Mini App orqali to'g'ridan-to'g'ri saqlash tizimiga yuklanadi — bot orqali emas. "
     "Katta fayllar (4–50 GB) uzilsa ham davom ettiriladi."
 )
@@ -90,3 +92,18 @@ def project_status(p: ProjectOut) -> str:
         later = "" if st.available else f" <i>(Phase {st.phase})</i>"
         lines.append(f"{STATUS_ICON[st.status]} {st.label}{suffix}{later}")
     return "\n".join(lines)
+
+
+def montaj_reply(project_name: str, started) -> str:
+    """``started`` is ``synthcut_core.renders.AutoEditStart``."""
+    head = f"✂️ <b>{escape(project_name, quote=False)}</b>\n"
+    if started.refused is not None:
+        return head + escape(started.refused[1], quote=False)
+    if not started.created:
+        return head + "Tez montaj allaqachon jarayonda — natijani Mini App'da kuzating."
+    return head + (
+        "Tez montaj boshlandi: pauzalar kesiladi, rang va ovoz tuzatiladi, subtitr qo'yiladi, "
+        "keyin asl fayllardan render va sifat nazorati.\n"
+        "Tayyor video shu chatga keladi — odatda video uzunligiga qarab 10–30 daqiqa. "
+        "Sozlamalar oxirgi tanlovlaringiz va fikrlaringizdan olinadi."
+    )

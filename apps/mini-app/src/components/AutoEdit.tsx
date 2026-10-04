@@ -17,6 +17,7 @@ type Denoise = Defaults["denoise"];
 const CAPTIONS: Captions[] = ["dynamic", "karaoke", "minimal", "bold", "off"];
 const DENOISE: Record<Denoise, string> = { auto: "Avto", off: "O'chiq", light: "Yengil", medium: "O'rta", strong: "Kuchli" };
 const PAUSES = [0.4, 0.6, 0.9, 1.2];
+const MUSIC_LEVELS = [-26, -22, -18, -14];
 
 function durationLabel(sec: number | null): string {
   if (sec == null) return "Hammasi";
@@ -200,6 +201,20 @@ export function AutoEdit({ project, edit, render }: { project: ProjectOut; edit:
                     ))}
                   </div>
                   <p className="mt-1 text-[11px] text-faint">Fon musiqasi bo'lsa «Yengil» yoki «O'chiq» — kuchli tozalash musiqani ham bosadi.</p>
+                </div>
+                <div>
+                  <p className="label mb-1.5">Fon musiqasi</p>
+                  <div className="flex flex-wrap gap-2">
+                    <Chip active={!values.music} onClick={() => set("music", false)}>
+                      Yo'q
+                    </Chip>
+                    {[...new Set([...MUSIC_LEVELS, values.music_gain_db])].sort((a, b) => a - b).map((db) => (
+                      <Chip key={db} active={values.music && values.music_gain_db === db} onClick={() => setChanged((c) => ({ ...c, music: true, music_gain_db: db }))}>
+                        {db} dB
+                      </Chip>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-[11px] text-faint">Loyihaga yuklangan nutqsiz audio fayl ovoz ostiga qo'yiladi va gapirilganda pasayadi.</p>
                 </div>
                 <div className="grid gap-2">
                   <input

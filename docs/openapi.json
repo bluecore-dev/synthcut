@@ -3345,6 +3345,19 @@
             "title": "Denoise",
             "default": "auto"
           },
+          "music": {
+            "type": "boolean",
+            "title": "Music",
+            "default": true
+          },
+          "music_gain_db": {
+            "type": "number",
+            "maximum": -6.0,
+            "minimum": -40.0,
+            "title": "Music Gain Db",
+            "description": "Music level before ducking",
+            "default": -18.0
+          },
           "deliver": {
             "type": "boolean",
             "title": "Deliver",
@@ -4014,6 +4027,19 @@
             "title": "Denoise",
             "default": "auto"
           },
+          "music": {
+            "type": "boolean",
+            "title": "Music",
+            "default": true
+          },
+          "music_gain_db": {
+            "type": "number",
+            "maximum": -6.0,
+            "minimum": -40.0,
+            "title": "Music Gain Db",
+            "description": "Music level before ducking",
+            "default": -18.0
+          },
           "deliver": {
             "type": "boolean",
             "title": "Deliver",
@@ -4562,7 +4588,10 @@
               "voice_robotic",
               "noise_left",
               "too_quiet",
-              "too_loud"
+              "too_loud",
+              "music_too_loud",
+              "music_too_quiet",
+              "no_music"
             ],
             "title": "Code"
           },
@@ -4621,7 +4650,10 @@
                 "voice_robotic",
                 "noise_left",
                 "too_quiet",
-                "too_loud"
+                "too_loud",
+                "music_too_loud",
+                "music_too_quiet",
+                "no_music"
               ]
             },
             "type": "array",
@@ -4702,7 +4734,10 @@
                 "voice_robotic",
                 "noise_left",
                 "too_quiet",
-                "too_loud"
+                "too_loud",
+                "music_too_loud",
+                "music_too_quiet",
+                "no_music"
               ]
             },
             "type": "array",

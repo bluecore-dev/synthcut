@@ -6,6 +6,7 @@ an httpx mock transport."""
 
 import os
 import shutil
+import subprocess
 import uuid
 from pathlib import Path
 
@@ -231,3 +232,61 @@ async def test_render_refuses_when_scratch_is_full(
     monkeypatch.undo()
     out = (await client.get(f"/api/v1/projects/{project['id']}/renders", headers=auth)).json()["items"][0]
     assert out["status"] == "failed" and "diskda joy yetmaydi" in out["error"]
+
+
+@pytest.fixture
+def music(tmp_path):
+    out = tmp_path / "fon.wav"
+    subprocess.run(
+        ["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "aevalsrc='0.3*sin(2*PI*300*t)':s=48000:d=8", str(out)],
+        check=True,
+    )  # fmt: skip
+    return out
+
+
+async def test_uploaded_music_goes_under_the_voice(
+    client, auth, edit_settings, media, Session, fake_layer, monkeypatch, music
+):
+    from synthcut_speech.engines import EngineResult
+    from synthcut_worker.speech import jobs as speech_jobs
+
+    class SpeechOrMusic(test_speech.FakeEngine):
+        def transcribe(self, audio, *, language, on_progress=None, check=None):
+            if len(audio) / 16000 > 7:  # the 8 s music file: no words in it
+                return EngineResult(language="uz", language_probability=0.5, segments=[], seconds=0.1)
+            return super().transcribe(audio, language=language, on_progress=on_progress, check=check)
+
+    monkeypatch.setattr(speech_jobs, "engine_for", lambda *a, **k: SpeechOrMusic())
+    project = await make_project(client, auth)
+    pid = project["id"]
+    await upload(client, auth, pid, media / "talk.mp4", "video/mp4")
+    await upload(client, auth, pid, music, "audio/wav")
+    run_worker(edit_settings)
+    r = await client.post(
+        f"/api/v1/projects/{pid}/auto-edit", json={"deliver": False, "music_gain_db": -14}, headers=auth
+    )
+    assert r.status_code == 202, r.text
+    assert run_worker(edit_settings) == ["edit.auto"]
+    with Session() as s:
+        plan = s.scalar(select(EditPlanRow).where(EditPlanRow.project_id == uuid.UUID(pid))).plan
+        track = plan["audio_tracks"][0]
+        assert track["role"] == "music" and track["clips"][0]["gain_db"] == -14 and track["ducking"]
+        assert "Fon musiqasi: fon.wav" in plan["notes"]
+    assert run_worker(edit_settings, queues="render") == ["render.final"]
+    out = (await client.get(f"/api/v1/projects/{pid}/renders", headers=auth)).json()["items"][0]
+    assert out["status"] == "done" and out["qa_status"] in ("pass", "warn"), out
+    stages = (await client.get(f"/api/v1/projects/{pid}", headers=auth)).json()["stages"]
+    assert "fon musiqasi" in next(st for st in stages if st["stage"] == "audio")["detail"]
+
+    # Turned off: the next version has no music.
+    await client.post(
+        f"/api/v1/projects/{pid}/auto-edit",
+        json={"deliver": False, "music": False, "render": False},
+        headers=auth,
+    )
+    run_worker(edit_settings)
+    with Session() as s:
+        v2 = s.scalar(
+            select(EditPlanRow).where(EditPlanRow.project_id == uuid.UUID(pid), EditPlanRow.version == 2)
+        )
+        assert v2.plan["audio_tracks"] == []

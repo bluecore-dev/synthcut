@@ -132,6 +132,8 @@ class NotifyTelegramPayload(_Payload):
     chat_id: int
     text: str = Field(max_length=4000)
     open_project_id: UUID | None = None
+    # Adds a "✂️ Tez montaj" button that starts it from the chat (callback ``tm:<project id>``).
+    auto_edit_project_id: UUID | None = None
 
 
 PAYLOAD_MODELS: dict[str, type[_Payload]] = {

@@ -29,11 +29,14 @@ def notify_telegram(ctx: JobContext, payload: NotifyTelegramPayload) -> dict[str
         "parse_mode": "HTML",
         "disable_web_page_preview": True,
     }
+    rows: list[list[dict[str, Any]]] = []
+    if payload.auto_edit_project_id:
+        rows.append([{"text": "✂️ Tez montaj", "callback_data": f"tm:{payload.auto_edit_project_id}"}])
     if payload.open_project_id and settings.mini_app_url.startswith("https://"):
         url = f"{settings.mini_app_url}?p={payload.open_project_id}"
-        body["reply_markup"] = {
-            "inline_keyboard": [[{"text": "📂 Loyihani ochish", "web_app": {"url": url}}]]
-        }
+        rows.append([{"text": "📂 Loyihani ochish", "web_app": {"url": url}}])
+    if rows:
+        body["reply_markup"] = {"inline_keyboard": rows}
     with client_factory() as client:
         try:
             resp = client.post(f"{settings.telegram_api_base}/bot{token}/sendMessage", json=body)

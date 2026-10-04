@@ -31,6 +31,7 @@ COMMANDS = [
     BotCommand(command="new", description="Yangi loyiha: /new nom"),
     BotCommand(command="projects", description="Loyihalar ro'yxati"),
     BotCommand(command="status", description="Oxirgi loyiha holati"),
+    BotCommand(command="montaj", description="Tez montaj: tayyor videoni chatga olish"),
     BotCommand(command="help", description="Yordam"),
 ]
 

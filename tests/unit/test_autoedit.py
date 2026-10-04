@@ -176,3 +176,33 @@ def test_a_phrase_across_a_cut_is_placed_shot_by_shot():
         clips=[shot(0, 5, face=(0.5, 0.4)), shot(5, 10, face=(0.5, 0.4))],
     )
     assert len(plan_for([same]).video_tracks[0].clips) == 1  # nothing changes at the cut: one clip
+
+
+def test_music_loops_under_the_whole_cut_with_fades_and_ducking():
+    from synthcut_timeline.autoedit import Music
+
+    talk = source(transcript=words((0.0, 9.0)))
+    song = Music(asset_id=uuid4(), name="fon.mp3", duration=4.0)
+    options = Options(**REELS, music_gain_db=-20)
+    plan = build_plan(project_id=PROJECT, version=1, sources=[talk], opts=options, music=song)
+    facts = {
+        talk.asset_id: AssetFacts(kind="video", duration=talk.duration),
+        song.asset_id: AssetFacts(kind="audio", duration=song.duration),
+    }
+    report = validate_plan(plan, assets=facts)
+    assert report.ok and not report.warnings, report.issues
+    track = plan.audio_tracks[0]
+    assert track.role == "music" and track.ducking.amount_db == -12
+    assert [c.timeline_start for c in track.clips] == [0.0, 4.0, 8.0]  # 9.13 s of speech: three passes
+    assert track.clips[-1].timeline_end == plan.sequence.duration
+    assert (track.clips[0].fade_in, track.clips[-1].fade_out) == (
+        1.0,
+        pytest.approx(0.567, abs=0.01),
+    )  # half the 1.13 s tail
+    assert all(c.gain_db == -20 for c in track.clips)
+    assert "Fon musiqasi: fon.mp3" in plan.notes
+    short = Music(asset_id=uuid4(), name="ding.wav", duration=1.0)
+    assert (
+        build_plan(project_id=PROJECT, version=1, sources=[talk], opts=options, music=short).audio_tracks
+        == []
+    )

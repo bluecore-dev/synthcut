@@ -14,15 +14,29 @@ the shared ``_prepare_*`` helpers.
 from __future__ import annotations
 
 import uuid
+from dataclasses import dataclass
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
-from synthcut_schemas.enums import DeliveryStatus, JobPriority, JobQueue, RenderKind, RenderStatus
+from synthcut_schemas.enums import (
+    AnalysisStatus,
+    AssetStatus,
+    DeliveryStatus,
+    JobPriority,
+    JobQueue,
+    ProjectStatus,
+    RenderKind,
+    RenderStatus,
+    Stage,
+    StageStatus,
+    TranscriptStatus,
+)
 from synthcut_schemas.jobs import AutoEditOptions, JobKind
 
 from .jobs import enqueue, enqueue_async
-from .models import EditPlanRow, Job, Render
+from .models import Asset, AssetAnalysis, AssetTranscript, EditPlanRow, Job, Project, Render
+from .stages import StageState, set_stage_async
 
 ACTIVE_JOB = ("queued", "running")
 ACTIVE_RENDER = (RenderStatus.QUEUED.value, RenderStatus.RUNNING.value)
@@ -49,22 +63,99 @@ def _edit_job(project_id: uuid.UUID, options: AutoEditOptions) -> dict:
     }
 
 
-def request_auto_edit(s: Session, project_id: uuid.UUID, options: AutoEditOptions) -> uuid.UUID:
+def request_auto_edit(s: Session, project_id: uuid.UUID, options: AutoEditOptions) -> tuple[uuid.UUID, bool]:
+    """(job id, created) — a request while one is queued or running returns that one."""
     active = s.execute(_active_edit_stmt(project_id)).scalar_one_or_none()
     if active is not None:
-        return active.id
+        return active.id, False
     job_id, _ = enqueue(s, **_edit_job(project_id, options))
-    return job_id
+    return job_id, True
 
 
 async def request_auto_edit_async(
     s: AsyncSession, project_id: uuid.UUID, options: AutoEditOptions
-) -> uuid.UUID:
+) -> tuple[uuid.UUID, bool]:
     active = (await s.execute(_active_edit_stmt(project_id))).scalar_one_or_none()
     if active is not None:
-        return active.id
+        return active.id, False
     job_id, _ = await enqueue_async(s, **_edit_job(project_id, options))
-    return job_id
+    return job_id, True
+
+
+async def not_ready_reason_async(db: AsyncSession, project_id: uuid.UUID) -> tuple[str, str] | None:
+    """Why Tez montaj cannot start yet (code, Uzbek message) — the cut follows
+    speech and shots, so it waits for ingestion, transcription and analysis."""
+    videos = (
+        await db.execute(
+            select(Asset.status, func.count())
+            .where(Asset.project_id == project_id, Asset.deleted_at.is_(None), Asset.uploaded_at.is_not(None))
+            .group_by(Asset.status)
+        )
+    ).all()
+    counts = {status: int(n) for status, n in videos}
+    if counts.get(AssetStatus.UPLOADED.value) or counts.get(AssetStatus.INGESTING.value):
+        return "ingest_running", "Fayllar hali o'qilmoqda — tugashini kuting"
+    ready_videos = (
+        await db.execute(
+            select(func.count()).where(
+                Asset.project_id == project_id,
+                Asset.deleted_at.is_(None),
+                Asset.kind == "video",
+                Asset.status == AssetStatus.READY.value,
+            )
+        )
+    ).scalar_one()
+    if not ready_videos:
+        return "no_video", "Loyihada tayyor video yo'q"
+    speech = (
+        await db.execute(
+            select(func.count()).where(
+                AssetTranscript.project_id == project_id,
+                AssetTranscript.status.in_([TranscriptStatus.QUEUED.value, TranscriptStatus.RUNNING.value]),
+            )
+        )
+    ).scalar_one()
+    if speech:
+        return "speech_running", "Nutq hali matnga o'girilmoqda — montaj nutq bo'yicha kesadi, kuting"
+    analysis = (
+        await db.execute(
+            select(func.count()).where(
+                AssetAnalysis.project_id == project_id,
+                AssetAnalysis.status.in_([AnalysisStatus.QUEUED.value, AnalysisStatus.RUNNING.value]),
+            )
+        )
+    ).scalar_one()
+    if analysis:
+        return "analysis_running", "Kadrlar tahlili hali tugamagan — kuting"
+    return None
+
+
+@dataclass(frozen=True, slots=True)
+class AutoEditStart:
+    job_id: uuid.UUID | None
+    created: bool  # False: one was already queued or running, that one stands
+    refused: tuple[str, str] | None = None  # (code, message)
+
+
+async def start_auto_edit_async(
+    s: AsyncSession, project: Project, options: AutoEditOptions, *, source: str
+) -> AutoEditStart:
+    """Tez montaj for an active, ready project — from the Mini App or the chat."""
+    if project.status != ProjectStatus.ACTIVE.value:
+        return AutoEditStart(None, False, ("archived", "Arxivdagi loyihani montaj qilib bo'lmaydi"))
+    reason = await not_ready_reason_async(s, project.id)
+    if reason is not None:
+        return AutoEditStart(None, False, reason)
+    job_id, created = await request_auto_edit_async(s, project.id, options)
+    if created:
+        await set_stage_async(
+            s,
+            project.id,
+            Stage.EDITOR,
+            StageState(StageStatus.QUEUED, None, "Tez montaj navbatda"),
+            source=source,
+        )
+    return AutoEditStart(job_id, created)
 
 
 def next_version_stmt(project_id: uuid.UUID):

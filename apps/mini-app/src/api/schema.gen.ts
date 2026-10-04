@@ -1004,6 +1004,17 @@ export interface components {
              */
             denoise: "auto" | "off" | "light" | "medium" | "strong";
             /**
+             * Music
+             * @default true
+             */
+            music: boolean;
+            /**
+             * Music Gain Db
+             * @description Music level before ducking
+             * @default -18
+             */
+            music_gain_db: number;
+            /**
              * Deliver
              * @default true
              */
@@ -1272,6 +1283,17 @@ export interface components {
              */
             denoise: "auto" | "off" | "light" | "medium" | "strong";
             /**
+             * Music
+             * @default true
+             */
+            music: boolean;
+            /**
+             * Music Gain Db
+             * @description Music level before ducking
+             * @default -18
+             */
+            music_gain_db: number;
+            /**
              * Deliver
              * @default true
              */
@@ -1467,7 +1489,7 @@ export interface components {
              * Code
              * @enum {string}
              */
-            code: "cut_too_much" | "cut_too_little" | "no_captions" | "want_captions" | "colour_too_strong" | "colour_too_weak" | "voice_robotic" | "noise_left" | "too_quiet" | "too_loud";
+            code: "cut_too_much" | "cut_too_little" | "no_captions" | "want_captions" | "colour_too_strong" | "colour_too_weak" | "voice_robotic" | "noise_left" | "too_quiet" | "too_loud" | "music_too_loud" | "music_too_quiet" | "no_music";
             /** Label */
             label: string;
         };
@@ -1483,7 +1505,7 @@ export interface components {
             /** Plan Version */
             plan_version: number | null;
             /** Codes */
-            codes: ("cut_too_much" | "cut_too_little" | "no_captions" | "want_captions" | "colour_too_strong" | "colour_too_weak" | "voice_robotic" | "noise_left" | "too_quiet" | "too_loud")[];
+            codes: ("cut_too_much" | "cut_too_little" | "no_captions" | "want_captions" | "colour_too_strong" | "colour_too_weak" | "voice_robotic" | "noise_left" | "too_quiet" | "too_loud" | "music_too_loud" | "music_too_quiet" | "no_music")[];
             /** Comment */
             comment: string | null;
             /** At Sec */
@@ -1501,7 +1523,7 @@ export interface components {
         /** FeedbackRequest */
         FeedbackRequest: {
             /** Codes */
-            codes?: ("cut_too_much" | "cut_too_little" | "no_captions" | "want_captions" | "colour_too_strong" | "colour_too_weak" | "voice_robotic" | "noise_left" | "too_quiet" | "too_loud")[];
+            codes?: ("cut_too_much" | "cut_too_little" | "no_captions" | "want_captions" | "colour_too_strong" | "colour_too_weak" | "voice_robotic" | "noise_left" | "too_quiet" | "too_loud" | "music_too_loud" | "music_too_quiet" | "no_music")[];
             /** Comment */
             comment?: string | null;
             /** At Sec */

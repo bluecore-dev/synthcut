@@ -60,6 +60,8 @@ Deep link: the bot's "📂 Loyihani ochish" button opens `?p=<project id>`.
 | `/new <name>` | Creates a project |
 | `/projects` | Lists projects with a button each |
 | `/status` | State of the latest project |
+| `/montaj` | Tez montaj of the latest project; the video comes back to the chat |
+| ✂️ button | On the "speech ready" message: the same for that project (`tm:<id>`) |
 | `/help` | Help |
 
 Webhook only (`/telegram/webhook/<hash of the secret>` plus the secret header); notifications are sent by

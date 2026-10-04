@@ -5,6 +5,12 @@ All notable changes, phase by phase. Releases are deployed as
 
 ## [Unreleased]
 
+## Tez montaj from the chat, music bed · 2026-10-04
+
+- `/montaj` and a "✂️ Tez montaj" button on the "speech ready" message: the cut starts with the remembered settings and the video comes back to the chat; failures and QA blocks are reported there.
+- An uploaded audio file without speech becomes background music: repeated to cover the cut, faded, ducked under the voice with a sidechain compressor, included in the loudness passes; settings and feedback for its level.
+- Phrases that run across a cut in the source are placed shot by shot; vertical crops cut the visible window before scaling.
+
 ## Memory: preferences and feedback · 2026-10-04
 
 - Tez montaj settings are remembered per user (`preferences`, migration 0006); the form starts from them, and the pause length to cut is now a setting.
