@@ -13,6 +13,8 @@ All notable changes, phase by phase. Releases are deployed as
 - QA on the file (`qa/1`): resolution, frame rate, duration, codecs, loudness, true peak, black frames, frozen picture, silences, decode errors.
 - Telegram delivery: the video sent to the owner's chat (`sendVideo`), a chat-sized copy when the master is over 50 MB.
 - Mini App: Tez montaj card, Timeline, Versions, Preview and Render History tabs; tabs now open per built stage instead of a phase number.
+- Wide-gamut SDR (Display P3, Rec.2020) converted inside the clip's LUT instead of a separate zscale pass; per-step render timings in the job result.
+- Measured on a 161.7 s 1080p phone clip: plan in 25 s (119.7 s, 41.9 s of pauses cut), render 30 min on two shared cores, QA pass.
 
 ## Phase 8 — colour and audio engines · 2026-10-04
 
