@@ -213,3 +213,21 @@ async def test_a_dead_render_is_shown_as_failed(
             s.scalar(select(EditPlanRow.version).where(EditPlanRow.project_id == uuid.UUID(project["id"])))
             == 1
         )
+
+
+async def test_render_refuses_when_scratch_is_full(
+    client, auth, edit_settings, media, Session, fake_layer, monkeypatch
+):
+    from collections import namedtuple
+
+    project = await make_project(client, auth)
+    await upload(client, auth, project["id"], media / "talk.mp4", "video/mp4")
+    run_worker(edit_settings)
+    await client.post(f"/api/v1/projects/{project['id']}/auto-edit", json={"deliver": False}, headers=auth)
+    run_worker(edit_settings)
+    usage = namedtuple("usage", "total used free")
+    monkeypatch.setattr(final_jobs.shutil, "disk_usage", lambda path: usage(10**9, 10**9 - 10**6, 10**6))
+    assert run_worker(edit_settings, queues="render") == ["render.final"]  # permanent: no retry
+    monkeypatch.undo()
+    out = (await client.get(f"/api/v1/projects/{project['id']}/renders", headers=auth)).json()["items"][0]
+    assert out["status"] == "failed" and "diskda joy yetmaydi" in out["error"]

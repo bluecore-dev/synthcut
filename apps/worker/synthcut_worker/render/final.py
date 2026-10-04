@@ -33,7 +33,10 @@ from synthcut_media.final import (
     OverlayLayer,
     SegmentSpec,
     SfxInput,
+    chat_copy_plan,
     concat_list,
+    intermediate_bytes,
+    likely_over_limit,
     loudness_pass,
     master_command,
     overlay_fps,
@@ -256,6 +259,12 @@ def _render(ctx: JobContext, job: Work) -> Output:
     progress = _Progress(ctx, job.render_id, {k: v for k, v in weights.items() if v})
 
     # 1. Segments from the originals --------------------------------------------------
+    need = intermediate_bytes(seq.duration, seq.width, seq.height, seq.fps) * 2 + 500 * 1024**2
+    free = shutil.disk_usage(work).free
+    if free < need:
+        raise PermanentError(
+            f"Render uchun diskda joy yetmaydi: kerak ~{need / 1024**3:.1f} GB, bo'sh {free / 1024**3:.1f} GB"
+        )
     on = progress.step("segments", "kesish va rang")
     luts = LutCache(work)
     zscale = has_filter("zscale")
@@ -341,10 +350,14 @@ def _render(ctx: JobContext, job: Work) -> Output:
     # 4. Master -------------------------------------------------------------------------
     on = progress.step("master", "yakuniy kodlash")
     final = work / "final.mp4"
+    chat: Path | None = None
+    if likely_over_limit(seq.duration, seq.width, seq.height, seq.fps):
+        chat = work / "telegram.mp4"  # the chat copy from the same decode and composite
     run_ffmpeg(
         master_command(
             joined, final, width=seq.width, height=seq.height, fps=seq.fps, duration=seq.duration,
             overlay=layer, voice=voice, loudness=tail, sfx=sfx, threads=ctx.settings.media_threads,
+            chat=(chat_copy_plan(seq.duration, seq.width, seq.height), chat) if chat else None,
         ),
         duration=seq.duration,
         on_progress=on,
@@ -383,7 +396,12 @@ def _render(ctx: JobContext, job: Work) -> Output:
     poster = work / "poster.jpg"
     run_ffmpeg(poster_command(final, poster, at=seq.duration * 0.3), check=ctx.check, timeout=120)
     telegram: Path | None = None
-    if final.stat().st_size > TELEGRAM_LIMIT * 0.95:
+    fits = final.stat().st_size <= TELEGRAM_LIMIT * 0.95
+    if chat is not None and not fits:
+        telegram = chat
+    elif chat is not None:
+        chat.unlink(missing_ok=True)  # the master itself goes to the chat
+    elif not fits:  # the size guess was wrong: one more pass over the master
         on = progress.step("copy", "Telegram nusxasi")
         telegram = work / "telegram.mp4"
         run_ffmpeg(
@@ -393,8 +411,8 @@ def _render(ctx: JobContext, job: Work) -> Output:
             check=ctx.check,
             timeout=900 + seq.duration * 10,
         )
-        if telegram.stat().st_size > TELEGRAM_LIMIT:
-            telegram = None  # very long video: the chat gets a link instead
+    if telegram is not None and telegram.stat().st_size > TELEGRAM_LIMIT:
+        telegram = None  # very long video: the chat gets a link instead
     return Output(final=final, poster=poster, telegram=telegram, qa=report, timings=progress.timings())
 
 

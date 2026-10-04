@@ -307,3 +307,29 @@ def test_wide_gamut_segment_skips_zscale_when_the_lut_converts():
     assert "zscale=p=bt709" in " ".join(
         segment_command(plain, Path("o.mkv"), width=1920, height=1080, fps=30, zscale=True)
     )
+
+
+@needs_ffmpeg
+def test_master_writes_the_chat_copy_in_the_same_pass(tmp_path):
+    from synthcut_media.final import ChatCopy, chat_copy_plan, likely_over_limit
+
+    src = _src(tmp_path, "src.mp4", "640x360", "30", audio=True)
+    seg = tmp_path / "seg.mkv"
+    run_ffmpeg(segment_command(SegmentSpec(source=str(src), start=0, duration=2.0, src_w=640, src_h=360),
+                               seg, width=640, height=360, fps=30, zscale=False))  # fmt: skip
+    joined = concat_list([(seg, 2.0)], tmp_path / "t.ffconcat", 30)
+    final, chat = tmp_path / "final.mp4", tmp_path / "chat.mp4"
+    run_ffmpeg(
+        master_command(
+            joined, final, width=640, height=360, fps=30, duration=2.0, overlay=None, voice=[],
+            loudness="anull", sfx=[], chat=(ChatCopy(320, 180, 300_000), chat),
+        )
+    )  # fmt: skip
+    p_final, p_chat = _probe(final), _probe(chat)
+    assert (p_final["video"]["width"], p_chat["video"]["width"], p_chat["video"]["height"]) == (640, 320, 180)
+    assert int(p_final["video"]["nb_read_frames"]) == int(p_chat["video"]["nb_read_frames"]) == 60
+    assert "audio" in p_chat
+    # The plan behind it: ~2 min of 1080p is over the limit, 20 s is not; long videos drop to 540p.
+    assert likely_over_limit(120, 1920, 1080, 30) and not likely_over_limit(20, 1920, 1080, 30)
+    short, long = chat_copy_plan(120, 1920, 1080), chat_copy_plan(600, 1080, 1920)
+    assert (short.width, short.height, long.width, long.height) == (1280, 720, 540, 960)
