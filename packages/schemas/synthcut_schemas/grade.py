@@ -18,7 +18,9 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-InputTransform = Literal["none", "apple_log", "slog3", "log_generic"]
+# "display_p3" / "rec2020_sdr": display-referred wide gamut (phones) → Rec.709,
+# folded into the clip's LUT at render time instead of a separate zscale pass.
+InputTransform = Literal["none", "apple_log", "slog3", "log_generic", "display_p3", "rec2020_sdr"]
 CreativeProfile = Literal[
     "neutral", "cinematic_clean", "warm_film", "cool_teal", "vivid_social", "bw_classic"
 ]

@@ -13,6 +13,7 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
+import time
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -20,6 +21,7 @@ from typing import Any
 
 from sqlalchemy import select
 from synthcut_audio.filters import loudnorm_apply, loudnorm_measure, parse_loudnorm, voice_filters
+from synthcut_color.auto import GAMUT_PROFILES, input_transform_for
 from synthcut_color.grade import bake, is_identity, write_cube
 from synthcut_core.events import commit_and_publish_sync, emit
 from synthcut_core.models import Asset, AssetTranscript, EditPlanRow, Render, utcnow
@@ -86,6 +88,7 @@ class Output:
     poster: Path
     telegram: Path | None
     qa: QaReport
+    timings: dict[str, float]
 
 
 def _set_row(ctx: JobContext, render_id: uuid.UUID, **fields: Any) -> None:
@@ -179,11 +182,13 @@ def _unsupported(plan: EditPlan) -> str | None:
 
 
 class _Progress:
-    """Maps each step's 0..1 onto its share of the whole render."""
+    """Maps each step's 0..1 onto its share of the whole render, and times the
+    steps (kept in the job result: where a render's minutes go)."""
 
     def __init__(self, ctx: JobContext, render_id: uuid.UUID, weights: dict[str, float]) -> None:
         self.ctx = ctx
         self.tag = {"render_id": str(render_id)}
+        self.started: dict[str, float] = {}
         total = sum(weights.values())
         self.spans: dict[str, tuple[float, float]] = {}
         at = 0.0
@@ -192,38 +197,46 @@ class _Progress:
             at += w
 
     def step(self, name: str, label: str):
+        self.started[name] = time.monotonic()
         a, b = self.spans[name]
         self.ctx.progress(a, label, data=self.tag)
         _set_row(self.ctx, uuid.UUID(self.tag["render_id"]), step=label, progress=round(a, 3))
         return lambda f: self.ctx.progress(a + (b - a) * max(0.0, min(1.0, f)), label, data=self.tag)
 
-
-def _digest(params: dict[str, Any]) -> str:
-    return hashlib.sha256(json.dumps(params, sort_keys=True).encode()).hexdigest()[:16]
-
-
-def _luts(plan: EditPlan, work: Path) -> dict[str, Path]:
-    """One baked LUT per distinct grade (most clips of one file share it)."""
-    out: dict[str, Path] = {}
-    for c in plan.video_tracks[0].clips:
-        for e in c.effects:
-            if e.type != "grade":
-                continue
-            grade = ColorGrade.model_validate(e.params)
-            if is_identity(grade):
-                continue
-            digest = _digest(e.params)
-            if digest not in out:
-                out[digest] = write_cube(bake(grade), work / f"grade-{digest}.cube")
-    return out
+    def timings(self) -> dict[str, float]:
+        """Seconds per step, each until the next one started (the last until now)."""
+        marks = sorted(self.started.items(), key=lambda kv: kv[1])
+        ends = [t for _, t in marks[1:]] + [time.monotonic()]
+        return {name: round(end - t, 1) for (name, t), end in zip(marks, ends, strict=True)}
 
 
-def _lut_for(clip, luts: dict[str, Path]) -> Path | None:
-    for e in clip.effects:
-        if e.type == "grade":
-            digest = _digest(e.params)
-            return luts.get(digest)
-    return None
+def clip_grade(clip, profile: str | None) -> ColorGrade | None:
+    """What the clip's LUT must do on the *original*: its grade (measured on
+    the proxy, which ingestion already converted to Rec.709) plus the
+    original's wide-gamut → Rec.709 conversion. None = no LUT needed."""
+    params = next((e.params for e in clip.effects if e.type == "grade"), None)
+    grade = ColorGrade.model_validate(params) if params is not None else ColorGrade()
+    source = input_transform_for(profile, from_proxy=False)
+    if grade.input_transform == "none" and source in GAMUT_PROFILES:
+        grade = grade.model_copy(update={"input_transform": source})
+    return None if is_identity(grade) else grade
+
+
+class LutCache:
+    """One baked LUT per distinct effective grade (most clips of a file share it)."""
+
+    def __init__(self, work: Path) -> None:
+        self.work = work
+        self.paths: dict[str, Path] = {}
+
+    def get(self, grade: ColorGrade | None) -> Path | None:
+        if grade is None:
+            return None
+        params = grade.model_dump(mode="json", exclude={"notes"})
+        digest = hashlib.sha256(json.dumps(params, sort_keys=True).encode()).hexdigest()[:16]
+        if digest not in self.paths:
+            self.paths[digest] = write_cube(bake(grade), self.work / f"grade-{digest}.cube")
+        return self.paths[digest]
 
 
 def _render(ctx: JobContext, job: Work) -> Output:
@@ -244,7 +257,7 @@ def _render(ctx: JobContext, job: Work) -> Output:
 
     # 1. Segments from the originals --------------------------------------------------
     on = progress.step("segments", "kesish va rang")
-    luts = _luts(plan, work)
+    luts = LutCache(work)
     zscale = has_filter("zscale")
     total = sum(c.timeline_duration for c in clips) or 1.0
     done = 0.0
@@ -254,6 +267,7 @@ def _render(ctx: JobContext, job: Work) -> Output:
         fill = next(
             (str(e.params.get("fill", "black")) for e in clip.effects if e.type == "background"), "black"
         )
+        lut = luts.get(clip_grade(clip, src.color_profile))
         spec = SegmentSpec(
             source=ctx.storage.internal_get_url(src.key, INTERNAL_URL_TTL),
             start=clip.source_in,
@@ -265,9 +279,10 @@ def _render(ctx: JobContext, job: Work) -> Output:
             scale=clip.transform.scale,
             x=clip.transform.x,
             y=clip.transform.y,
-            lut=_lut_for(clip, luts),
+            lut=lut,
             audio=src.has_audio and not clip.mute_source_audio,
             fill=fill,
+            gamut_in_lut=lut is not None and src.color_profile in GAMUT_PROFILES,
         )
         out = work / f"seg-{n:04d}.mkv"
         base = done
@@ -380,7 +395,7 @@ def _render(ctx: JobContext, job: Work) -> Output:
         )
         if telegram.stat().st_size > TELEGRAM_LIMIT:
             telegram = None  # very long video: the chat gets a link instead
-    return Output(final=final, poster=poster, telegram=telegram, qa=report)
+    return Output(final=final, poster=poster, telegram=telegram, qa=report, timings=progress.timings())
 
 
 def _fail(ctx: JobContext, render_id: uuid.UUID, message: str, *, retrying: bool = False) -> None:
@@ -494,7 +509,7 @@ def _store(ctx: JobContext, job: Work, out: Output) -> dict[str, Any]:
             job_id=ctx.job.id,
         )
         commit_and_publish_sync(s, ctx.redis)
-    return {"size": size, "qa": out.qa.status, "duration": seq.duration}
+    return {"size": size, "qa": out.qa.status, "duration": seq.duration, "timings": out.timings}
 
 
 @handler(JobKind.RENDER_FINAL, queue=JobQueue.RENDER)

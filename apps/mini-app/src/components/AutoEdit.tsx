@@ -14,6 +14,8 @@ type Captions = NonNullable<Request["captions"]>;
 type Profile = keyof typeof ENHANCE_PROFILE_LABEL;
 type Loudness = keyof typeof LOUDNESS_TARGET_LABEL;
 const CAPTIONS: Captions[] = ["dynamic", "karaoke", "minimal", "bold", "off"];
+const DENOISE = { auto: "Avto", off: "O'chiq", light: "Yengil", medium: "O'rta", strong: "Kuchli" } as const;
+type Denoise = keyof typeof DENOISE;
 
 function durationLabel(sec: number | null): string {
   if (sec == null) return "Hammasi";
@@ -50,6 +52,7 @@ export function AutoEdit({ project, edit, render }: { project: ProjectOut; edit:
   const [captions, setCaptions] = useState<Captions>("dynamic");
   const [profile, setProfile] = useState<Profile>("cinematic_clean");
   const [loudness, setLoudness] = useState<Loudness>("social");
+  const [denoise, setDenoise] = useState<Denoise>("auto");
   const [cutPauses, setCutPauses] = useState(true);
   const [deliver, setDeliver] = useState(true);
   const [title, setTitle] = useState("");
@@ -67,7 +70,7 @@ export function AutoEdit({ project, edit, render }: { project: ProjectOut; edit:
             profile,
             intensity: 0.8,
             loudness,
-            denoise: "auto",
+            denoise,
             remove_pauses: cutPauses,
             render: true,
             deliver,
@@ -171,6 +174,17 @@ export function AutoEdit({ project, edit, render }: { project: ProjectOut; edit:
                       </Chip>
                     ))}
                   </div>
+                </div>
+                <div>
+                  <p className="label mb-1.5">Shovqin tozalash</p>
+                  <div className="flex flex-wrap gap-2">
+                    {(Object.keys(DENOISE) as Denoise[]).map((d) => (
+                      <Chip key={d} active={denoise === d} onClick={() => setDenoise(d)}>
+                        {DENOISE[d]}
+                      </Chip>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-[11px] text-faint">Fon musiqasi bo'lsa «Yengil» yoki «O'chiq» — kuchli tozalash musiqani ham bosadi.</p>
                 </div>
                 <div className="grid gap-2">
                   <input

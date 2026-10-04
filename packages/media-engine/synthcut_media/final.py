@@ -64,11 +64,13 @@ def cover_filters(
     return filters
 
 
-def colour_filters(profile: str | None, *, zscale: bool) -> list[str]:
+def colour_filters(profile: str | None, *, zscale: bool, gamut_in_lut: bool = False) -> list[str]:
     """Source colour → Rec.709, the same decisions ingestion made for the
     proxy (so a grade measured on the proxy fits the original). Log stays
-    flat here: its transform is part of the clip's grade LUT."""
-    if not zscale:
+    flat here: its transform is part of the clip's grade LUT — and so is the
+    wide-gamut SDR matrix when ``gamut_in_lut`` (a float zscale pass per
+    frame costs more than the whole LUT)."""
+    if not zscale or (gamut_in_lut and profile in ("display_p3", "rec2020_sdr")):
         return []
     if profile in TONEMAP_PROFILES:
         return [
@@ -98,6 +100,7 @@ class SegmentSpec:
     lut: Path | None = None
     audio: bool = True  # False: silence (no audio stream, or the plan mutes it)
     fill: str = "black"  # what shows around a picture smaller than the frame: "black" | "blur"
+    gamut_in_lut: bool = False  # the LUT converts wide-gamut SDR to Rec.709 itself
 
 
 def frames_for(duration: float, fps: int) -> int:
@@ -106,7 +109,9 @@ def frames_for(duration: float, fps: int) -> int:
 
 def video_graph(spec: SegmentSpec, *, width: int, height: int, fps: int, zscale: bool) -> str:
     """``[0:v:0]`` → ``[v]``: placement, colour, grade, exact frames."""
-    tail = colour_filters(spec.color_profile, zscale=zscale)
+    tail = colour_filters(
+        spec.color_profile, zscale=zscale, gamut_in_lut=spec.gamut_in_lut and spec.lut is not None
+    )
     if spec.lut is not None:
         rgb = "gbrp16le" if (spec.bit_depth or 8) > 8 else "gbrp"
         tail += [f"format={rgb}", f"lut3d=file={spec.lut}:interp=tetrahedral"]

@@ -188,3 +188,18 @@ def test_a_colourful_scene_is_not_mistaken_for_a_cast():
     tinted = frames.copy()
     tinted[:, 30:, :, 2] += 0.05  # now the shirt itself is blue: a real cast
     assert measure(np.clip(tinted, 0, 1)).cast_blue > 0.03
+
+
+def test_wide_gamut_sdr_converts_inside_the_lut():
+    from synthcut_color.spaces import DISPLAY_P3
+
+    g = ColorGrade(input_transform="display_p3")
+    assert not is_identity(g)
+    white, grey18 = apply_grade(grey(1.0), g)[0], apply_grade(grey(0.5), g)[0]
+    np.testing.assert_allclose(white, [1, 1, 1], atol=1e-9)  # D65 stays D65
+    np.testing.assert_allclose(grey18, [0.5, 0.5, 0.5], atol=1e-9)
+    p3 = np.array([[0.3, 0.7, 0.4]])  # a P3 green that Rec.709 shows less saturated
+    expected = display_encode(np.clip(display_decode(p3) @ gamut_matrix(DISPLAY_P3).T, 0, 1))
+    np.testing.assert_allclose(apply_grade(p3, g), expected, atol=1e-9)
+    assert apply_grade(p3, g)[0, 1] > p3[0, 1]  # the same light needs a stronger 709 green
+    assert apply_grade(p3, ColorGrade())[0, 1] == pytest.approx(0.7)  # untouched without the transform

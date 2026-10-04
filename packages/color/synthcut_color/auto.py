@@ -25,14 +25,20 @@ from .spaces import luma
 TARGET_LUMA = 0.45  # display-encoded mean a well-exposed shot sits near
 
 
+GAMUT_PROFILES = ("display_p3", "rec2020_sdr")
+
+
 def input_transform_for(color_profile: str | None, *, from_proxy: bool) -> str:
-    """The proxy is already Rec.709 for HDR / wide-gamut sources (tone-mapped
-    at ingest); only Log stays flat there. From the original, HDR goes
-    through zscale at render time (Phase 11), so the grade sees Rec.709."""
+    """The proxy is already Rec.709 for HDR / wide-gamut sources (converted
+    at ingest); only Log stays flat there. From the original, wide-gamut SDR
+    is converted inside the clip's LUT; HDR goes through zscale tone mapping
+    at render time, so the grade sees Rec.709."""
     if color_profile == "apple_log":
         return "apple_log"
     if color_profile == "log_suspected":
         return "log_generic"
+    if not from_proxy and color_profile in GAMUT_PROFILES:
+        return color_profile
     return "none"
 
 

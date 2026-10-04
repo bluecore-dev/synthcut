@@ -56,6 +56,7 @@ from ..registry import handler
 
 INTERNAL_URL_TTL = 6 * 3600
 SOURCE = "worker"
+DENOISE_WORDS = {"off": "o'chiq", "light": "yengil", "medium": "o'rta", "strong": "kuchli"}
 
 
 @dataclass
@@ -289,7 +290,11 @@ def _summaries(plan: EditPlan, mix: MixPlan | None, payload: AutoEditPayload) ->
         ),
         Stage.COLOR: StageState(done, 1.0, f"{payload.profile} · {exposure:+.1f} EV"),
         Stage.AUDIO: (
-            StageState(done, 1.0, f"{mix.loudness.target_lufs:g} LUFS · shovqin: {mix.voice.denoise}")
+            StageState(
+                done,
+                1.0,
+                f"{mix.loudness.target_lufs:g} LUFS · shovqin tozalash: {DENOISE_WORDS[mix.voice.denoise]}",
+            )
             if mix
             else StageState(StageStatus.SKIPPED, None, "Ovozli video yo'q")
         ),

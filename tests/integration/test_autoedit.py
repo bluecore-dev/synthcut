@@ -143,6 +143,8 @@ async def test_tez_montaj_end_to_end(client, auth, edit_settings, media, Session
             stages[k] == "done"
             for k in ("editor", "color", "audio", "captions", "motion", "render", "qa", "delivery")
         )
+        render_job = s.scalar(select(Job).where(Job.kind == "render.final", Job.project_id == uuid.UUID(pid)))
+        assert {"segments", "overlay", "loudness", "master", "qa"} <= set(render_job.result["timings"])
         types = set(s.scalars(select(Event.type).where(Event.project_id == uuid.UUID(pid))))
         assert {"plan.ready", "render.ready", "delivery.sent"} <= types
 

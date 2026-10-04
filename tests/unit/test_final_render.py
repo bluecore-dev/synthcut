@@ -274,3 +274,36 @@ def test_qa_log_parsing():
     assert m.frozen == [QaSpan(start=5.5, end=8.0)]
     assert m.silence == [QaSpan(start=10.25, end=14.0), QaSpan(start=18.5, end=20.0)]  # silent to the end
     assert (m.integrated_lufs, m.true_peak_db, m.decode_errors) == (-14.2, -1.3, 0)
+
+
+def test_each_clip_lut_carries_the_originals_gamut():
+    from synthcut_timeline import EffectRef, VideoClip
+    from synthcut_worker.render.final import clip_grade
+
+    def clip(*effects):
+        return VideoClip(
+            id="c", asset_id="00000000-0000-4000-8000-000000000001", source_in=0, source_out=1,
+            timeline_start=0, timeline_end=1, effects=list(effects),
+        )  # fmt: skip
+
+    graded = EffectRef(type="grade", params=ColorGrade(exposure=0.3).model_dump(mode="json"))
+    assert clip_grade(clip(graded), "display_p3").input_transform == "display_p3"
+    assert clip_grade(clip(), "display_p3").input_transform == "display_p3"  # gamut alone still needs a LUT
+    assert clip_grade(clip(graded), "rec709").input_transform == "none"
+    assert clip_grade(clip(), "rec709") is None  # nothing to do: no LUT pass at all
+    log = EffectRef(type="grade", params=ColorGrade(input_transform="apple_log").model_dump(mode="json"))
+    assert clip_grade(clip(log), "apple_log").input_transform == "apple_log"
+
+
+@needs_ffmpeg
+def test_wide_gamut_segment_skips_zscale_when_the_lut_converts():
+    spec = SegmentSpec(source="in.mov", start=0, duration=1, src_w=1920, src_h=1080, color_profile="display_p3",
+                       lut=Path("g.cube"), gamut_in_lut=True)  # fmt: skip
+    graph = segment_command(spec, Path("o.mkv"), width=1920, height=1080, fps=30, zscale=True)
+    assert "zscale" not in " ".join(graph) and "lut3d" in " ".join(graph)
+    plain = SegmentSpec(
+        source="in.mov", start=0, duration=1, src_w=1920, src_h=1080, color_profile="display_p3"
+    )
+    assert "zscale=p=bt709" in " ".join(
+        segment_command(plain, Path("o.mkv"), width=1920, height=1080, fps=30, zscale=True)
+    )

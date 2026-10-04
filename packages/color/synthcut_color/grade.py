@@ -4,7 +4,8 @@ Order (each step in the space where it is physically meaningful):
 
 1. **input transform** — source code values → linear light in Rec.709
    primaries (Apple Log / S-Log3 decode + gamut matrix; Rec.709 sources via
-   the BT.1886 display curve);
+   the BT.1886 display curve; Display P3 / Rec.2020 SDR via the same curve and
+   a gamut matrix, out-of-gamut colours clipped);
 2. **exposure** — multiply linear light by 2^stops;
 3. **white balance** — per-channel gains in linear light, luminance kept;
 4. **output transform** — Log sources through a filmic tone curve (highlights
@@ -25,6 +26,7 @@ import numpy as np
 from synthcut_schemas.grade import ColorGrade
 
 from .spaces import (
+    DISPLAY_P3,
     REC2020,
     SGAMUT3_CINE,
     apple_log_decode,
@@ -41,6 +43,7 @@ GREY = 0.18 ** (1 / 2.4)  # 18 % grey on the Rec.709 display curve (~0.49)
 
 _TO_709_FROM_2020 = gamut_matrix(REC2020)
 _TO_709_FROM_SGAMUT3C = gamut_matrix(SGAMUT3_CINE)
+_TO_709_FROM_P3 = gamut_matrix(DISPLAY_P3)
 
 
 def to_linear(rgb: np.ndarray, transform: str) -> tuple[np.ndarray, bool]:
@@ -53,6 +56,10 @@ def to_linear(rgb: np.ndarray, transform: str) -> tuple[np.ndarray, bool]:
         # Unknown camera log: a generic log-to-linear (Cineon-like) — an
         # approximation, flagged as such in the grade's notes.
         return np.clip(np.power(10.0, (rgb - 0.6) * 2.4) * 0.18 - 0.002, 0.0, None), True
+    if transform == "display_p3":  # phone SDR video: same display curve, wider primaries
+        return np.clip(display_decode(rgb) @ _TO_709_FROM_P3.T, 0.0, None), False
+    if transform == "rec2020_sdr":
+        return np.clip(display_decode(rgb) @ _TO_709_FROM_2020.T, 0.0, None), False
     return display_decode(rgb), False
 
 
