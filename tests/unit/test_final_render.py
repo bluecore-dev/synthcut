@@ -43,12 +43,18 @@ SFX = (
 
 
 def test_cover_crop_centres_and_moves_within_the_picture():
-    assert cover_filters(1920, 1080, 1080, 1920) == ["scale=3414:1920:flags=lanczos", "crop=1080:1920:1167:0"]
+    # The 608×1080 window is cut from the 1920×1080 source first, then scaled.
+    assert cover_filters(1920, 1080, 1080, 1920) == ["crop=608:1080:656:0", "scale=1080:1920:flags=lanczos"]
     right = cover_filters(1920, 1080, 1080, 1920, x=-0.5)  # picture moves left: we see its right side
-    assert right[1] == "crop=1080:1920:1707:0"
+    assert right[0] == "crop=608:1080:960:0"
     edge = cover_filters(1920, 1080, 1080, 1920, x=-3.0)
-    assert edge[1] == "crop=1080:1920:2334:0"  # clamped to the picture's edge, no border
+    assert edge[0] == "crop=608:1080:1312:0"  # clamped to the picture's edge, no border
     assert cover_filters(1080, 1920, 1080, 1920) == ["scale=1080:1920:flags=lanczos"]
+    assert cover_filters(3840, 2160, 1920, 1080) == [
+        "scale=1920:1080:flags=lanczos"
+    ]  # whole frame, scaled down
+    square = cover_filters(1080, 1920, 1080, 1080, y=0.1)
+    assert square[0] == "crop=1080:1080:0:312"  # moved up 0.1 frame heights from the centre (420)
 
 
 def test_fit_leaves_borders_and_pads_to_the_frame():

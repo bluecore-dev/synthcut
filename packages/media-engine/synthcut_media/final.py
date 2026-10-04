@@ -43,14 +43,23 @@ def _clamp(v: float, lo: float, hi: float) -> int:
 def cover_filters(
     src_w: int, src_h: int, out_w: int, out_h: int, *, scale: float = 1.0, x: float = 0.0, y: float = 0.0
 ) -> list[str]:
-    """Scale so the source covers the output frame (``scale`` > 1 zooms in,
-    < 1 leaves borders), then crop the output window. ``x`` / ``y`` move the
-    picture's centre by that many output widths / heights, clamped so the
-    frame is never left empty where the source could fill it."""
+    """Fill the output frame from the source (``scale`` > 1 zooms in, < 1
+    leaves borders). ``x`` / ``y`` move the picture's centre by that many
+    output widths / heights, clamped so the frame is never left empty where
+    the source could fill it.
+
+    Covering cuts the visible window out of the source first and scales only
+    that: a vertical crop of 1920×1080 scales 608×1080 up, not the whole
+    frame to 3414×1920 and then crops it away."""
     s = max(out_w / src_w, out_h / src_h) * scale
-    sw, sh = _even(src_w * s), _even(src_h * s)
     if scale >= 1.0:
-        sw, sh = max(sw, out_w), max(sh, out_h)
+        win_w = min(src_w, _even(out_w / s))
+        win_h = min(src_h, _even(out_h / s))
+        cx = _clamp((src_w - win_w) / 2 - x * out_w / s, 0, src_w - win_w)
+        cy = _clamp((src_h - win_h) / 2 - y * out_h / s, 0, src_h - win_h)
+        filters = [] if (win_w, win_h) == (src_w, src_h) else [f"crop={win_w}:{win_h}:{cx}:{cy}"]
+        return [*filters, f"scale={out_w}:{out_h}:flags=lanczos"]
+    sw, sh = _even(src_w * s), _even(src_h * s)
     filters = [f"scale={sw}:{sh}:flags=lanczos"]
     cw, ch = min(sw, out_w), min(sh, out_h)
     cx = _clamp((sw - cw) / 2 - x * out_w, 0, sw - cw)
