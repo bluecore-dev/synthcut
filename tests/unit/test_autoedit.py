@@ -159,3 +159,20 @@ def test_nothing_usable_is_an_error_not_an_empty_plan():
     dead = source(has_audio=False, clips=[shot(0, 5, flags=["black"]), shot(5, 9, usable=0.1)])
     with pytest.raises(ValueError, match="yaroqli"):
         build_plan(project_id=PROJECT, version=1, sources=[dead], opts=Options(**REELS))
+
+
+def test_a_phrase_across_a_cut_is_placed_shot_by_shot():
+    speaker, audience = shot(0, 5, face=(0.3, 0.4)), shot(5, 10, face=(0.8, 0.4))
+    s = source(w=1920, h=1080, transcript=words((1.0, 9.0)), clips=[speaker, audience])
+    clips = plan_for([s]).video_tracks[0].clips
+    assert [c.id for c in clips] == ["c001", "c001-2"]
+    assert clips[0].source_out == clips[1].source_in == 5.0  # back to back from the same source
+    assert clips[0].timeline_end == clips[1].timeline_start
+    assert clips[0].transform.x > 0 > clips[1].transform.x  # each shot's own face to the centre
+    same = source(
+        w=1920,
+        h=1080,
+        transcript=words((1.0, 9.0)),
+        clips=[shot(0, 5, face=(0.5, 0.4)), shot(5, 10, face=(0.5, 0.4))],
+    )
+    assert len(plan_for([same]).video_tracks[0].clips) == 1  # nothing changes at the cut: one clip

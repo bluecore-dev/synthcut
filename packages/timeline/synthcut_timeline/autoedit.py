@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
+from itertools import pairwise
 from uuid import UUID
 
 from synthcut_schemas.analysis import ClipAnalysis, Face
@@ -187,6 +188,25 @@ def _snap(t: float, fps: int) -> float:
     return round(round(t * fps) / fps, 6)
 
 
+def placements(
+    src: Source, opts: Options, start: float, end: float
+) -> list[tuple[float, float, Transform, list[EffectRef]]]:
+    """A phrase that runs across a cut in the source (the interview cuts to the
+    audience while the voice goes on) is placed shot by shot: split at shot
+    starts where the placement changes. The pieces play back to back from
+    the same source, so the split itself is invisible."""
+    cuts = [_snap(c.start, opts.fps) for c in src.clips if start + 0.5 < c.start < end - 0.5]
+    bounds = [start, *sorted(set(cuts)), end]
+    out: list[tuple[float, float, Transform, list[EffectRef]]] = []
+    for a, b in pairwise(bounds):
+        transform, effects = reframe(src, opts, (a + b) / 2)
+        if out and (out[-1][2], out[-1][3]) == (transform, effects):
+            out[-1] = (out[-1][0], b, transform, effects)  # same placement: one clip
+        else:
+            out.append((a, b, transform, effects))
+    return out
+
+
 def build_plan(
     *,
     project_id: UUID,
@@ -221,22 +241,22 @@ def build_plan(
             end = _snap(start + (opts.target_duration - t), opts.fps)
             length = end - start
             trimmed = True
-        transform, effects = reframe(p.source, opts, (start + end) / 2)
-        if p.source.grade:
-            effects.append(EffectRef(type="grade", params=p.source.grade.model_dump(mode="json")))
-        clips.append(
-            VideoClip(
-                id=f"c{n + 1:03d}",
-                asset_id=p.source.asset_id,
-                source_in=start,
-                source_out=end,
-                timeline_start=round(t, 6),
-                timeline_end=round(t + length, 6),
-                transform=transform,
-                effects=effects,
-                mute_source_audio=not p.source.has_audio,
+        for k, (a, b, transform, effects) in enumerate(placements(p.source, opts, start, end)):
+            if p.source.grade:
+                effects = [*effects, EffectRef(type="grade", params=p.source.grade.model_dump(mode="json"))]
+            clips.append(
+                VideoClip(
+                    id=f"c{n + 1:03d}" + (f"-{k + 1}" if k else ""),
+                    asset_id=p.source.asset_id,
+                    source_in=a,
+                    source_out=b,
+                    timeline_start=round(t + a - start, 6),
+                    timeline_end=round(t + b - start, 6),
+                    transform=transform,
+                    effects=effects,
+                    mute_source_audio=not p.source.has_audio,
+                )
             )
-        )
         t = round(t + length, 6)
         if trimmed:
             break
