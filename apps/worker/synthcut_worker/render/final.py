@@ -29,12 +29,12 @@ from synthcut_core.models import Asset, AssetTranscript, EditPlanRow, Render, ut
 from synthcut_core.renders import request_delivery
 from synthcut_core.stages import StageState, set_stage
 from synthcut_media import MediaError, has_filter, normalize, run_ffmpeg, run_ffprobe
+from synthcut_media.compose import Key, Layer, PieceSpec, UnsupportedAnimation, curve, piece_command
 from synthcut_media.final import (
     TELEGRAM_LIMIT,
     Duck,
     MusicInput,
     OverlayLayer,
-    SegmentSpec,
     SfxInput,
     Sound,
     chat_copy_plan,
@@ -46,7 +46,6 @@ from synthcut_media.final import (
     overlay_fps,
     overlay_size,
     poster_command,
-    segment_command,
     telegram_copy_command,
 )
 from synthcut_media.qa import Expected, judge, parse_qa_log, qa_command
@@ -59,6 +58,7 @@ from synthcut_schemas.speech import Transcript
 from synthcut_storage import Area, derived_key
 from synthcut_timeline import AssetFacts, EditPlan, load_plan, validate_plan
 from synthcut_timeline.overlay import build_overlay, sfx_cues
+from synthcut_timeline.pieces import plan_pieces
 
 from ..context import JobCancelled, JobContext, JobInterrupted, LeaseLost, PermanentError, RetryableError
 from ..delivery.owner import notify_owner
@@ -176,24 +176,18 @@ def _start(ctx: JobContext, payload: RenderFinalPayload) -> Work | None:
 
 def _unsupported(plan: EditPlan) -> str | None:
     """What this renderer does not execute yet — refused, never silently dropped."""
-    main = [t for t in plan.video_tracks if t.role == "main"]
-    if len(plan.video_tracks) > 1 and any(t.clips for t in plan.video_tracks if t not in main[:1]):
-        return "Qo'shimcha video treklar (B-roll ustma-ust) hali render qilinmaydi"
     for t in plan.audio_tracks:
-        if t.clips and t.role != "music":
-            return "Alohida ovoz / SFX treklari hali render qilinmaydi"
         for c in t.clips:
             if c.source.library_id is not None:
-                return "Musiqa kutubxonasi hali yo'q — loyihaga musiqa faylini yuklang"
-            if c.speed != 1.0 or c.keyframes:
-                return "Musiqa tezligi va keyframe'lari hali render qilinmaydi"
-    for c in main[0].clips:
-        if c.speed != 1.0:
-            return "Tezlikni o'zgartirish hali render qilinmaydi"
-        if c.transition_in and c.transition_in.type != "cut":
-            return "O'tish effektlari hali render qilinmaydi"
-        if c.keyframes:
-            return "Keyframe animatsiyasi hali render qilinmaydi"
+                return "Musiqa / SFX kutubxonasi hali yo'q — loyihaga fayl yuklang"
+            if any(k.property != "volume_db" for k in c.keyframes):
+                return "Ovoz klipida faqat balandlik (volume_db) keyframe'lari bo'ladi"
+    for t in plan.video_tracks:
+        for c in t.clips:
+            if any(k.property == "rotation" for k in c.keyframes):
+                return "Aylanish animatsiyasi hali render qilinmaydi (doimiy burchak bo'ladi)"
+            if any(k.property == "volume_db" for k in c.keyframes):
+                return "Video klipda balandlik keyframe'i o'rniga alohida ovoz trekini ishlating"
     return None
 
 
@@ -255,14 +249,15 @@ class LutCache:
         return self.paths[digest]
 
 
-def music_inputs(plan: EditPlan, job: Work, ctx: JobContext) -> list[MusicInput]:
-    """The plan's music clips, read from the uploaded originals."""
+def audio_inputs(plan: EditPlan, job: Work, ctx: JobContext, roles: tuple[str, ...]) -> list[MusicInput]:
+    """The plan's audio clips of these track roles, read from the originals."""
     out: list[MusicInput] = []
     for track in plan.audio_tracks:
-        if track.role != "music":
+        if track.role not in roles:
             continue
         for c in sorted(track.clips, key=lambda c: c.timeline_start):
             src = job.sources[c.source.asset_id]
+            volume = [Key(k.t, k.value, k.easing) for k in c.keyframes if k.property == "volume_db"]
             out.append(
                 MusicInput(
                     source=ctx.storage.internal_get_url(src.key, INTERNAL_URL_TTL),
@@ -272,9 +267,45 @@ def music_inputs(plan: EditPlan, job: Work, ctx: JobContext) -> list[MusicInput]
                     gain_db=c.gain_db,
                     fade_in=c.fade_in,
                     fade_out=c.fade_out,
+                    volume_db=curve(volume, "t", 0.0) if volume else None,
+                    speed=c.speed,
                 )
             )
     return out
+
+
+def layer_for(sl, job: Work, ctx: JobContext, luts: LutCache) -> Layer:
+    """One clip as it plays in one piece: source, placement, grade, keyframes."""
+    clip = sl.clip
+    src = job.sources[clip.asset_id]
+    lut = luts.get(clip_grade(clip, src.color_profile))
+    keys: dict[str, list[Key]] = {}
+    for k in clip.keyframes:
+        keys.setdefault(k.property, []).append(Key(round(k.t - sl.offset, 6), k.value, k.easing))
+    tr = clip.transform
+    crop = (tr.crop.left, tr.crop.right, tr.crop.top, tr.crop.bottom) if tr.crop else None
+    return Layer(
+        source=ctx.storage.internal_get_url(src.key, INTERNAL_URL_TTL),
+        start=sl.source_start,
+        src_w=src.width,
+        src_h=src.height,
+        speed=clip.speed,
+        color_profile=src.color_profile,
+        bit_depth=src.bit_depth,
+        lut=lut,
+        gamut_in_lut=lut is not None and src.color_profile in GAMUT_PROFILES,
+        fill=next(
+            (str(e.params.get("fill", "black")) for e in clip.effects if e.type == "background"), "black"
+        ),
+        scale=tr.scale,
+        x=tr.x,
+        y=tr.y,
+        rotation=tr.rotation,
+        opacity=tr.opacity,
+        crop=crop,
+        keys=keys,
+        audio=src.has_audio and not clip.mute_source_audio,
+    )
 
 
 def music_duck(plan: EditPlan) -> Duck | None:
@@ -293,7 +324,7 @@ def music_duck(plan: EditPlan) -> Duck | None:
 def _render(ctx: JobContext, job: Work) -> Output:
     plan, seq = job.plan, job.plan.sequence
     work = ctx.scratch_dir
-    clips = sorted(plan.video_tracks[0].clips, key=lambda c: c.timeline_start)
+    clips = [c for t in plan.video_tracks for c in t.clips]
     has_overlay = bool(plan.graphics) or bool(plan.captions and plan.captions.enabled and job.transcripts)
     audio_any = any(job.sources[c.asset_id].has_audio and not c.mute_source_audio for c in clips)
     weights = {
@@ -313,48 +344,37 @@ def _render(ctx: JobContext, job: Work) -> Output:
         raise PermanentError(
             f"Render uchun diskda joy yetmaydi: kerak ~{need / 1024**3:.1f} GB, bo'sh {free / 1024**3:.1f} GB"
         )
-    on = progress.step("segments", "kesish va rang")
+    on = progress.step("segments", "kesish, o'tishlar va rang")
     luts = LutCache(work)
     zscale = has_filter("zscale")
-    total = sum(c.timeline_duration for c in clips) or 1.0
+    pieces = plan_pieces(plan)
+    total = sum(p.duration for p in pieces) or 1.0
     done = 0.0
     segments: list[tuple[Path, float]] = []
-    for n, clip in enumerate(clips):
-        src = job.sources[clip.asset_id]
-        fill = next(
-            (str(e.params.get("fill", "black")) for e in clip.effects if e.type == "background"), "black"
-        )
-        lut = luts.get(clip_grade(clip, src.color_profile))
-        spec = SegmentSpec(
-            source=ctx.storage.internal_get_url(src.key, INTERNAL_URL_TTL),
-            start=clip.source_in,
-            duration=clip.timeline_duration,
-            src_w=src.width,
-            src_h=src.height,
-            color_profile=src.color_profile,
-            bit_depth=src.bit_depth,
-            scale=clip.transform.scale,
-            x=clip.transform.x,
-            y=clip.transform.y,
-            lut=lut,
-            audio=src.has_audio and not clip.mute_source_audio,
-            fill=fill,
-            gamut_in_lut=lut is not None and src.color_profile in GAMUT_PROFILES,
+    for n, piece in enumerate(pieces):
+        spec = PieceSpec(
+            duration=piece.duration,
+            main=layer_for(piece.main, job, ctx, luts) if piece.main else None,
+            incoming=layer_for(piece.incoming, job, ctx, luts) if piece.incoming else None,
+            transition=piece.transition.type if piece.transition else None,
+            overlays=tuple(layer_for(sl, job, ctx, luts) for sl in piece.overlays),
         )
         out = work / f"seg-{n:04d}.mkv"
         base = done
+        try:
+            args = piece_command(spec, out, width=seq.width, height=seq.height, fps=seq.fps, zscale=zscale,
+                                 threads=ctx.settings.media_threads)  # fmt: skip
+        except UnsupportedAnimation as exc:
+            raise PermanentError(str(exc)) from exc
         run_ffmpeg(
-            segment_command(
-                spec, out, width=seq.width, height=seq.height, fps=seq.fps, zscale=zscale,
-                threads=ctx.settings.media_threads,
-            ),
-            duration=clip.timeline_duration,
-            on_progress=lambda f, base=base, d=clip.timeline_duration: on((base + f * d) / total),
+            args,
+            duration=piece.duration,
+            on_progress=lambda f, base=base, d=piece.duration: on((base + f * d) / total),
             check=ctx.check,
-            timeout=600 + clip.timeline_duration * 30,
-        )  # fmt: skip
-        done += clip.timeline_duration
-        segments.append((out, clip.timeline_duration))
+            timeout=600 + piece.duration * 40,
+        )
+        done += piece.duration
+        segments.append((out, piece.duration))
     joined = concat_list(segments, work / "timeline.ffconcat", seq.fps)
 
     # 2. Motion layer ------------------------------------------------------------------
@@ -379,7 +399,9 @@ def _render(ctx: JobContext, job: Work) -> Output:
     sfx_dir = Path(ctx.settings.sfx_dir)
     sound = Sound(
         voice=voice_filters(mix, noise_floor_db=plan.metadata.get("noise_floor_db")) if audio_any else [],
-        music=music_inputs(plan, job, ctx),
+        music=audio_inputs(plan, job, ctx, ("music", "ambience")),
+        voice_clips=audio_inputs(plan, job, ctx, ("voice",)),
+        effects=audio_inputs(plan, job, ctx, ("sfx",)),
         duck=music_duck(plan),
         sfx=[
             SfxInput(path=sfx_dir / f"{name.removeprefix('sfx/')}.flac", at=at)
@@ -388,7 +410,7 @@ def _render(ctx: JobContext, job: Work) -> Output:
         ],
     )
     tail = "anull"
-    if audio_any or sound.music or sound.sfx:
+    if audio_any or sound.music or sound.sfx or sound.voice_clips or sound.effects:
         log = run_ffmpeg(
             loudness_pass(joined, sound, loudnorm_measure(mix)),
             check=ctx.check,
@@ -437,7 +459,7 @@ def _render(ctx: JobContext, job: Work) -> Output:
             height=seq.height,
             fps=seq.fps,
             duration=round(round(seq.duration * seq.fps) / seq.fps, 6),
-            audio=audio_any or bool(sound.music),
+            audio=audio_any or bool(sound.music or sound.voice_clips),
             target_lufs=mix.loudness.target_lufs if tail != "anull" else None,
             true_peak_db=mix.loudness.true_peak_db,
         ),

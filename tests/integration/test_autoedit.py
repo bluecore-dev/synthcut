@@ -190,7 +190,7 @@ async def test_a_dead_render_is_shown_as_failed(
     def broken(*a, **k):
         raise RuntimeError("disk on fire")
 
-    monkeypatch.setattr(final_jobs, "segment_command", broken)
+    monkeypatch.setattr(final_jobs, "piece_command", broken)
     project = await make_project(client, auth)
     await upload(client, auth, project["id"], media / "talk.mp4", "video/mp4")
     run_worker(edit_settings)

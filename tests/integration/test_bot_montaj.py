@@ -78,7 +78,7 @@ async def test_montaj_from_the_chat(client, auth, edit_settings, media, Session,
     def full(*a, **k):  # the render fails while the owner waits in the chat
         raise final_jobs.PermanentError("Render uchun diskda joy yetmaydi: sinov")
 
-    monkeypatch.setattr(final_jobs, "segment_command", full)
+    monkeypatch.setattr(final_jobs, "piece_command", full)
     run_worker(edit_settings)
     assert run_worker(edit_settings, queues="render") == ["render.final"]
     with Session() as s:

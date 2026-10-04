@@ -116,8 +116,19 @@ def frames_for(duration: float, fps: int) -> int:
     return max(1, round(duration * fps))
 
 
-def video_graph(spec: SegmentSpec, *, width: int, height: int, fps: int, zscale: bool) -> str:
-    """``[0:v:0]`` → ``[v]``: placement, colour, grade, exact frames."""
+def video_graph(
+    spec: SegmentSpec,
+    *,
+    width: int,
+    height: int,
+    fps: int,
+    zscale: bool,
+    src: str = "[0:v:0]",
+    out: str = "[v]",
+    pre: tuple[str, ...] = (),
+) -> str:
+    """``src`` → ``out``: placement, colour, grade, exact frames. ``pre``
+    runs before the frame-rate conversion (speed, crop of the source)."""
     tail = colour_filters(
         spec.color_profile, zscale=zscale, gamut_in_lut=spec.gamut_in_lut and spec.lut is not None
     )
@@ -138,13 +149,14 @@ def video_graph(spec: SegmentSpec, *, width: int, height: int, fps: int, zscale:
             f"scale={width}:{height}:flags=bicubic",
         ]
         picture = place[:-1] if place[-1].startswith("pad=") else place
+        tag = out.strip("[]")
         return (
-            f"[0:v:0]fps={fps},split=2[bgsrc][fgsrc];"
-            f"[bgsrc]{','.join(background)}[bg];"
-            f"[fgsrc]{','.join(picture)}[fg];"
-            f"[bg][fg]overlay=x='(W-w)/2+({spec.x:g})*W':y='(H-h)/2+({spec.y:g})*H',{','.join(tail)}[v]"
+            f"{src}{','.join([*pre, f'fps={fps}'])},split=2[{tag}bgsrc][{tag}fgsrc];"
+            f"[{tag}bgsrc]{','.join(background)}[{tag}bg];"
+            f"[{tag}fgsrc]{','.join(picture)}[{tag}fg];"
+            f"[{tag}bg][{tag}fg]overlay=x='(W-w)/2+({spec.x:g})*W':y='(H-h)/2+({spec.y:g})*H',{','.join(tail)}{out}"
         )
-    return f"[0:v:0]{','.join([f'fps={fps}', *place, *tail])}[v]"
+    return f"{src}{','.join([*pre, f'fps={fps}', *place, *tail])}{out}"
 
 
 def segment_command(
@@ -206,6 +218,8 @@ class MusicInput:
     gain_db: float = -18.0
     fade_in: float = 0.0
     fade_out: float = 0.0
+    volume_db: str | None = None  # FFmpeg expression of clip-local seconds ``t`` (volume keyframes)
+    speed: float = 1.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -220,71 +234,112 @@ class Duck:
 
 @dataclass(frozen=True, slots=True)
 class Sound:
-    """Everything under the picture: the voice chain over the timeline's own
-    sound, music clips (ducked under the voice) and sound effects."""
+    """Everything under the picture. The timeline's own sound and the voice
+    track (J / L cuts) go through the voice chain together; music and
+    ambience are ducked under that voice; effects (SFX track clips and the
+    motion components' cues) sit on top unprocessed."""
 
     voice: list[str]
-    music: list[MusicInput] = field(default_factory=list)
+    music: list[MusicInput] = field(default_factory=list)  # music and ambience beds
     duck: Duck | None = None
     sfx: list[SfxInput] = field(default_factory=list)
+    voice_clips: list[MusicInput] = field(default_factory=list)
+    effects: list[MusicInput] = field(default_factory=list)
+
+    def _clips(self) -> list[MusicInput]:
+        return [*self.music, *self.voice_clips, *self.effects]
 
     def inputs(self) -> list[str]:
         args: list[str] = []
-        for m in self.music:
-            args += ["-ss", f"{m.start:.6f}", "-t", f"{m.duration:.6f}", "-i", m.source]
+        for m in self._clips():
+            read = m.duration * m.speed
+            args += ["-ss", f"{m.start:.6f}", "-t", f"{read:.6f}", "-i", m.source]
         for cue in self.sfx:
             args += ["-i", str(cue.path)]
         return args
 
+    @staticmethod
+    def _clip(m: MusicInput, index: int, label: str) -> str:
+        chain = ["asetpts=PTS-STARTPTS"]
+        s = m.speed
+        while s > 2.0:
+            chain.append("atempo=2")
+            s /= 2.0
+        while s < 0.5:
+            chain.append("atempo=0.5")
+            s /= 0.5
+        if abs(s - 1.0) > 1e-6:
+            chain.append(f"atempo={s:.6f}")
+        chain += [f"aresample={RATE}", "aformat=channel_layouts=stereo", f"volume={m.gain_db:g}dB"]
+        if m.volume_db:
+            chain.append(f"volume='pow(10,({m.volume_db})/20)':eval=frame")
+        if m.fade_in > 0:
+            chain.append(f"afade=t=in:d={m.fade_in:g}")
+        if m.fade_out > 0:
+            chain.append(f"afade=t=out:st={max(0.0, m.duration - m.fade_out):.6f}:d={m.fade_out:g}")
+        chain.append(f"adelay={max(0, round(m.at * 1000))}:all=1")
+        return f"[{index}:a]{','.join(chain)}{label}"
+
     def graph(self, *, first_input: int, tail: str) -> str:
-        """``[0:a]`` through the voice chain, music mixed under it, effects at
-        their times, then ``tail`` (the loudnorm measuring or applying filter)
-        → ``[a]``. Music and effects are inputs from ``first_input`` on."""
+        """``[0:a]`` (the timeline's sound) → ``[a]``: voice bus through the
+        voice chain, beds ducked under it, effects, then ``tail`` (the
+        loudnorm measuring or applying filter). Clip inputs start at
+        ``first_input``: music, voice clips, effect clips, then SFX cues."""
+        parts: list[str] = []
+        i = first_input
+        music = []
+        for m in self.music:
+            parts.append(self._clip(m, i, f"[m{len(music)}]"))
+            music.append(f"[m{len(music)}]")
+            i += 1
+        voices = ["[0:a]"]
+        for k, m in enumerate(self.voice_clips):
+            parts.append(self._clip(m, i, f"[vc{k}]"))
+            voices.append(f"[vc{k}]")
+            i += 1
+        effects = []
+        for k, m in enumerate(self.effects):
+            parts.append(self._clip(m, i, f"[fx{k}]"))
+            effects.append(f"[fx{k}]")
+            i += 1
+        for k, cue in enumerate(self.sfx):
+            delay = max(0, round(cue.at * 1000))
+            parts.append(
+                f"[{i}:a]aresample={RATE},aformat=channel_layouts=stereo,"
+                f"volume={cue.gain_db:g}dB,adelay={delay}:all=1[s{k}]"
+            )
+            effects.append(f"[s{k}]")
+            i += 1
+
         chain = ",".join(self.voice) if self.voice else "anull"
-        parts = [f"[0:a]{chain}[voice]"]
-        voice = "[voice]"
-        if self.music:
-            labels = []
-            for i, m in enumerate(self.music):
-                fades = []
-                if m.fade_in > 0:
-                    fades.append(f"afade=t=in:d={m.fade_in:g}")
-                if m.fade_out > 0:
-                    fades.append(f"afade=t=out:st={max(0.0, m.duration - m.fade_out):.6f}:d={m.fade_out:g}")
-                parts.append(
-                    f"[{first_input + i}:a]aresample={RATE},aformat=channel_layouts=stereo,"
-                    f"volume={m.gain_db:g}dB,{','.join([*fades, ''])}adelay={max(0, round(m.at * 1000))}:all=1[m{i}]"
-                )
-                labels.append(f"[m{i}]")
-            music = labels[0]
-            if len(labels) > 1:
-                parts.append(
-                    f"{''.join(labels)}amix=inputs={len(labels)}:normalize=0:duration=longest[music]"
-                )
-                music = "[music]"
+        if len(voices) > 1:
+            parts.append(
+                f"{''.join(voices)}amix=inputs={len(voices)}:normalize=0:duration=first,{chain}[voice]"
+            )
+        else:
+            parts.append(f"[0:a]{chain}[voice]")
+        current = "[voice]"
+        if music:
+            bed = music[0]
+            if len(music) > 1:
+                parts.append(f"{''.join(music)}amix=inputs={len(music)}:normalize=0:duration=longest[music]")
+                bed = "[music]"
             if self.duck is not None:
                 d = self.duck
                 parts.append(
-                    f"[voice]asplit=2[vkey][vmain];{music}[vkey]sidechaincompress=threshold={d.threshold:g}"
+                    f"[voice]asplit=2[vkey][vmain];{bed}[vkey]sidechaincompress=threshold={d.threshold:g}"
                     f":ratio={d.ratio:.1f}:attack={d.attack_ms:g}:release={d.release_ms:g}:makeup=1[ducked];"
                     f"[vmain][ducked]amix=inputs=2:normalize=0:duration=first[bed]"
                 )
             else:
-                parts.append(f"[voice]{music}amix=inputs=2:normalize=0:duration=first[bed]")
-            voice = "[bed]"
-        labels = [voice]
-        first_sfx = first_input + len(self.music)
-        for i, cue in enumerate(self.sfx):
-            delay = max(0, round(cue.at * 1000))
+                parts.append(f"[voice]{bed}amix=inputs=2:normalize=0:duration=first[bed]")
+            current = "[bed]"
+        if effects:
             parts.append(
-                f"[{first_sfx + i}:a]aresample={RATE},aformat=channel_layouts=stereo,"
-                f"volume={cue.gain_db:g}dB,adelay={delay}:all=1[s{i}]"
+                f"{current}{''.join(effects)}amix=inputs={len(effects) + 1}:normalize=0:duration=first[pre]"
             )
-            labels.append(f"[s{i}]")
-        if len(labels) > 1:
-            parts.append(f"{''.join(labels)}amix=inputs={len(labels)}:normalize=0:duration=first[pre]")
-            voice = "[pre]"
-        parts.append(f"{voice}{tail},aresample={RATE}[a]")
+            current = "[pre]"
+        parts.append(f"{current}{tail},aresample={RATE}[a]")
         return ";".join(parts)
 
 

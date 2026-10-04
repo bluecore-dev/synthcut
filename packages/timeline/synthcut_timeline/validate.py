@@ -213,6 +213,27 @@ def validate_plan(
                         f"main track ends at {last_end}s, sequence is {seq.duration}s",
                     )
 
+    # A transition renders as one blend: nothing may start or end inside it.
+    if main is not None:
+        main_clips = plan.video_tracks[main[0]].clips
+        edges = [
+            (oc.timeline_start, oc.timeline_end, f"video_tracks[{ti}].clips[{ci}]")
+            for ti, tr in enumerate(plan.video_tracks)
+            if ti != main[0]
+            for ci, oc in enumerate(tr.clips)
+        ]
+        for ci, clip in enumerate(main_clips):
+            if not clip.transition_in or clip.transition_in.type == "cut":
+                continue
+            window = (clip.timeline_start, clip.timeline_start + clip.transition_in.duration)
+            for start, end, path in edges:
+                if any(window[0] + tol < edge < window[1] - tol for edge in (start, end)):
+                    c.error(
+                        "E_TRANSITION_SPLIT",
+                        path,
+                        f"starts or ends inside the transition into video_tracks[{main[0]}].clips[{ci}]",
+                    )
+
     # Audio tracks ------------------------------------------------------------------
     for ti, track in enumerate(plan.audio_tracks):
         tpath = f"audio_tracks[{ti}]"
