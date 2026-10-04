@@ -16,6 +16,8 @@ type Target = keyof typeof LOUDNESS_TARGET_LABEL;
 const PROFILES = Object.keys(ENHANCE_PROFILE_LABEL) as Profile[];
 const TARGETS = Object.keys(LOUDNESS_TARGET_LABEL) as Target[];
 const INTENSITY = [0.5, 0.8, 1];
+const DENOISE = { auto: "Avto", off: "O'chiq", light: "Yengil", medium: "O'rta", strong: "Kuchli" } as const;
+type Denoise = keyof typeof DENOISE;
 
 /** Phase 8 made visible: automatic grade + voice cleanup and loudness on one clip. */
 export function EnhancePreview({ assetId, filename, state, live }: { assetId: string; filename: string; state: State | null | undefined; live: JobProgress | undefined }) {
@@ -23,9 +25,10 @@ export function EnhancePreview({ assetId, filename, state, live }: { assetId: st
   const [profile, setProfile] = useState<Profile>((state?.profile as Profile | undefined) ?? "cinematic_clean");
   const [intensity, setIntensity] = useState<number>(state?.intensity ?? 0.8);
   const [target, setTarget] = useState<Target>((state?.target as Target | undefined) ?? "social");
+  const [denoise, setDenoise] = useState<Denoise>("auto");
   const run = useMutation({
     mutationFn: () =>
-      unwrap(api.POST("/api/v1/assets/{asset_id}/enhance-preview", { params: { path: { asset_id: assetId } }, body: { profile, intensity, target, denoise: "auto" } })),
+      unwrap(api.POST("/api/v1/assets/{asset_id}/enhance-preview", { params: { path: { asset_id: assetId } }, body: { profile, intensity, target, denoise } })),
     onSuccess: () => {
       haptic.success();
       void qc.invalidateQueries({ queryKey: ["asset", assetId] });
@@ -97,6 +100,17 @@ export function EnhancePreview({ assetId, filename, state, live }: { assetId: st
                   {LOUDNESS_TARGET_LABEL[t]}
                 </Chip>
               ))}
+            </div>
+            <div>
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-faint">Shovqin tozalash</p>
+              <div className="flex flex-wrap gap-2">
+                {(Object.keys(DENOISE) as Denoise[]).map((d) => (
+                  <Chip key={d} active={denoise === d} onClick={() => setDenoise(d)}>
+                    {DENOISE[d]}
+                  </Chip>
+                ))}
+              </div>
+              <p className="mt-1 text-[11px] text-faint">Fon musiqasi bo'lsa "Yengil" yoki "O'chiq" tanlang — kuchli tozalash musiqani ham bosadi.</p>
             </div>
             <Button className="w-full" variant="primary" loading={run.isPending} icon={video ? <RefreshCw className="size-4" /> : <Sparkles className="size-4" />} onClick={() => run.mutate()}>
               {video ? "Qayta yaxshilash" : "Rang va ovozni yaxshilash"}

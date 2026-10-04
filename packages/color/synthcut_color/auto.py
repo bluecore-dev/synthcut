@@ -70,15 +70,25 @@ def measure(frames: np.ndarray, transform: str = "none") -> ColorMeasure:
         )
     shaped = apply_grade(frames.reshape(-1, 3), ColorGrade(input_transform=transform))
     y = luma(shaped)
-    mid = (y > 0.2) & (y < 0.8)  # casts are judged on midtones, not on clipped or crushed pixels
-    sample = shaped[mid] if mid.sum() > 100 else shaped
     chroma = shaped.max(axis=1) - shaped.min(axis=1)
+    # A cast shows on surfaces that should be neutral (a white shirt, a grey
+    # wall). Averaging every midtone ("grey world") would also "correct" a
+    # genuinely orange brick wall, so near-neutral pixels decide when there
+    # are enough of them; otherwise all midtones, at half weight.
+    mid = (y > 0.2) & (y < 0.9)
+    neutral = mid & (chroma < 0.12)
+    if neutral.sum() >= max(100, 0.02 * len(y)):
+        sample, weight = shaped[neutral], 1.0
+    elif mid.sum() > 100:
+        sample, weight = shaped[mid], 0.5
+    else:
+        sample, weight = shaped, 0.5
     return ColorMeasure(
         luma_mean=round(float(y.mean()), 4),
         luma_p05=round(float(np.percentile(y, 5)), 4),
         luma_p95=round(float(np.percentile(y, 95)), 4),
-        cast_red=round(float((sample[:, 0] - sample[:, 1]).mean()), 4),
-        cast_blue=round(float((sample[:, 2] - sample[:, 1]).mean()), 4),
+        cast_red=round(float((sample[:, 0] - sample[:, 1]).mean()) * weight, 4),
+        cast_blue=round(float((sample[:, 2] - sample[:, 1]).mean()) * weight, 4),
         saturation=round(float(chroma.mean()), 4),
         frames=len(frames),
     )

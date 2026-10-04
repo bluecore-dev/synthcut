@@ -139,7 +139,8 @@ def test_auto_grade_corrects_what_is_off_and_explains_it():
 
 def test_measure_reads_casts_on_midtones_only():
     rng = np.random.default_rng(3)
-    frames = np.clip(0.45 + rng.normal(0, 0.08, (4, 20, 30, 3)), 0, 1)
+    # Luminance noise (shared by the channels, like real camera noise at proxy size).
+    frames = np.repeat(np.clip(0.45 + rng.normal(0, 0.08, (4, 20, 30, 1)), 0, 1), 3, axis=-1)
     frames[..., 2] += 0.06  # blue cast in the midtones
     frames[:, :10] = 1.0  # half of every frame is a clipped white sky: no colour information
     got = measure(np.clip(frames, 0, 1))
@@ -172,3 +173,18 @@ def test_baked_lut_brightens_a_grey_card_in_ffmpeg(tmp_path):
     pixels = np.fromfile(tmp_path / "out.rgb", dtype=np.uint8).astype(float) / 255
     expected = float(display_encode(2 * display_decode(0x4D / 255)))
     assert pixels.mean() == pytest.approx(expected, abs=0.02)
+
+
+def test_a_colourful_scene_is_not_mistaken_for_a_cast():
+    """The owner's clip: an orange brick wall behind a white shirt. Grey world
+    cooled it by -13; the neutral surfaces say there is no cast."""
+    rng = np.random.default_rng(5)
+    frames = np.zeros((3, 40, 40, 3))
+    frames[:, :30] = np.array([0.72, 0.42, 0.28]) + rng.normal(0, 0.02, (3, 30, 40, 3))  # brick
+    frames[:, 30:] = 0.8 + rng.normal(0, 0.01, (3, 10, 40, 3))  # white shirt, neutral
+    got = measure(np.clip(frames, 0, 1))
+    assert abs(got.cast_red) < 0.01 and abs(got.cast_blue) < 0.01
+    assert auto_grade(got).temperature == 0.0
+    tinted = frames.copy()
+    tinted[:, 30:, :, 2] += 0.05  # now the shirt itself is blue: a real cast
+    assert measure(np.clip(tinted, 0, 1)).cast_blue > 0.03
