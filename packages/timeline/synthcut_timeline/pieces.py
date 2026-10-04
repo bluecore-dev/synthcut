@@ -47,9 +47,12 @@ class Piece:
     def duration(self) -> float:
         return self.end - self.start
 
+
 def _slice(clip: VideoClip, t: float) -> Slice:
     offset = t - clip.timeline_start
-    return Slice(clip=clip, source_start=round(clip.source_in + offset * clip.speed, 6), offset=round(offset, 6))
+    return Slice(
+        clip=clip, source_start=round(clip.source_in + offset * clip.speed, 6), offset=round(offset, 6)
+    )
 
 
 def _snap(t: float, fps: int) -> float:
@@ -83,7 +86,9 @@ def plan_pieces(plan: EditPlan) -> list[Piece]:
         elif active:
             main = _slice(active[0], a)
         tops = tuple(_slice(c, a) for c in overlays if c.timeline_start - EPS <= mid < c.timeline_end + EPS)
-        pieces.append(Piece(start=a, end=b, main=main, incoming=incoming, transition=transition, overlays=tops))
+        pieces.append(
+            Piece(start=a, end=b, main=main, incoming=incoming, transition=transition, overlays=tops)
+        )
     return _merge_plain(pieces)
 
 

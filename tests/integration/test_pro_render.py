@@ -58,9 +58,7 @@ def pro_plan(project_id: str, talk: str, still_video: str, version: int) -> dict
     }  # fmt: skip
 
 
-async def test_a_premiere_style_plan_renders_and_passes_qa(
-    client, auth, edit_settings, media, Session, fake_layer  # noqa: F811
-):
+async def test_premiere_style_plan(client, auth, edit_settings, media, Session, fake_layer):  # noqa: F811
     project = await make_project(client, auth, name="Pro")
     pid = project["id"]
     talk = await upload(client, auth, pid, media / "talk.mp4", "video/mp4")
