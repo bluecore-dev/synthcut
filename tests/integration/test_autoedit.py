@@ -4,6 +4,7 @@ video sent to the owner's chat. Remotion is replaced by FFmpeg-made
 transparent frames (the real renderer is tested in tests/unit); Telegram by
 an httpx mock transport."""
 
+import os
 import shutil
 import uuid
 from pathlib import Path
@@ -24,7 +25,7 @@ pytestmark = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg n
 
 media = test_speech.media
 fake_engine = test_speech.fake_engine
-SFX_DIR = Path(__file__).resolve().parents[2] / "assets" / "sfx"
+SFX_DIR = Path(os.environ.get("SYNTHCUT_SFX_DIR") or Path(__file__).resolve().parents[2] / "assets" / "sfx")
 
 
 @pytest.fixture
@@ -96,6 +97,7 @@ async def test_tez_montaj_end_to_end(client, auth, edit_settings, media, Session
     assert plan["clips"][0]["reframed"] is False  # testsrc has no face: centre crop
 
     assert run_worker(edit_settings, queues="render") == ["render.final"]
+    assert (SFX_DIR / "whoosh.flac").exists()  # the title's sound effect really was mixed in
     props = fake_layer[0]
     assert (props.width, props.height, props.fps) == (1080, 1920, 30)
     assert props.captions.style == "karaoke" and props.items[0].component == "TitleCard"

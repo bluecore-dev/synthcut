@@ -3,6 +3,7 @@ colour fidelity through the RGB grade path, the whole segment → concat →
 loudness → master chain on real FFmpeg, and the QA verdicts."""
 
 import json
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -31,7 +32,11 @@ from synthcut_schemas.qa import QaSpan
 
 HAS_FFMPEG = shutil.which("ffmpeg") is not None
 needs_ffmpeg = pytest.mark.skipif(not HAS_FFMPEG, reason="ffmpeg not installed")
-SFX = Path(__file__).resolve().parents[2] / "assets" / "sfx" / "whoosh.flac"
+# The repository copy locally; the image copy (SYNTHCUT_SFX_DIR) in the test container.
+SFX = (
+    Path(os.environ.get("SYNTHCUT_SFX_DIR") or Path(__file__).resolve().parents[2] / "assets" / "sfx")
+    / "whoosh.flac"
+)
 
 
 # --------------------------------------------------------------------------- placement
