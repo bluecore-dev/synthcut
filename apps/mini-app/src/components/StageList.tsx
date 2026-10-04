@@ -47,7 +47,7 @@ export function StageList({ stages }: { stages: StageOut[] }) {
               </div>
               {stage.detail && <p className="mt-0.5 truncate text-[13px] text-dim">{stage.detail}</p>}
               {!stage.available && stage.status !== "pending" && (
-                <p className="mt-0.5 text-xs text-faint">Ishlovchi Phase {stage.phase} da ishga tushadi</p>
+                <p className="mt-0.5 text-xs text-faint">AI model kaliti ulanganda ishga tushadi</p>
               )}
               {stage.status === "running" && stage.progress != null && (
                 <ProgressBar value={stage.progress} tone="run" className="mt-2" />

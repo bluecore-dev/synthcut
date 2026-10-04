@@ -16,19 +16,25 @@ from .enums import (
     AnalysisStatus,
     AssetKind,
     AssetStatus,
+    DeliveryStatus,
     JobQueue,
     JobStatus,
+    PlanSource,
     ProjectLanguage,
     ProjectMode,
     ProjectPreset,
     ProjectStatus,
+    QaStatus,
+    RenderStatus,
     Stage,
     StageStatus,
     TranscriptStatus,
     UploadSessionStatus,
 )
 from .events import EventEnvelope
+from .jobs import AutoEditOptions
 from .media import MediaInfo
+from .qa import QaReport
 
 FpsChoice = Literal[24, 25, 30, 50, 60]  # kept equal to enums.ALLOWED_FPS by a test
 
@@ -438,6 +444,117 @@ class JobOut(_Out):
 
 class JobList(BaseModel):
     items: list[JobOut]
+
+
+# --------------------------------------------------------------------------- edit plans and renders
+
+
+class AutoEditRequest(AutoEditOptions):
+    """ "Tez montaj": the rule-based editor, then the final render and delivery."""
+
+
+class EditJobOut(BaseModel):
+    id: UUID
+    status: JobStatus
+    progress: float | None = None
+    step: str | None = None
+    error: str | None = None
+    created_at: datetime
+
+
+class PlanSummary(_Out):
+    id: UUID
+    version: int
+    source: PlanSource
+    duration_sec: float
+    clip_count: int
+    notes: str | None
+    options: dict[str, Any]
+    created_at: datetime
+
+
+class PlanClipOut(BaseModel):
+    id: str
+    asset_id: UUID
+    asset_name: str | None = None
+    source_in: float
+    source_out: float
+    timeline_start: float
+    timeline_end: float
+    reframed: bool  # moved to keep a face in view
+    fill: Literal["cover", "blur"]  # blur: fitted over a blurred copy of itself
+    exposure: float | None = None  # the clip's grade, stops
+
+
+class PlanGraphicOut(BaseModel):
+    id: str
+    component: str
+    timeline_start: float
+    timeline_end: float
+    text: str | None = None
+
+
+class PlanOut(PlanSummary):
+    """A plan version as the timeline view needs it (the full ``editplan/1``
+    document stays server-side; agents and renderers read it there)."""
+
+    width: int
+    height: int
+    fps: int
+    captions: str | None  # caption style, None = off
+    loudness_lufs: float | None
+    clips: list[PlanClipOut]
+    graphics: list[PlanGraphicOut]
+
+
+class PlanList(BaseModel):
+    items: list[PlanSummary]
+
+
+class RenderRequest(_In):
+    preset: ProjectPreset | None = None  # None = the preset the plan was made for
+    deliver: bool = False
+    force: bool = False  # render again even if this version is done
+
+
+class RenderOut(_Out):
+    id: UUID
+    plan_id: UUID
+    plan_version: int
+    preset: ProjectPreset
+    status: RenderStatus
+    progress: float | None
+    step: str | None
+    error: str | None
+    size_bytes: int | None
+    duration_sec: float | None
+    width: int | None
+    height: int | None
+    fps: int | None
+    qa_status: QaStatus | None
+    qa: QaReport | None
+    deliver: bool
+    delivery_status: DeliveryStatus
+    delivery_error: str | None
+    delivered_at: datetime | None
+    created_at: datetime
+    finished_at: datetime | None
+    video: SignedUrl | None = None
+    download: SignedUrl | None = None
+    poster: SignedUrl | None = None
+
+
+class RenderList(BaseModel):
+    items: list[RenderOut]
+
+
+class EditStateOut(BaseModel):
+    """What the "Tez montaj" card shows: the running request, the newest plan
+    and the newest render."""
+
+    job: EditJobOut | None = None
+    plan: PlanSummary | None = None
+    render: RenderOut | None = None
 
 
 # --------------------------------------------------------------------------- health

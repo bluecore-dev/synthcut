@@ -60,7 +60,7 @@ flowchart LR
 * **Storage** — originals are immutable; derived files live under deterministic keys, so re-running a job overwrites instead of duplicating.
 * **Agents** — own agent loop with a permission gate per tool, step and cost limits, and a provider-neutral model router (`provider:model` per role).
 
-Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and twelve [architecture decision records](docs/adr/).
+Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and fifteen [architecture decision records](docs/adr/).
 
 ## Roadmap
 
@@ -72,13 +72,13 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and twelve [architecture d
 | 3 | FFprobe, proxies, thumbnails, audio extraction, shot detection, colour metadata | ✅ done |
 | 4 | Whisper, word timestamps, silences, subtitles | ✅ done |
 | 5 | Video intelligence — measured shot analysis (5a) · vision descriptions (5b) | 🟡 5a done |
-| 6 | Master, Director and Editor agents, EditPlan persistence | ⏳ next (needs model key) |
+| 6 | Master, Director and Editor agents, EditPlan persistence | 🟡 plans + rule-based "Tez montaj" done; agents need a model key |
 | 7 | Remotion compositions, widget registry, animated captions, SFX | ✅ engine done |
 | 8 | Colour and audio engines: grading, Log → Rec.709, voice cleanup, loudness, ducking | ✅ engines done |
-| 9 | QA, error classifier, reflection, retries | ⏳ planned |
+| 9 | QA, error classifier, reflection, retries | 🟡 QA on the rendered file done |
 | 10 | Memory, preferences, feedback | ⏳ planned |
-| 11 | Full render from originals | ⏳ planned |
-| 12 | Telegram delivery | ⏳ planned |
+| 11 | Full render from originals | ✅ done (CPU: segments + master) |
+| 12 | Telegram delivery | ✅ done |
 
 ## Tech stack
 

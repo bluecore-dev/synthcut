@@ -126,20 +126,43 @@ export const SPEECH_LANGUAGE_NAME: Record<string, string> = {
 export const SHORT_DURATIONS = [30, 45, 60, 90, 120];
 export const LONG_DURATIONS = [300, 600, 900];
 
+/** ``stage``: the tab opens when the server says that stage is built. */
 export const PROJECT_TABS = [
-  { id: "overview", label: "Overview", phase: 1 },
-  { id: "assets", label: "Assets", phase: 2 },
-  { id: "logs", label: "Logs", phase: 1 },
-  { id: "analysis", label: "Analysis", phase: 5 },
-  { id: "transcript", label: "Transcript", phase: 4 },
-  { id: "timeline", label: "Timeline", phase: 6 },
-  { id: "decisions", label: "AI Decisions", phase: 6 },
-  { id: "preview", label: "Preview", phase: 11 },
-  { id: "versions", label: "Versions", phase: 6 },
-  { id: "renders", label: "Render History", phase: 11 },
-] as const;
+  { id: "overview", label: "Overview" },
+  { id: "assets", label: "Assets" },
+  { id: "logs", label: "Logs" },
+  { id: "analysis", label: "Analysis", stage: "analysis" },
+  { id: "transcript", label: "Transcript", stage: "transcription" },
+  { id: "timeline", label: "Timeline", stage: "editor" },
+  { id: "decisions", label: "AI Decisions", stage: "director" },
+  { id: "preview", label: "Preview", stage: "render" },
+  { id: "versions", label: "Versions", stage: "editor" },
+  { id: "renders", label: "Render History", stage: "render" },
+] as const satisfies readonly { id: string; label: string; stage?: string }[];
 
 export type ProjectTab = (typeof PROJECT_TABS)[number]["id"];
 
 export const UPLOAD_HINT_IOS =
   "iPhone'da Log/ProRes asli kerak bo'lsa, faylni «Fayllar» (Files) ilovasidan tanlang — «Rasmlar» videoni siqib yuborishi mumkin.";
+
+export const QA_LABEL: Record<"pass" | "warn" | "fail", { title: string; tone: "ok" | "warn" | "err" }> = {
+  pass: { title: "QA: joyida", tone: "ok" },
+  warn: { title: "QA: ogohlantirish", tone: "warn" },
+  fail: { title: "QA: xato", tone: "err" },
+};
+
+export const DELIVERY_LABEL: Record<"none" | "queued" | "sent" | "failed", string> = {
+  none: "Yuborilmagan",
+  queued: "Telegramga yuborilmoqda",
+  sent: "Telegramga yuborildi",
+  failed: "Telegramga yuborilmadi",
+};
+
+export const PLAN_SOURCE_LABEL: Record<"rules" | "director" | "user", string> = {
+  rules: "Tez montaj",
+  director: "AI rejissor",
+  user: "Qo'lda",
+};
+
+/** Target length chips for Tez montaj; null = keep everything usable. */
+export const AUTO_EDIT_DURATIONS: (number | null)[] = [null, 15, 30, 60, 90];

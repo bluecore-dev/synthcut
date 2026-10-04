@@ -167,14 +167,20 @@ def auto_grade(
 
 
 def matched_grades(
-    measures: list[ColorMeasure], *, transform: str = "none", profile: str = "neutral", intensity: float = 0.8
+    measures: list[ColorMeasure],
+    *,
+    transform: str | list[str] = "none",
+    profile: str = "neutral",
+    intensity: float = 0.8,
 ) -> list[ColorGrade]:
     """Shot matching: every shot of a scene is pulled to one shared exposure
     target — the scene's own median, kept inside a sane band — and to neutral
-    white balance, so cuts between them do not jump."""
+    white balance, so cuts between them do not jump. ``transform`` may differ
+    per shot (a Log camera cut with a phone)."""
+    transforms = [transform] * len(measures) if isinstance(transform, str) else transform
     usable = [m.luma_mean for m in measures if m.luma_mean > 0.04]
     target = max(0.38, min(0.52, statistics.median(usable))) if usable else TARGET_LUMA
     return [
-        auto_grade(m, transform=transform, profile=profile, intensity=intensity, target_luma=target)
-        for m in measures
+        auto_grade(m, transform=t, profile=profile, intensity=intensity, target_luma=target)
+        for m, t in zip(measures, transforms, strict=True)
     ]

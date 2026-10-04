@@ -166,11 +166,19 @@ def caption_lines(
 
 
 def build_overlay(
-    plan: EditPlan, transcripts: dict[UUID, Transcript] | None = None, *, theme: Theme | None = None
+    plan: EditPlan,
+    transcripts: dict[UUID, Transcript] | None = None,
+    *,
+    theme: Theme | None = None,
+    fps: int | None = None,
+    size: tuple[int, int] | None = None,
 ) -> OverlayProps:
     """``plan`` must already have passed ``validate_plan`` (props are re-parsed
-    here only to fill in defaults, so the React side needs none)."""
-    fps = plan.sequence.fps
+    here only to fill in defaults, so the React side needs none). ``fps`` and
+    ``size`` draw the layer at a lower rate / resolution than the output (the
+    composite matches frames by time and scales); layouts are relative."""
+    fps = fps or plan.sequence.fps
+    width, height = size or (plan.sequence.width, plan.sequence.height)
     items: list[OverlayItem] = []
     for g in sorted(plan.graphics, key=lambda g: (g.layer, g.timeline_start)):
         spec = GRAPHICS_REGISTRY[g.component]
@@ -196,11 +204,11 @@ def build_overlay(
             lines=caption_lines(plan, transcripts, plan.captions),
         )
     return OverlayProps(
-        width=plan.sequence.width,
-        height=plan.sequence.height,
+        width=width,
+        height=height,
         fps=fps,
         duration_in_frames=max(1, round(plan.sequence.duration * fps)),
-        safe_zone=safe_zone(plan.sequence.width, plan.sequence.height),
+        safe_zone=safe_zone(width, height),
         theme=theme or Theme(),
         items=items,
         captions=captions,

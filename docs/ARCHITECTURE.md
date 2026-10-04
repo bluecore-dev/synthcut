@@ -386,6 +386,35 @@ Captions *stages* stay locked until plans exist.
 The Color / Audio *stages* and agent tools (`analyze_color`, `generate_grade`,
 `analyze_audio`, `generate_mix_plan`) attach to plans in Phase 6.
 
+## 8f. Tez montaj, final render, QA, delivery (Phases 6/9/11/12 without a model, ADR-0015)
+
+* **Plan** — `POST /projects/{id}/auto-edit` (target duration, captions,
+  look, loudness, pauses, title, CTA, deliver) queues `edit.auto` (cpu, high):
+  every ready video with its transcript, shot analysis, a colour measurement
+  of its proxy (shot-matched across files) and the voice measured where
+  there is most speech → `synthcut_timeline.autoedit.build_plan` → validated
+  `editplan/1` → `edit_plans` (version unique per project, append-only).
+  Stages: Director *skipped*, Editor / Color / Audio / Captions / Motion
+  *done* with their decisions as the detail.
+* **Render** — `renders` row per (plan version, preset, kind), `render.final`
+  (render queue): per-clip segments from the originals (seek, colour → 709,
+  cover / face placement or blurred fill, grade LUT, exact frames and
+  samples) → concat demuxer → Remotion layer (≤ 1920 px, ≤ 30 fps) →
+  loudness pass 1 over the timeline → master (overlay, voice chain, SFX,
+  `loudnorm` pass 2, x264 / AAC per preset) → `renders/<id>/final.mp4`,
+  `poster.jpg`, `qa.json`, and `telegram.mp4` when the master is over 50 MB.
+* **QA** — `synthcut_media.qa`: one decode with `blackdetect`,
+  `freezedetect`, `ebur128`, `silencedetect` + ffprobe → `qa/1`
+  (`synthcut_schemas.qa.QaReport`), pass / warn / fail per check.
+* **Delivery** — `deliver.telegram` (io): `sendVideo` from the worker with a
+  button back to the project; a QA failure blocks it; `POST
+  /renders/{id}/deliver` sends again.
+* **API** — `GET /projects/{id}/edit` (running request, newest plan, newest
+  render), `GET /projects/{id}/plans`, `GET /projects/{id}/plans/{version}`
+  (timeline view), `POST /projects/{id}/plans/{version}/render`,
+  `GET /projects/{id}/renders`. Mini App: Tez montaj card on Overview,
+  Timeline, Versions, Preview and Render History tabs.
+
 ## 9. Queue design (ADR-0002)
 
 PostgreSQL `jobs` is the ledger; Redis only rings the bell.
@@ -484,13 +513,13 @@ activity log in `events`. `/api/v1/ready` checks database, Redis and storage.
 | 3 | FFprobe, proxies, thumbnails, audio extraction, shot detection, color metadata | **done** |
 | 4 | Whisper, word timestamps, silence, subtitles | **done** (local CPU Whisper; a hosted engine is one provider away) |
 | 5 | Video Analysis agent | **5a done** (measured shot analysis); 5b vision description needs `ANTHROPIC_API_KEY` |
-| 6 | Master, Director, Editor, EditPlan persistence | needs `ANTHROPIC_API_KEY` |
+| 6 | Master, Director, Editor, EditPlan persistence | **persistence + rule-based editor done** ("Tez montaj", ADR-0015); Director / Editor agents need `ANTHROPIC_API_KEY` |
 | 7 | Remotion compositions, widget registry, subtitles | **engine done** (15 components, captions, SFX, caption preview); stages run once Phase 6 makes plans |
 | 8 | Color + Audio agents, grading, mixing, ducking | **engines done** (grade/1, mix/1, LUT baking, voice chain, loudness, ducking, enhance preview); agents in Phase 6 |
-| 9 | QA, error classifier, reflection, retries | |
+| 9 | QA, error classifier, reflection, retries | **QA on the file done** (`qa/1`); reflection loop with the agents |
 | 10 | Memory, preferences, feedback | |
-| 11 | Full render from originals | GPU/CPU capacity decision |
-| 12 | Telegram delivery | |
+| 11 | Full render from originals | **done on CPU** (segments + master, ADR-0015); B-roll layers, music, speed, transitions refused until built |
+| 12 | Telegram delivery | **done** (`sendVideo`, chat-sized copy over 50 MB) |
 
 ## 16. Operations
 

@@ -86,6 +86,36 @@ class AnalysisStatus(StrEnum):
     FAILED = "failed"
 
 
+class RenderStatus(StrEnum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    DONE = "done"
+    FAILED = "failed"
+
+
+class RenderKind(StrEnum):
+    FINAL = "final"
+
+
+class PlanSource(StrEnum):
+    RULES = "rules"  # the rule-based editor ("Tez montaj"), no model involved
+    DIRECTOR = "director"  # the Director / Editor agents (Phase 6)
+    USER = "user"  # edited by hand
+
+
+class QaStatus(StrEnum):
+    PASS = "pass"  # noqa: S105 — a verdict, not a password
+    WARN = "warn"
+    FAIL = "fail"
+
+
+class DeliveryStatus(StrEnum):
+    NONE = "none"
+    QUEUED = "queued"
+    SENT = "sent"  # the video itself is in the chat
+    FAILED = "failed"
+
+
 class UploadSessionStatus(StrEnum):
     ACTIVE = "active"
     COMPLETING = "completing"
@@ -154,9 +184,10 @@ STAGE_LABELS: dict[Stage, str] = {
     Stage.DELIVERY: "Delivery",
 }
 
-# Highest development phase (spec §51) that is built and deployed. Stages whose
-# phase is above this are shown as "not yet available" instead of pretending.
-BUILT_PHASE = 5
+# Stages that are built and deployed. The others are shown as "not yet
+# available" instead of pretending. The Director (an AI agent) waits for a model
+# key; everything after it runs on rules and measurements (ADR-0015).
+BUILT_STAGES: frozenset[Stage] = frozenset(Stage) - {Stage.DIRECTOR}
 
 # Development phase (spec §51) in which each stage becomes operational.
 STAGE_PHASE: dict[Stage, int] = {

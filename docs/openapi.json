@@ -1160,6 +1160,417 @@
         }
       }
     },
+    "/api/v1/projects/{project_id}/auto-edit": {
+      "post": {
+        "tags": [
+          "edits"
+        ],
+        "summary": "Auto Edit",
+        "description": "Tez montaj: pauses and bad shots cut, reframed, graded, mixed,\ncaptioned — then rendered from the originals and (optionally) sent to\nthe chat. A second request while one is running returns that one.",
+        "operationId": "auto_edit_api_v1_projects__project_id__auto_edit_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutoEditRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EditStateOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/edit": {
+      "get": {
+        "tags": [
+          "edits"
+        ],
+        "summary": "Get Edit State",
+        "operationId": "get_edit_state_api_v1_projects__project_id__edit_get",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EditStateOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/plans": {
+      "get": {
+        "tags": [
+          "edits"
+        ],
+        "summary": "List Plans",
+        "operationId": "list_plans_api_v1_projects__project_id__plans_get",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanList"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/plans/{version}": {
+      "get": {
+        "tags": [
+          "edits"
+        ],
+        "summary": "Get Plan",
+        "operationId": "get_plan_api_v1_projects__project_id__plans__version__get",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Version"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/plans/{version}/render": {
+      "post": {
+        "tags": [
+          "edits"
+        ],
+        "summary": "Render Plan",
+        "description": "Render a plan version (again). The plan fixes the frame size, so the\npreset must be the one it was made for — another format is a new plan.",
+        "operationId": "render_plan_api_v1_projects__project_id__plans__version__render_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Version"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenderRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenderOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/renders": {
+      "get": {
+        "tags": [
+          "edits"
+        ],
+        "summary": "List Renders",
+        "operationId": "list_renders_api_v1_projects__project_id__renders_get",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenderList"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/renders/{render_id}/deliver": {
+      "post": {
+        "tags": [
+          "edits"
+        ],
+        "summary": "Deliver Render",
+        "operationId": "deliver_render_api_v1_renders__render_id__deliver_post",
+        "parameters": [
+          {
+            "name": "render_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Render Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenderOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/projects/{project_id}/uploads": {
       "post": {
         "tags": [
@@ -2706,6 +3117,151 @@
         ],
         "title": "AuthResponse"
       },
+      "AutoEditRequest": {
+        "properties": {
+          "preset": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "reels_9x16",
+                  "youtube_16x9_1080",
+                  "youtube_16x9_2160",
+                  "square_1x1",
+                  "portrait_4x5"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preset"
+          },
+          "target_duration": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 14400.0,
+                "minimum": 5.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Duration"
+          },
+          "remove_pauses": {
+            "type": "boolean",
+            "title": "Remove Pauses",
+            "default": true
+          },
+          "captions": {
+            "type": "string",
+            "enum": [
+              "off",
+              "dynamic",
+              "karaoke",
+              "minimal",
+              "bold"
+            ],
+            "title": "Captions",
+            "default": "dynamic"
+          },
+          "caption_position": {
+            "type": "string",
+            "enum": [
+              "bottom",
+              "center",
+              "top"
+            ],
+            "title": "Caption Position",
+            "default": "bottom"
+          },
+          "profile": {
+            "type": "string",
+            "enum": [
+              "neutral",
+              "cinematic_clean",
+              "warm_film",
+              "cool_teal",
+              "vivid_social",
+              "bw_classic"
+            ],
+            "title": "Profile",
+            "default": "cinematic_clean"
+          },
+          "intensity": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Intensity",
+            "default": 0.8
+          },
+          "loudness": {
+            "type": "string",
+            "enum": [
+              "social",
+              "youtube",
+              "podcast",
+              "broadcast"
+            ],
+            "title": "Loudness",
+            "default": "social"
+          },
+          "denoise": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "off",
+              "light",
+              "medium",
+              "strong"
+            ],
+            "title": "Denoise",
+            "default": "auto"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 60,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "cta": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 40,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cta"
+          },
+          "render": {
+            "type": "boolean",
+            "title": "Render",
+            "default": true
+          },
+          "deliver": {
+            "type": "boolean",
+            "title": "Deliver",
+            "default": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "AutoEditRequest",
+        "description": "\"Tez montaj\": the rule-based editor, then the final render and delivery."
+      },
       "CaptionPreviewOut": {
         "properties": {
           "status": {
@@ -3211,6 +3767,110 @@
           "ok"
         ],
         "title": "ComponentCheck"
+      },
+      "DeliveryStatus": {
+        "type": "string",
+        "enum": [
+          "none",
+          "queued",
+          "sent",
+          "failed"
+        ],
+        "title": "DeliveryStatus"
+      },
+      "EditJobOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/JobStatus"
+          },
+          "progress": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress"
+          },
+          "step": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "created_at"
+        ],
+        "title": "EditJobOut"
+      },
+      "EditStateOut": {
+        "properties": {
+          "job": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EditJobOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "plan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlanSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "render": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RenderOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "EditStateOut",
+        "description": "What the \"Tez montaj\" card shows: the running request, the newest plan\nand the newest render."
       },
       "EnhancePreviewOut": {
         "properties": {
@@ -4159,6 +4819,315 @@
         ],
         "title": "PartSignResponse"
       },
+      "PlanClipOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "asset_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Asset Id"
+          },
+          "asset_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Name"
+          },
+          "source_in": {
+            "type": "number",
+            "title": "Source In"
+          },
+          "source_out": {
+            "type": "number",
+            "title": "Source Out"
+          },
+          "timeline_start": {
+            "type": "number",
+            "title": "Timeline Start"
+          },
+          "timeline_end": {
+            "type": "number",
+            "title": "Timeline End"
+          },
+          "reframed": {
+            "type": "boolean",
+            "title": "Reframed"
+          },
+          "fill": {
+            "type": "string",
+            "enum": [
+              "cover",
+              "blur"
+            ],
+            "title": "Fill"
+          },
+          "exposure": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exposure"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "asset_id",
+          "source_in",
+          "source_out",
+          "timeline_start",
+          "timeline_end",
+          "reframed",
+          "fill"
+        ],
+        "title": "PlanClipOut"
+      },
+      "PlanGraphicOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "component": {
+            "type": "string",
+            "title": "Component"
+          },
+          "timeline_start": {
+            "type": "number",
+            "title": "Timeline Start"
+          },
+          "timeline_end": {
+            "type": "number",
+            "title": "Timeline End"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "component",
+          "timeline_start",
+          "timeline_end"
+        ],
+        "title": "PlanGraphicOut"
+      },
+      "PlanList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PlanSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "PlanList"
+      },
+      "PlanOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "source": {
+            "$ref": "#/components/schemas/PlanSource"
+          },
+          "duration_sec": {
+            "type": "number",
+            "title": "Duration Sec"
+          },
+          "clip_count": {
+            "type": "integer",
+            "title": "Clip Count"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "options": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Options"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "width": {
+            "type": "integer",
+            "title": "Width"
+          },
+          "height": {
+            "type": "integer",
+            "title": "Height"
+          },
+          "fps": {
+            "type": "integer",
+            "title": "Fps"
+          },
+          "captions": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Captions"
+          },
+          "loudness_lufs": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Loudness Lufs"
+          },
+          "clips": {
+            "items": {
+              "$ref": "#/components/schemas/PlanClipOut"
+            },
+            "type": "array",
+            "title": "Clips"
+          },
+          "graphics": {
+            "items": {
+              "$ref": "#/components/schemas/PlanGraphicOut"
+            },
+            "type": "array",
+            "title": "Graphics"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "version",
+          "source",
+          "duration_sec",
+          "clip_count",
+          "notes",
+          "options",
+          "created_at",
+          "width",
+          "height",
+          "fps",
+          "captions",
+          "loudness_lufs",
+          "clips",
+          "graphics"
+        ],
+        "title": "PlanOut",
+        "description": "A plan version as the timeline view needs it (the full ``editplan/1``\ndocument stays server-side; agents and renderers read it there)."
+      },
+      "PlanSource": {
+        "type": "string",
+        "enum": [
+          "rules",
+          "director",
+          "user"
+        ],
+        "title": "PlanSource"
+      },
+      "PlanSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "source": {
+            "$ref": "#/components/schemas/PlanSource"
+          },
+          "duration_sec": {
+            "type": "number",
+            "title": "Duration Sec"
+          },
+          "clip_count": {
+            "type": "integer",
+            "title": "Clip Count"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "options": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Options"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "version",
+          "source",
+          "duration_sec",
+          "clip_count",
+          "notes",
+          "options",
+          "created_at"
+        ],
+        "title": "PlanSummary"
+      },
       "PresetOut": {
         "properties": {
           "id": {
@@ -4635,6 +5604,233 @@
         "type": "object",
         "title": "ProjectUpdate"
       },
+      "QaCheck": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{1,40}$",
+            "title": "Code"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "warn",
+              "fail"
+            ],
+            "title": "Status"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "status",
+          "message",
+          "value"
+        ],
+        "title": "QaCheck"
+      },
+      "QaReport": {
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "const": "qa/1",
+            "title": "Schema Version",
+            "default": "qa/1"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "warn",
+              "fail"
+            ],
+            "title": "Status"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/QaCheck"
+            },
+            "type": "array",
+            "title": "Checks"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Width"
+          },
+          "height": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
+          },
+          "fps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fps"
+          },
+          "duration": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration"
+          },
+          "video_codec": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Codec"
+          },
+          "audio_codec": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audio Codec"
+          },
+          "integrated_lufs": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Integrated Lufs"
+          },
+          "true_peak_db": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "True Peak Db"
+          },
+          "black": {
+            "items": {
+              "$ref": "#/components/schemas/QaSpan"
+            },
+            "type": "array",
+            "title": "Black"
+          },
+          "frozen": {
+            "items": {
+              "$ref": "#/components/schemas/QaSpan"
+            },
+            "type": "array",
+            "title": "Frozen"
+          },
+          "silence": {
+            "items": {
+              "$ref": "#/components/schemas/QaSpan"
+            },
+            "type": "array",
+            "title": "Silence"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "schema_version",
+          "status",
+          "checks",
+          "width",
+          "height",
+          "fps",
+          "duration",
+          "video_codec",
+          "audio_codec",
+          "integrated_lufs",
+          "true_peak_db",
+          "black",
+          "frozen",
+          "silence"
+        ],
+        "title": "QaReport"
+      },
+      "QaSpan": {
+        "properties": {
+          "start": {
+            "type": "number",
+            "title": "Start"
+          },
+          "end": {
+            "type": "number",
+            "title": "End"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "start",
+          "end"
+        ],
+        "title": "QaSpan"
+      },
+      "QaStatus": {
+        "type": "string",
+        "enum": [
+          "pass",
+          "warn",
+          "fail"
+        ],
+        "title": "QaStatus"
+      },
       "ReadyOut": {
         "properties": {
           "status": {
@@ -4655,6 +5851,293 @@
           "checks"
         ],
         "title": "ReadyOut"
+      },
+      "RenderList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RenderOut"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "RenderList"
+      },
+      "RenderOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "plan_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Plan Id"
+          },
+          "plan_version": {
+            "type": "integer",
+            "title": "Plan Version"
+          },
+          "preset": {
+            "$ref": "#/components/schemas/ProjectPreset"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RenderStatus"
+          },
+          "progress": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress"
+          },
+          "step": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size Bytes"
+          },
+          "duration_sec": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Sec"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Width"
+          },
+          "height": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
+          },
+          "fps": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fps"
+          },
+          "qa_status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QaStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "qa": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QaReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "deliver": {
+            "type": "boolean",
+            "title": "Deliver"
+          },
+          "delivery_status": {
+            "$ref": "#/components/schemas/DeliveryStatus"
+          },
+          "delivery_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivery Error"
+          },
+          "delivered_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivered At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "video": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SignedUrl"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "download": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SignedUrl"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "poster": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SignedUrl"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "plan_id",
+          "plan_version",
+          "preset",
+          "status",
+          "progress",
+          "step",
+          "error",
+          "size_bytes",
+          "duration_sec",
+          "width",
+          "height",
+          "fps",
+          "qa_status",
+          "qa",
+          "deliver",
+          "delivery_status",
+          "delivery_error",
+          "delivered_at",
+          "created_at",
+          "finished_at"
+        ],
+        "title": "RenderOut"
+      },
+      "RenderRequest": {
+        "properties": {
+          "preset": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProjectPreset"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "deliver": {
+            "type": "boolean",
+            "title": "Deliver",
+            "default": false
+          },
+          "force": {
+            "type": "boolean",
+            "title": "Force",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "RenderRequest"
+      },
+      "RenderStatus": {
+        "type": "string",
+        "enum": [
+          "queued",
+          "running",
+          "done",
+          "failed"
+        ],
+        "title": "RenderStatus"
       },
       "Segment": {
         "properties": {

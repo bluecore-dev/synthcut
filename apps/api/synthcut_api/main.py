@@ -18,6 +18,7 @@ from synthcut_telemetry import setup_logging
 from . import __version__
 from .auth.router import router as auth_router
 from .errors import install_error_handlers
+from .projects.edits import router as edits_router
 from .projects.router import router as projects_router
 from .routers.health import router as health_router
 from .telemetry.router import router as telemetry_router
@@ -100,7 +101,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             )
         return response
 
-    for router in (health_router, auth_router, projects_router, uploads_router, telemetry_router):
+    for router in (
+        health_router,
+        auth_router,
+        projects_router,
+        edits_router,
+        uploads_router,
+        telemetry_router,
+    ):
         app.include_router(router, prefix=API_PREFIX)
     return app
 

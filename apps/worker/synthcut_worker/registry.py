@@ -42,9 +42,12 @@ def load_handlers() -> dict[str, HandlerSpec]:
     # Importing a module registers its handlers.
     from .analysis import jobs as _analysis  # noqa: F401
     from .delivery import notify as _notify  # noqa: F401
+    from .delivery import telegram as _deliver  # noqa: F401
+    from .edit import jobs as _edit  # noqa: F401
     from .ingestion import jobs as _ingestion  # noqa: F401
     from .maintenance import jobs as _maintenance  # noqa: F401
     from .render import enhance as _enhance  # noqa: F401
+    from .render import final as _final  # noqa: F401
     from .render import jobs as _render  # noqa: F401
     from .speech import jobs as _speech  # noqa: F401
 

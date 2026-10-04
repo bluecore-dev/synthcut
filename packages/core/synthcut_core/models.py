@@ -34,10 +34,15 @@ from synthcut_schemas.enums import (
     AnalysisStatus,
     AssetKind,
     AssetStatus,
+    DeliveryStatus,
     EventLevel,
     JobQueue,
     JobStatus,
+    PlanSource,
     ProjectStatus,
+    QaStatus,
+    RenderKind,
+    RenderStatus,
     StageStatus,
     TranscriptStatus,
     UploadSessionStatus,
@@ -274,6 +279,77 @@ class ClipAnalysisRow(TimestampMixin, Base):
     dhash: Mapped[str | None] = mapped_column(Text)
     sheet_key: Mapped[str | None] = mapped_column(Text)
     data: Mapped[dict[str, Any]]
+
+
+class EditPlanRow(TimestampMixin, Base):
+    """One version of a project's timeline (spec §22-23, §34). Versions are
+    append-only: a new decision is a new row, so every earlier cut stays
+    restorable. ``plan`` is the validated ``editplan/1`` document."""
+
+    __tablename__ = "edit_plans"
+    __table_args__ = (
+        CheckConstraint(_one_of("source", PlanSource), name="source"),
+        Index("uq_edit_plans_project_version", "project_id", "version", unique=True),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=new_id)
+    project_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    version: Mapped[int] = mapped_column(Integer)
+    source: Mapped[str] = mapped_column(Text)
+    plan: Mapped[dict[str, Any]]
+    duration_sec: Mapped[float] = mapped_column(Float)
+    clip_count: Mapped[int] = mapped_column(Integer)
+    notes: Mapped[str | None] = mapped_column(Text)
+    # What was asked for (target duration, caption style, look, loudness ...).
+    options: Mapped[dict[str, Any]] = mapped_column(default=dict, server_default=text("'{}'::jsonb"))
+
+
+class Render(TimestampMixin, Base):
+    """A rendered output of one plan version in one preset (spec §27-29): the
+    final file, its QA report and its delivery. One row per (plan version,
+    preset, kind) — rendering the same cut twice re-uses it."""
+
+    __tablename__ = "renders"
+    __table_args__ = (
+        CheckConstraint(_one_of("status", RenderStatus), name="status"),
+        CheckConstraint(_one_of("kind", RenderKind), name="kind"),
+        CheckConstraint(f"qa_status IS NULL OR {_one_of('qa_status', QaStatus)}", name="qa_status"),
+        CheckConstraint(_one_of("delivery_status", DeliveryStatus), name="delivery_status"),
+        Index("uq_renders_plan_preset_kind", "project_id", "plan_version", "preset", "kind", unique=True),
+        Index("ix_renders_project_created", "project_id", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=new_id)
+    project_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    plan_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("edit_plans.id", ondelete="CASCADE"))
+    plan_version: Mapped[int] = mapped_column(Integer)
+    preset: Mapped[str] = mapped_column(Text)
+    kind: Mapped[str] = mapped_column(Text, default=RenderKind.FINAL.value)
+    status: Mapped[str] = mapped_column(Text)
+    progress: Mapped[float | None] = mapped_column(Float)
+    step: Mapped[str | None] = mapped_column(Text)
+    output_key: Mapped[str | None] = mapped_column(Text)
+    poster_key: Mapped[str | None] = mapped_column(Text)
+    # A smaller copy for the chat when the final is over Telegram's upload limit.
+    telegram_key: Mapped[str | None] = mapped_column(Text)
+    size_bytes: Mapped[int | None] = mapped_column(BigInteger)
+    duration_sec: Mapped[float | None] = mapped_column(Float)
+    width: Mapped[int | None] = mapped_column(Integer)
+    height: Mapped[int | None] = mapped_column(Integer)
+    fps: Mapped[int | None] = mapped_column(Integer)
+    qa: Mapped[dict[str, Any] | None]
+    qa_status: Mapped[str | None] = mapped_column(Text)
+    error: Mapped[str | None] = mapped_column(Text)
+    deliver: Mapped[bool] = mapped_column(default=False, server_default=text("false"))
+    delivery_status: Mapped[str] = mapped_column(
+        Text, default=DeliveryStatus.NONE.value, server_default=text("'none'")
+    )
+    delivery_error: Mapped[str | None] = mapped_column(Text)
+    telegram_message_id: Mapped[int | None] = mapped_column(BigInteger)
+    delivered_at: Mapped[datetime | None]
+    runs: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    started_at: Mapped[datetime | None]
+    finished_at: Mapped[datetime | None]
 
 
 class UploadSession(TimestampMixin, Base):

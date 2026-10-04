@@ -19,6 +19,9 @@ class JobKind:
     ANALYZE_ASSET = "analysis.asset"
     RENDER_CAPTION_PREVIEW = "render.caption_preview"
     RENDER_ENHANCE_PREVIEW = "render.enhance_preview"
+    EDIT_AUTO = "edit.auto"
+    RENDER_FINAL = "render.final"
+    DELIVER_TELEGRAM = "deliver.telegram"
     EXPIRE_UPLOADS = "maintenance.expire_uploads"
     SWEEP_ORPHAN_UPLOADS = "maintenance.sweep_orphan_uploads"
     PRUNE_JOBS = "maintenance.prune_jobs"
@@ -31,6 +34,9 @@ JOB_LABELS: dict[str, str] = {
     JobKind.ANALYZE_ASSET: "Kadrlar tahlili",
     JobKind.RENDER_CAPTION_PREVIEW: "Subtitrli video",
     JobKind.RENDER_ENHANCE_PREVIEW: "Rang va ovoz",
+    JobKind.EDIT_AUTO: "Tez montaj",
+    JobKind.RENDER_FINAL: "Yakuniy render",
+    JobKind.DELIVER_TELEGRAM: "Telegramga yuborish",
     JobKind.EXPIRE_UPLOADS: "Eskirgan yuklashlarni tozalash",
     JobKind.SWEEP_ORPHAN_UPLOADS: "Yetim multipart yuklashlarni tozalash",
     JobKind.PRUNE_JOBS: "Eski tizim job'larini tozalash",
@@ -82,6 +88,41 @@ class EnhancePreviewPayload(_Payload):
     denoise: Literal["auto", "off", "light", "medium", "strong"] = "auto"
 
 
+Preset = Literal["reels_9x16", "youtube_16x9_1080", "youtube_16x9_2160", "square_1x1", "portrait_4x5"]
+
+
+class AutoEditOptions(_Payload):
+    """What the owner asks of "Tez montaj" (the rule-based editor)."""
+
+    preset: Preset | None = None  # None = the project's preset
+    target_duration: float | None = Field(None, ge=5, le=4 * 3600)  # None = the project's target, else all
+    remove_pauses: bool = True
+    captions: Literal["off", "dynamic", "karaoke", "minimal", "bold"] = "dynamic"
+    caption_position: Literal["bottom", "center", "top"] = "bottom"
+    profile: Literal["neutral", "cinematic_clean", "warm_film", "cool_teal", "vivid_social", "bw_classic"] = (
+        "cinematic_clean"
+    )
+    intensity: float = Field(0.8, ge=0, le=1)
+    loudness: Literal["social", "youtube", "podcast", "broadcast"] = "social"
+    denoise: Literal["auto", "off", "light", "medium", "strong"] = "auto"
+    title: str | None = Field(None, min_length=1, max_length=60)
+    cta: str | None = Field(None, min_length=1, max_length=40)
+    render: bool = True  # queue the final render as soon as the plan exists
+    deliver: bool = True  # send the result to the owner's Telegram chat
+
+
+class AutoEditPayload(AutoEditOptions):
+    pass
+
+
+class RenderFinalPayload(_Payload):
+    render_id: UUID
+
+
+class DeliverTelegramPayload(_Payload):
+    render_id: UUID
+
+
 class ExpireUploadsPayload(_Payload):
     pass
 
@@ -106,6 +147,9 @@ PAYLOAD_MODELS: dict[str, type[_Payload]] = {
     JobKind.ANALYZE_ASSET: AnalyzeAssetPayload,
     JobKind.RENDER_CAPTION_PREVIEW: CaptionPreviewPayload,
     JobKind.RENDER_ENHANCE_PREVIEW: EnhancePreviewPayload,
+    JobKind.EDIT_AUTO: AutoEditPayload,
+    JobKind.RENDER_FINAL: RenderFinalPayload,
+    JobKind.DELIVER_TELEGRAM: DeliverTelegramPayload,
     JobKind.EXPIRE_UPLOADS: ExpireUploadsPayload,
     JobKind.SWEEP_ORPHAN_UPLOADS: SweepOrphanUploadsPayload,
     JobKind.PRUNE_JOBS: PruneJobsPayload,

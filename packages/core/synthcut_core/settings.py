@@ -73,6 +73,8 @@ class Settings(BaseSettings):
     # Chrome inside the media worker image.
     remotion_dir: str = "/opt/remotion"
     remotion_concurrency: int = Field(default=2, ge=1, le=8)
+    # Sound effects the motion components enter with (assets/sfx, CC0, generated).
+    sfx_dir: str = "/opt/sfx"
     notify_telegram: bool = True
     telegram_api_base: str = "https://api.telegram.org"
     worker_queues: str = "io"

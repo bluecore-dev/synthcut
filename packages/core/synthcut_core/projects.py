@@ -9,7 +9,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from synthcut_schemas.api import ProjectCreate, ProjectOut, ProjectSummary, ProjectUpdate, StageOut
 from synthcut_schemas.enums import (
-    BUILT_PHASE,
+    BUILT_STAGES,
     PRESET_SPECS,
     STAGE_LABELS,
     STAGE_ORDER,
@@ -184,7 +184,7 @@ def stage_out(stage: Stage, row: ProjectStage | None) -> StageOut:
         progress=row.progress if row else None,
         detail=row.detail if row else None,
         phase=phase,
-        available=phase <= BUILT_PHASE,
+        available=stage in BUILT_STAGES,
         started_at=row.started_at if row else None,
         finished_at=row.finished_at if row else None,
         updated_at=row.updated_at if row else None,

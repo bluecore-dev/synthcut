@@ -69,6 +69,7 @@ COPY --from=remotion /opt/remotion /opt/remotion
 # Media worker: FFmpeg, Whisper, OpenCV and Remotion (queues cpu + render).
 FROM chrome-runtime AS media
 ENV REMOTION_DIR=/opt/remotion
+COPY assets/sfx/*.flac /opt/sfx/
 USER synthcut
 
 # Test image: same code plus dev dependencies and the test suite.
@@ -86,4 +87,6 @@ RUN apt-get update \
 COPY --from=remotion /usr/local/bin/node /usr/local/bin/node
 COPY --from=remotion /opt/remotion /opt/remotion
 ENV SYNTHCUT_REMOTION_DIR=/opt/remotion
+COPY assets/sfx/*.flac /opt/sfx/
+ENV SYNTHCUT_SFX_DIR=/opt/sfx
 CMD ["pytest", "-q", "-p", "no:cacheprovider", "tests"]

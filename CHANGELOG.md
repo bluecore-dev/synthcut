@@ -5,6 +5,15 @@ All notable changes, phase by phase. Releases are deployed as
 
 ## [Unreleased]
 
+## Tez montaj, final render, QA, delivery · 2026-10-04
+
+- "Tez montaj" — a rule-based editor (no model): speech kept and pauses over 0.6 s cut, black / frozen shots dropped, B-roll from usable shots of footage without speech, target length stopped on a phrase boundary, face-aware reframing to the preset, vertical footage fitted over a blurred copy in landscape frames, shot-matched grades and the measured voice mix in the plan. The Director stage is marked skipped until an agent decides.
+- `edit_plans` (append-only versions) and `renders` (one per plan version + preset) — migration 0005.
+- Final render from the originals: per-clip segments (colour → Rec.709, placement, grade LUT, exact frames and samples), concat, Remotion layer, two-pass loudness over the timeline with SFX, x264 / AAC master per preset.
+- QA on the file (`qa/1`): resolution, frame rate, duration, codecs, loudness, true peak, black frames, frozen picture, silences, decode errors.
+- Telegram delivery: the video sent to the owner's chat (`sendVideo`), a chat-sized copy when the master is over 50 MB.
+- Mini App: Tez montaj card, Timeline, Versions, Preview and Render History tabs; tabs now open per built stage instead of a phase number.
+
 ## Phase 8 — colour and audio engines · 2026-10-04
 
 - `grade/1` and `mix/1` contracts (the spec's field names).

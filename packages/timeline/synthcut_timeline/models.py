@@ -35,12 +35,15 @@ class Crop(_Strict):
 
 
 class Transform(_Strict):
-    """Placement inside the frame. ``x``/``y`` are offsets in frame-size units
-    (-1..1), so a plan stays valid when the output resolution changes."""
+    """Placement inside the frame. ``scale`` 1 = the source covers the frame.
+    ``x``/``y`` move the picture's centre in output widths / heights, so a plan
+    stays valid when the output resolution changes. Beyond ±1 only makes sense
+    for a picture much larger than the frame (a vertical crop of wide footage);
+    the renderer clamps so no border shows where the source could fill it."""
 
     scale: float = Field(1.0, ge=0.1, le=10)
-    x: float = Field(0.0, ge=-1, le=1)
-    y: float = Field(0.0, ge=-1, le=1)
+    x: float = Field(0.0, ge=-4, le=4)
+    y: float = Field(0.0, ge=-4, le=4)
     rotation: float = Field(0.0, ge=-180, le=180)
     opacity: float = Field(1.0, ge=0, le=1)
     crop: Crop | None = None

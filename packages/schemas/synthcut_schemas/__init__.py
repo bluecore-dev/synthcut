@@ -2,7 +2,7 @@
 
 from .enums import (
     ALLOWED_FPS,
-    BUILT_PHASE,
+    BUILT_STAGES,
     PRESET_SPECS,
     STAGE_LABELS,
     STAGE_ORDER,
@@ -27,7 +27,7 @@ from .events import EPHEMERAL_EVENT_TYPES, EventEnvelope, EventType
 
 __all__ = [
     "ALLOWED_FPS",
-    "BUILT_PHASE",
+    "BUILT_STAGES",
     "EPHEMERAL_EVENT_TYPES",
     "PRESET_SPECS",
     "STAGE_LABELS",

@@ -26,6 +26,8 @@ export function useProjectEvents(projectId: string) {
   const [analysis, setAnalysis] = useState<Record<string, JobProgress>>({});
   const [preview, setPreview] = useState<Record<string, JobProgress>>({});
   const [enhance, setEnhance] = useState<Record<string, JobProgress>>({});
+  const [edit, setEdit] = useState<JobProgress | null>(null);
+  const [render, setRender] = useState<Record<string, JobProgress>>({});
   const [stream, setStream] = useState<StreamState>("connecting");
   const pending = useRef<number | null>(null);
 
@@ -42,13 +44,20 @@ export function useProjectEvents(projectId: string) {
         void qc.invalidateQueries({ queryKey: ["jobs", projectId] });
         void qc.invalidateQueries({ queryKey: ["clips", projectId] });
         void qc.invalidateQueries({ queryKey: ["projects"] });
+        void qc.invalidateQueries({ queryKey: ["edit", projectId] });
+        void qc.invalidateQueries({ queryKey: ["plans", projectId] });
+        void qc.invalidateQueries({ queryKey: ["renders", projectId] });
       }, 500);
     };
 
     const onEvent = (ev: EventEnvelope) => {
       if (ev.id == null) {
         if (ev.type === "job.progress") {
-          const d = ev.data as { asset_id?: string; progress?: number; kind?: string };
+          const d = ev.data as { asset_id?: string; render_id?: string; progress?: number; kind?: string };
+          if (d.kind === "edit.auto") setEdit({ progress: d.progress ?? 0, step: ev.message });
+          if (d.kind === "render.final" && d.render_id) {
+            setRender((prev) => ({ ...prev, [d.render_id!]: { progress: d.progress ?? 0, step: ev.message } }));
+          }
           const set =
             d.kind === "speech.transcribe"
               ? setSpeech
@@ -101,5 +110,5 @@ export function useProjectEvents(projectId: string) {
     };
   }, [projectId, qc]);
 
-  return { events, remoteUploads, ingest, speech, analysis, preview, enhance, stream };
+  return { events, remoteUploads, ingest, speech, analysis, preview, enhance, edit, render, stream };
 }

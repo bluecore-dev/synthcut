@@ -25,25 +25,30 @@ pytestmark = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg n
 media = test_speech.media  # the same module-scoped clips as the speech tests
 
 
+def transparent_frames(props, work, **kwargs) -> OverlayFrames:
+    """What Remotion hands back: RGBA PNG frames of the layer's size and count."""
+    out = work / "overlay"
+    out.mkdir()
+    pad = len(str(props.duration_in_frames - 1))
+    subprocess.run(
+        ["ffmpeg", "-v", "error", "-y", "-f", "lavfi",
+         "-i", f"color=c=white@0.0:s={props.width}x{props.height}:r={props.fps}",
+         "-frames:v", str(props.duration_in_frames), "-vf", "format=rgba", "-start_number", "0",
+         str(out / f"frame-%0{pad}d.png")],
+        check=True,
+    )  # fmt: skip
+    if kwargs.get("on_progress"):
+        kwargs["on_progress"](1.0)
+    return OverlayFrames(out, str(out / f"frame-%0{pad}d.png"), props.fps, props.duration_in_frames)
+
+
 @pytest.fixture
 def fake_layer(monkeypatch):
     rendered = []
 
     def render(props, work, **kwargs):
         rendered.append(props)
-        out = work / "overlay"
-        out.mkdir()
-        pad = len(str(props.duration_in_frames - 1))
-        subprocess.run(
-            ["ffmpeg", "-v", "error", "-y", "-f", "lavfi",
-             "-i", f"color=c=white@0.0:s={props.width}x{props.height}:r={props.fps}",
-             "-frames:v", str(props.duration_in_frames), "-vf", "format=rgba", "-start_number", "0",
-             str(out / f"frame-%0{pad}d.png")],
-            check=True,
-        )  # fmt: skip
-        if kwargs.get("on_progress"):
-            kwargs["on_progress"](1.0)
-        return OverlayFrames(out, str(out / f"frame-%0{pad}d.png"), props.fps, props.duration_in_frames)
+        return transparent_frames(props, work, **kwargs)
 
     monkeypatch.setattr(render_jobs, "render_overlay", render)
     monkeypatch.setattr(speech_jobs, "engine_for", lambda *a, **k: FakeEngine())

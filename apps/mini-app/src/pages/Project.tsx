@@ -4,29 +4,45 @@ import { useSearchParams, useParams } from "react-router";
 import { api, unwrap, type ProjectOut } from "../api/client";
 import { ActivityLog } from "../components/ActivityLog";
 import { AssetList } from "../components/AssetList";
+import { AutoEdit } from "../components/AutoEdit";
 import { ProjectClips } from "../components/ProjectClips";
 import { ProjectTranscripts } from "../components/ProjectTranscripts";
 import { StageList } from "../components/StageList";
+import { TimelineView } from "../components/Timeline";
 import { UploadPanel } from "../components/UploadPanel";
+import { Preview, RenderHistory, Versions } from "../components/Versions";
 import { Badge, Card, EmptyState, ErrorNote, ProgressBar, SectionLabel, Skeleton, cx } from "../components/ui";
 import { useBackButton } from "../hooks/useBackButton";
 import { presetBadge, usePresets } from "../hooks/usePresets";
-import { useProjectEvents } from "../hooks/useProjectEvents";
+import { useProjectEvents, type JobProgress } from "../hooks/useProjectEvents";
 import { formatBytes, formatClock, pct } from "../services/format";
 import { MODE_LABEL, PROJECT_TABS, type ProjectTab } from "../strings";
 import { haptic } from "../telegram";
 
 const LOCKED_COPY: Partial<Record<ProjectTab, string>> = {
   timeline: "Director va Editor tuzgan EditPlan: treklar, kesimlar, o'tishlar.",
-  decisions: "Agentlar qaysi qarorni nima uchun qabul qilgani.",
-  preview: "Render qilingan preview — tomosha va izoh.",
+  decisions: "AI agentlar qaysi qarorni nima uchun qabul qilgani — AI model kaliti ulanganda ochiladi. Hozircha montajni «Tez montaj» qoidalar asosida qiladi.",
+  preview: "Render qilingan video — tomosha va QA.",
   versions: "Har katta o'zgarish versiya bo'ladi; istalganiga qaytish mumkin.",
   renders: "Final renderlar tarixi va yuklab olish.",
 };
 
-function Overview({ project, events, onAll }: { project: ProjectOut; events: ReturnType<typeof useProjectEvents>["events"]; onAll: () => void }) {
+function Overview({
+  project,
+  events,
+  onAll,
+  edit,
+  render,
+}: {
+  project: ProjectOut;
+  events: ReturnType<typeof useProjectEvents>["events"];
+  onAll: () => void;
+  edit: JobProgress | null;
+  render: Record<string, JobProgress>;
+}) {
   return (
     <div className="space-y-5">
+      <AutoEdit project={project} edit={edit} render={render} />
       <Card className="p-4">
         <div className="flex items-end justify-between">
           <div>
@@ -138,7 +154,7 @@ export function Project() {
     queryKey: ["assets", id],
     queryFn: () => unwrap(api.GET("/api/v1/projects/{project_id}/assets", { params: { path: { project_id: id } } })),
   });
-  const { events, remoteUploads, ingest, speech, analysis, stream } = useProjectEvents(id);
+  const { events, remoteUploads, ingest, speech, analysis, edit, render, stream } = useProjectEvents(id);
   const presets = usePresets();
 
   const setTab = (next: ProjectTab) => {
@@ -164,8 +180,11 @@ export function Project() {
   }
   const p = project.data;
   const archived = p.status === "archived";
-  // The server says which stages exist yet; tabs follow the same phase line.
-  const builtPhase = Math.max(0, ...p.stages.filter((s) => s.available).map((s) => s.phase));
+  // The server says which stages are built; a tab opens with its stage.
+  const built = new Set(p.stages.filter((s) => s.available).map((s) => s.stage));
+  const isLocked = (t: (typeof PROJECT_TABS)[number]) => "stage" in t && !built.has(t.stage);
+  const current = PROJECT_TABS.find((t) => t.id === tab);
+  const version = Number(params.get("v")) || null;
 
   return (
     <div className="mx-auto max-w-xl pb-10">
@@ -191,7 +210,7 @@ export function Project() {
 
       <nav className="no-scrollbar sticky top-0 z-10 mt-4 flex gap-1 overflow-x-auto border-b border-line bg-bg/95 px-3 backdrop-blur">
         {PROJECT_TABS.map((t) => {
-          const locked = t.phase > builtPhase;
+          const locked = isLocked(t);
           return (
             <button
               type="button"
@@ -211,7 +230,7 @@ export function Project() {
       </nav>
 
       <main className="px-4 pt-4">
-        {tab === "overview" && <Overview project={p} events={events} onAll={() => setTab("logs")} />}
+        {tab === "overview" && <Overview project={p} events={events} onAll={() => setTab("logs")} edit={edit} render={render} />}
         {tab === "assets" && (
           <div className="space-y-5">
             <UploadPanel projectId={id} disabled={archived} />
@@ -230,9 +249,15 @@ export function Project() {
         {tab === "logs" && <Logs projectId={id} events={events} />}
         {tab === "analysis" && <ProjectClips projectId={id} />}
         {tab === "transcript" && <ProjectTranscripts projectId={id} assets={assets.data?.items ?? []} speech={speech} />}
-        {LOCKED_COPY[tab] && (
+        {current && !isLocked(current) && tab === "timeline" && <TimelineView projectId={id} version={version} />}
+        {current && !isLocked(current) && tab === "versions" && (
+          <Versions projectId={id} onOpen={(v) => setParams({ tab: "timeline", v: String(v) }, { replace: true })} />
+        )}
+        {current && !isLocked(current) && tab === "preview" && <Preview projectId={id} filename={p.name} live={render} />}
+        {current && !isLocked(current) && tab === "renders" && <RenderHistory projectId={id} filename={p.name} live={render} />}
+        {current && isLocked(current) && LOCKED_COPY[tab] && (
           <Card>
-            <EmptyState icon={<Lock className="size-6" />} title={`${PROJECT_TABS.find((t) => t.id === tab)?.label} — Phase ${PROJECT_TABS.find((t) => t.id === tab)?.phase}`}>
+            <EmptyState icon={<Lock className="size-6" />} title={`${current.label} — hali yopiq`}>
               {LOCKED_COPY[tab]}
             </EmptyState>
           </Card>

@@ -388,6 +388,134 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/auto-edit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Auto Edit
+         * @description Tez montaj: pauses and bad shots cut, reframed, graded, mixed,
+         *     captioned — then rendered from the originals and (optionally) sent to
+         *     the chat. A second request while one is running returns that one.
+         */
+        post: operations["auto_edit_api_v1_projects__project_id__auto_edit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/edit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Edit State */
+        get: operations["get_edit_state_api_v1_projects__project_id__edit_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Plans */
+        get: operations["list_plans_api_v1_projects__project_id__plans_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/plans/{version}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Plan */
+        get: operations["get_plan_api_v1_projects__project_id__plans__version__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/plans/{version}/render": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Render Plan
+         * @description Render a plan version (again). The plan fixes the frame size, so the
+         *     preset must be the one it was made for — another format is a new plan.
+         */
+        post: operations["render_plan_api_v1_projects__project_id__plans__version__render_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/renders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Renders */
+        get: operations["list_renders_api_v1_projects__project_id__renders_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/renders/{render_id}/deliver": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Deliver Render */
+        post: operations["deliver_render_api_v1_renders__render_id__deliver_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/uploads": {
         parameters: {
             query?: never;
@@ -768,6 +896,70 @@ export interface components {
             user: components["schemas"]["UserOut"];
         };
         /**
+         * AutoEditRequest
+         * @description "Tez montaj": the rule-based editor, then the final render and delivery.
+         */
+        AutoEditRequest: {
+            /** Preset */
+            preset?: ("reels_9x16" | "youtube_16x9_1080" | "youtube_16x9_2160" | "square_1x1" | "portrait_4x5") | null;
+            /** Target Duration */
+            target_duration?: number | null;
+            /**
+             * Remove Pauses
+             * @default true
+             */
+            remove_pauses: boolean;
+            /**
+             * Captions
+             * @default dynamic
+             * @enum {string}
+             */
+            captions: "off" | "dynamic" | "karaoke" | "minimal" | "bold";
+            /**
+             * Caption Position
+             * @default bottom
+             * @enum {string}
+             */
+            caption_position: "bottom" | "center" | "top";
+            /**
+             * Profile
+             * @default cinematic_clean
+             * @enum {string}
+             */
+            profile: "neutral" | "cinematic_clean" | "warm_film" | "cool_teal" | "vivid_social" | "bw_classic";
+            /**
+             * Intensity
+             * @default 0.8
+             */
+            intensity: number;
+            /**
+             * Loudness
+             * @default social
+             * @enum {string}
+             */
+            loudness: "social" | "youtube" | "podcast" | "broadcast";
+            /**
+             * Denoise
+             * @default auto
+             * @enum {string}
+             */
+            denoise: "auto" | "off" | "light" | "medium" | "strong";
+            /** Title */
+            title?: string | null;
+            /** Cta */
+            cta?: string | null;
+            /**
+             * Render
+             * @default true
+             */
+            render: boolean;
+            /**
+             * Deliver
+             * @default true
+             */
+            deliver: boolean;
+        };
+        /**
          * CaptionPreviewOut
          * @description The asset with animated captions burned in (Phase 7 motion engine).
          */
@@ -959,6 +1151,41 @@ export interface components {
             ok: boolean;
             /** Detail */
             detail?: string | null;
+        };
+        /**
+         * DeliveryStatus
+         * @enum {string}
+         */
+        DeliveryStatus: "none" | "queued" | "sent" | "failed";
+        /** EditJobOut */
+        EditJobOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            status: components["schemas"]["JobStatus"];
+            /** Progress */
+            progress?: number | null;
+            /** Step */
+            step?: string | null;
+            /** Error */
+            error?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * EditStateOut
+         * @description What the "Tez montaj" card shows: the running request, the newest plan
+         *     and the newest render.
+         */
+        EditStateOut: {
+            job?: components["schemas"]["EditJobOut"] | null;
+            plan?: components["schemas"]["PlanSummary"] | null;
+            render?: components["schemas"]["RenderOut"] | null;
         };
         /**
          * EnhancePreviewOut
@@ -1288,6 +1515,128 @@ export interface components {
             /** Parts */
             parts: components["schemas"]["SignedPart"][];
         };
+        /** PlanClipOut */
+        PlanClipOut: {
+            /** Id */
+            id: string;
+            /**
+             * Asset Id
+             * Format: uuid
+             */
+            asset_id: string;
+            /** Asset Name */
+            asset_name?: string | null;
+            /** Source In */
+            source_in: number;
+            /** Source Out */
+            source_out: number;
+            /** Timeline Start */
+            timeline_start: number;
+            /** Timeline End */
+            timeline_end: number;
+            /** Reframed */
+            reframed: boolean;
+            /**
+             * Fill
+             * @enum {string}
+             */
+            fill: "cover" | "blur";
+            /** Exposure */
+            exposure?: number | null;
+        };
+        /** PlanGraphicOut */
+        PlanGraphicOut: {
+            /** Id */
+            id: string;
+            /** Component */
+            component: string;
+            /** Timeline Start */
+            timeline_start: number;
+            /** Timeline End */
+            timeline_end: number;
+            /** Text */
+            text?: string | null;
+        };
+        /** PlanList */
+        PlanList: {
+            /** Items */
+            items: components["schemas"]["PlanSummary"][];
+        };
+        /**
+         * PlanOut
+         * @description A plan version as the timeline view needs it (the full ``editplan/1``
+         *     document stays server-side; agents and renderers read it there).
+         */
+        PlanOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Version */
+            version: number;
+            source: components["schemas"]["PlanSource"];
+            /** Duration Sec */
+            duration_sec: number;
+            /** Clip Count */
+            clip_count: number;
+            /** Notes */
+            notes: string | null;
+            /** Options */
+            options: {
+                [key: string]: unknown;
+            };
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Width */
+            width: number;
+            /** Height */
+            height: number;
+            /** Fps */
+            fps: number;
+            /** Captions */
+            captions: string | null;
+            /** Loudness Lufs */
+            loudness_lufs: number | null;
+            /** Clips */
+            clips: components["schemas"]["PlanClipOut"][];
+            /** Graphics */
+            graphics: components["schemas"]["PlanGraphicOut"][];
+        };
+        /**
+         * PlanSource
+         * @enum {string}
+         */
+        PlanSource: "rules" | "director" | "user";
+        /** PlanSummary */
+        PlanSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Version */
+            version: number;
+            source: components["schemas"]["PlanSource"];
+            /** Duration Sec */
+            duration_sec: number;
+            /** Clip Count */
+            clip_count: number;
+            /** Notes */
+            notes: string | null;
+            /** Options */
+            options: {
+                [key: string]: unknown;
+            };
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** PresetOut */
         PresetOut: {
             id: components["schemas"]["ProjectPreset"];
@@ -1441,6 +1790,70 @@ export interface components {
             /** Brief */
             brief?: string | null;
         };
+        /** QaCheck */
+        QaCheck: {
+            /** Code */
+            code: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pass" | "warn" | "fail";
+            /** Message */
+            message: string;
+            /** Value */
+            value: number | string | null;
+        };
+        /** QaReport */
+        QaReport: {
+            /**
+             * Schema Version
+             * @default qa/1
+             * @constant
+             */
+            schema_version: "qa/1";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pass" | "warn" | "fail";
+            /** Checks */
+            checks: components["schemas"]["QaCheck"][];
+            /** Width */
+            width: number | null;
+            /** Height */
+            height: number | null;
+            /** Fps */
+            fps: number | null;
+            /** Duration */
+            duration: number | null;
+            /** Video Codec */
+            video_codec: string | null;
+            /** Audio Codec */
+            audio_codec: string | null;
+            /** Integrated Lufs */
+            integrated_lufs: number | null;
+            /** True Peak Db */
+            true_peak_db: number | null;
+            /** Black */
+            black: components["schemas"]["QaSpan"][];
+            /** Frozen */
+            frozen: components["schemas"]["QaSpan"][];
+            /** Silence */
+            silence: components["schemas"]["QaSpan"][];
+        };
+        /** QaSpan */
+        QaSpan: {
+            /** Start */
+            start: number;
+            /** End */
+            end: number;
+        };
+        /**
+         * QaStatus
+         * @enum {string}
+         */
+        QaStatus: "pass" | "warn" | "fail";
         /** ReadyOut */
         ReadyOut: {
             /** Status */
@@ -1450,6 +1863,82 @@ export interface components {
                 [key: string]: components["schemas"]["ComponentCheck"];
             };
         };
+        /** RenderList */
+        RenderList: {
+            /** Items */
+            items: components["schemas"]["RenderOut"][];
+        };
+        /** RenderOut */
+        RenderOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Plan Id
+             * Format: uuid
+             */
+            plan_id: string;
+            /** Plan Version */
+            plan_version: number;
+            preset: components["schemas"]["ProjectPreset"];
+            status: components["schemas"]["RenderStatus"];
+            /** Progress */
+            progress: number | null;
+            /** Step */
+            step: string | null;
+            /** Error */
+            error: string | null;
+            /** Size Bytes */
+            size_bytes: number | null;
+            /** Duration Sec */
+            duration_sec: number | null;
+            /** Width */
+            width: number | null;
+            /** Height */
+            height: number | null;
+            /** Fps */
+            fps: number | null;
+            qa_status: components["schemas"]["QaStatus"] | null;
+            qa: components["schemas"]["QaReport"] | null;
+            /** Deliver */
+            deliver: boolean;
+            delivery_status: components["schemas"]["DeliveryStatus"];
+            /** Delivery Error */
+            delivery_error: string | null;
+            /** Delivered At */
+            delivered_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Finished At */
+            finished_at: string | null;
+            video?: components["schemas"]["SignedUrl"] | null;
+            download?: components["schemas"]["SignedUrl"] | null;
+            poster?: components["schemas"]["SignedUrl"] | null;
+        };
+        /** RenderRequest */
+        RenderRequest: {
+            preset?: components["schemas"]["ProjectPreset"] | null;
+            /**
+             * Deliver
+             * @default false
+             */
+            deliver: boolean;
+            /**
+             * Force
+             * @default false
+             */
+            force: boolean;
+        };
+        /**
+         * RenderStatus
+         * @enum {string}
+         */
+        RenderStatus: "queued" | "running" | "done" | "failed";
         /**
          * Segment
          * @description Roughly a sentence (the engine's segmentation, split at long pauses).
@@ -2712,6 +3201,296 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AssetOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    auto_edit_api_v1_projects__project_id__auto_edit_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AutoEditRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EditStateOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_edit_state_api_v1_projects__project_id__edit_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EditStateOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_plans_api_v1_projects__project_id__plans_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanList"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_plan_api_v1_projects__project_id__plans__version__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                version: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    render_plan_api_v1_projects__project_id__plans__version__render_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+                version: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenderRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RenderOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_renders_api_v1_projects__project_id__renders_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RenderList"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    deliver_render_api_v1_renders__render_id__deliver_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                render_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RenderOut"];
                 };
             };
             /** @description Not Found */

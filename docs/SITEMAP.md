@@ -13,12 +13,15 @@ flowchart TD
     H --> N["/new — New project<br/>preset · fps · duration · mode · language · brief"]
     H --> P["/p/:id — Project"]
     N --> P
-    P --> T1[Overview<br/>pipeline stages, progress, activity]
+    P --> T1[Overview<br/>Tez montaj card, pipeline stages, progress, activity]
     P --> T2[Assets<br/>upload panel, file list, live progress]
     P --> T3[Logs<br/>full activity log, live]
     P --> T4[Analysis<br/>every shot, filters: usable / issues]
     P --> T5[Transcript<br/>text of every file with speech]
-    P --> T6[Timeline · AI Decisions · Preview · Versions · Render History<br/>locked until their phase]
+    P --> T6[Timeline<br/>cut bars per file, clips, graphics, notes]
+    P --> T7[Versions<br/>every plan, view or render any of them]
+    P --> T8[Preview · Render History<br/>video, QA checks, download, send to Telegram]
+    P --> T9[AI Decisions<br/>locked until the Director has a model key]
     T2 --> A["/p/:id/a/:assetId — Asset"]
     T4 --> A
     T5 --> A
@@ -41,6 +44,10 @@ flowchart TD
 | `/p/:id?tab=logs` | Activity log | `GET /projects/{id}/events`, SSE |
 | `/p/:id?tab=analysis` | All analysed shots of the project | `GET /projects/{id}/clips` |
 | `/p/:id?tab=transcript` | Transcripts of every file | `GET /assets/{id}/transcript` |
+| `/p/:id?tab=overview` (card) | Tez montaj: options, progress, result | `GET /projects/{id}/edit`, `POST /projects/{id}/auto-edit` |
+| `/p/:id?tab=timeline[&v=N]` | One plan version | `GET /projects/{id}/plans/{version}` |
+| `/p/:id?tab=versions` | All plan versions | `GET /projects/{id}/plans`, `POST /projects/{id}/plans/{version}/render` |
+| `/p/:id?tab=preview` / `renders` | Final videos with QA | `GET /projects/{id}/renders`, `POST /renders/{id}/deliver` |
 | `/p/:id/a/:assetId[?t=sec]` | One file: player, shots, transcript, metadata | `GET /assets/{id}`, `/clips`, `/transcript` |
 
 Deep link: the bot's "📂 Loyihani ochish" button opens `?p=<project id>`.
@@ -71,6 +78,9 @@ Webhook only (`/telegram/webhook/<hash of the secret>` plus the secret header); 
 | Analysis | `GET /assets/{id}/clips`, `GET /projects/{id}/clips`, `POST /assets/{id}/analyze` |
 | Motion | `POST /assets/{id}/caption-preview` (state in `GET /assets/{id}` → `caption_preview`) |
 | Colour & audio | `POST /assets/{id}/enhance-preview` (state in `GET /assets/{id}` → `enhance_preview`) |
+| Tez montaj | `POST /projects/{id}/auto-edit`, `GET /projects/{id}/edit` |
+| Plans | `GET /projects/{id}/plans`, `GET /projects/{id}/plans/{version}`, `POST /projects/{id}/plans/{version}/render` |
+| Renders | `GET /projects/{id}/renders`, `POST /renders/{id}/deliver` |
 | Activity | `GET /projects/{id}/jobs`, `GET /projects/{id}/events`, `GET /projects/{id}/events/stream` (SSE) |
 
 Full contract: [openapi.json](openapi.json). Another user's object is always a 404.
@@ -84,6 +94,9 @@ Full contract: [openapi.json](openapi.json). Another user's object is always a 4
 | `speech.transcribe` | cpu | low | ingestion (audio present) | `transcript/1`, VTT, SRT |
 | `render.caption_preview` | render | high | the user (asset page) | `overlay/1` → Remotion PNG frames → FFmpeg → `captions.mp4` |
 | `render.enhance_preview` | render | high | the user (asset page) | `grade/1` LUT + `mix/1` chain → `enhanced.mp4`, before/after stills |
+| `edit.auto` | cpu | high | the user (Tez montaj) | `editplan/1` version in `edit_plans`, a queued render |
+| `render.final` | render | normal | `edit.auto`, the user (Versions) | segments → concat → Remotion → master → `qa/1` → `renders/<id>/final.mp4` |
+| `deliver.telegram` | io | high | a finished render with *deliver*, the user | the video (`sendVideo`) in the owner's chat |
 | `notify.telegram` | io | high | stage turns done | a Telegram message |
 | `maintenance.expire_uploads` | io | low | scheduler | expired upload sessions closed |
 | `maintenance.sweep_orphan_uploads` | io | low | scheduler | orphaned multipart uploads aborted |
@@ -106,9 +119,10 @@ projects/<project>/analysis/<asset>/transcript.json | subtitles.vtt | subtitles.
 projects/<project>/previews/<asset>/captions.mp4               caption preview (Phase 7)
 projects/<project>/previews/<asset>/enhanced.mp4 | enhance_before.jpg | enhance_after.jpg   (Phase 8)
 projects/<project>/analysis/<asset>/enhance.json                grade/1 + mix/1 decisions
+projects/<project>/renders/<render>/final.mp4 | poster.jpg | qa.json | telegram.mp4 (only over 50 MB)
 ```
 
-Reserved areas for later phases: `timeline/`, `renders/`, `exports/`.
+Reserved areas for later phases: `timeline/`, `exports/`.
 
 ## 6. Pipeline stages
 
@@ -118,15 +132,15 @@ Reserved areas for later phases: `timeline/`, `renders/`, `exports/`.
 | 2 | Media Ingest | 3 | every file is ingested |
 | 3 | Media Analysis | 5 | every video's shots are analysed (`skipped` without video) |
 | 4 | Transcription | 4 | every file with audio is transcribed (`skipped` without audio) |
-| 5 | Director | 6 | — |
-| 6 | Editor | 6 | — |
-| 7 | Color | 8 | — |
-| 8 | Audio | 8 | — |
-| 9 | Motion | 7 | — |
-| 10 | Captions | 7 | — |
-| 11 | QA | 9 | — |
-| 12 | Render | 11 | — |
-| 13 | Delivery | 12 | — |
+| 5 | Director | 6 | the Director agent decides (needs a model key); `skipped` when Tez montaj made the plan |
+| 6 | Editor | 6 | a plan version is saved |
+| 7 | Color | 8 | every clip of the plan has its grade |
+| 8 | Audio | 8 | the plan has its mix (`skipped` without sound) |
+| 9 | Motion | 7 | the plan's graphics are chosen (`skipped` when none) |
+| 10 | Captions | 7 | the caption style is set (`skipped` when off or no speech) |
+| 11 | QA | 9 | the rendered file passed QA (`failed` blocks delivery) |
+| 12 | Render | 11 | the final file is in storage |
+| 13 | Delivery | 12 | the video is in the owner's chat |
 
 ## 7. Data contracts
 
@@ -137,7 +151,8 @@ Reserved areas for later phases: `timeline/`, `renders/`, `exports/`.
 | `clipanalysis/1` | `synthcut_schemas.analysis` | `clip_analyses.data`, `clips.json` |
 | `overlay/1` | `synthcut_timeline.overlay` | render scratch (`overlay.json`) |
 | `grade/1`, `mix/1` | `synthcut_schemas.grade` | `enhance.json`, media file metadata |
-| `EditPlan v1` | `synthcut_timeline` | Phase 6 |
+| `editplan/1` | `synthcut_timeline` | `edit_plans.plan` |
+| `qa/1` | `synthcut_schemas.qa` | `renders.qa`, `qa.json` |
 
 ## 8. Documentation
 

@@ -40,6 +40,12 @@ class EventType(StrEnum):
     ANALYSIS_FAILED = "analysis.failed"
     PREVIEW_READY = "preview.ready"
     PREVIEW_FAILED = "preview.failed"
+    PLAN_READY = "plan.ready"
+    PLAN_FAILED = "plan.failed"
+    RENDER_READY = "render.ready"
+    RENDER_FAILED = "render.failed"
+    DELIVERY_SENT = "delivery.sent"
+    DELIVERY_FAILED = "delivery.failed"
 
     STAGE_UPDATED = "stage.updated"
 

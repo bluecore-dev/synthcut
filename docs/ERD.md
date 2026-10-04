@@ -1,6 +1,6 @@
 # SynthCut — Entity relationships
 
-Implemented in migrations `0001_foundation` (Phase 1–2), `0002_ingestion` (Phase 3) `0003_transcripts` (Phase 4) and `0004_clip_analyses` (Phase 5):
+Implemented in migrations `0001_foundation` (Phase 1–2), `0002_ingestion` (Phase 3), `0003_transcripts` (Phase 4), `0004_clip_analyses` (Phase 5) and `0005_edit_plans_renders` (Tez montaj, render, QA, delivery — ADR-0015):
 
 ```mermaid
 erDiagram
@@ -15,6 +15,8 @@ erDiagram
     assets ||--o| transcripts : "speech"
     assets ||--o| asset_analyses : "shot analysis"
     assets ||--o{ clip_analyses : "one per shot"
+    projects ||--o{ edit_plans : "versions"
+    edit_plans ||--o{ renders : "rendered as"
     jobs ||--o{ jobs : "parent_id"
 
     users {
@@ -102,6 +104,32 @@ erDiagram
         text sheet_key
         jsonb data "clipanalysis/1"
     }
+    edit_plans {
+        uuid id PK
+        uuid project_id FK
+        int version "UK with project_id, append-only"
+        text source "rules | director | user"
+        jsonb plan "editplan/1"
+        real duration_sec
+        int clip_count
+        text notes
+        jsonb options "what was asked for"
+    }
+    renders {
+        uuid id PK
+        uuid plan_id FK
+        int plan_version "UK with project_id, preset, kind"
+        text preset
+        text kind "final"
+        text status "queued | running | done | failed"
+        text output_key
+        text telegram_key "chat-sized copy, only over 50 MB"
+        jsonb qa "qa/1"
+        text qa_status "pass | warn | fail"
+        bool deliver
+        text delivery_status "none | queued | sent | failed"
+        bigint telegram_message_id
+    }
     upload_sessions {
         uuid id PK
         uuid asset_id FK,UK
@@ -138,13 +166,11 @@ erDiagram
 
 | Table | Phase | Key columns |
 |---|---|---|
-| `timeline_versions` | 6 | project_id, version (UNIQUE per project), parent_version, created_by (agent/user), reason |
-| `edit_plans` | 6 | timeline_version_id, schema_version, plan JSONB (EditPlan), validation report |
+| `edit_plans` additions | 6 | parent_version, reason, validation report — when agents and the user branch versions |
 | `agent_runs` | 5–6 | project_id, job_id, agent, model, status, steps, tokens in/out/cache, cost_usd, transcript ref |
 | `cost_records` | 5 | project_id, agent_run_id, provider, model, usage, cost_usd — the §33 dashboard sums these |
-| `renders` / `render_versions` | 11 | timeline_version_id, preset, kind (preview/final), status, storage_key, probe report — UNIQUE(timeline_version_id, preset, kind) so a job can never render twice |
-| `qa_reports` | 9 | render/plan ref, findings JSONB, classification, deterministic_fix, attempts (≤ 3) |
+| `qa_reports` | 9 | plan-level findings, classification, deterministic_fix, attempts (≤ 3) — the reflection loop; the file's QA is `renders.qa` |
 | `feedback` | 10 | project_id, user_id, text, target ref, structured interpretation |
 | `memories` / `preferences` | 10 | scope (global/user/project/session), key (e.g. `transition_density`), value, source feedback |
 | `research_documents` | 10 | source url, extract, verification status, embedding ref |
-| `deliveries` | 12 | render_id, chat_id, transport (bot / link), telegram message id, status |
+| `deliveries` | 12 | per-recipient history when a render is sent to more than the owner (today: `renders.delivery_*`) |
