@@ -1,6 +1,6 @@
 # SynthCut — Entity relationships
 
-Implemented in migrations `0001_foundation` (Phase 1–2), `0002_ingestion` (Phase 3), `0003_transcripts` (Phase 4), `0004_clip_analyses` (Phase 5) and `0005_edit_plans_renders` (Tez montaj, render, QA, delivery — ADR-0015):
+Implemented in migrations `0001_foundation` (Phase 1–2), `0002_ingestion` (Phase 3), `0003_transcripts` (Phase 4), `0004_clip_analyses` (Phase 5) `0005_edit_plans_renders` (Tez montaj, render, QA, delivery — ADR-0015) and `0006_preferences_feedback` (memory — ADR-0016):
 
 ```mermaid
 erDiagram
@@ -17,6 +17,9 @@ erDiagram
     assets ||--o{ clip_analyses : "one per shot"
     projects ||--o{ edit_plans : "versions"
     edit_plans ||--o{ renders : "rendered as"
+    users ||--o{ preferences : "remembers"
+    renders ||--o{ feedback : "about"
+    feedback ||--o{ preferences : "set by"
     jobs ||--o{ jobs : "parent_id"
 
     users {
@@ -130,6 +133,24 @@ erDiagram
         text delivery_status "none | queued | sent | failed"
         bigint telegram_message_id
     }
+    preferences {
+        uuid id PK
+        uuid user_id FK
+        uuid project_id FK "NULL = user scope (UK user_id, key)"
+        text key "EditDefaults field"
+        jsonb value
+        text source "choice | feedback | agent"
+        uuid feedback_id FK
+    }
+    feedback {
+        uuid id PK
+        uuid project_id FK
+        uuid render_id FK
+        int plan_version
+        jsonb codes "quick corrections"
+        text comment "for the Memory agent"
+        jsonb changes "explained preference changes"
+    }
     upload_sessions {
         uuid id PK
         uuid asset_id FK,UK
@@ -171,6 +192,6 @@ erDiagram
 | `cost_records` | 5 | project_id, agent_run_id, provider, model, usage, cost_usd — the §33 dashboard sums these |
 | `qa_reports` | 9 | plan-level findings, classification, deterministic_fix, attempts (≤ 3) — the reflection loop; the file's QA is `renders.qa` |
 | `feedback` | 10 | project_id, user_id, text, target ref, structured interpretation |
-| `memories` / `preferences` | 10 | scope (global/user/project/session), key (e.g. `transition_density`), value, source feedback |
+| `memories` | 10 | global / session scopes and free-form agent memories beyond `preferences` |
 | `research_documents` | 10 | source url, extract, verification status, embedding ref |
 | `deliveries` | 12 | per-recipient history when a render is sent to more than the owner (today: `renders.delivery_*`) |

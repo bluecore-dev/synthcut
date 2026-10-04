@@ -5,6 +5,12 @@ All notable changes, phase by phase. Releases are deployed as
 
 ## [Unreleased]
 
+## Memory: preferences and feedback · 2026-10-04
+
+- Tez montaj settings are remembered per user (`preferences`, migration 0006); the form starts from them, and the pause length to cut is now a setting.
+- Feedback on a finished video: ten quick corrections, each a fixed rule with an explained change ("Shovqin tozalash: kuchli → o'rta"), a comment kept for the Memory agent, and a one-tap remake that keeps the version's format, title and call to action.
+- Render ~25 % faster: x264 `veryfast` master, `ultrafast` intermediates up to 1080p with a scratch-space check, the chat copy as a second output of the master pass.
+
 ## Tez montaj, final render, QA, delivery · 2026-10-04
 
 - "Tez montaj" — a rule-based editor (no model): speech kept and pauses over 0.6 s cut, black / frozen shots dropped, B-roll from usable shots of footage without speech, target length stopped on a phrase boundary, face-aware reframing to the preset, vertical footage fitted over a blurred copy in landscape frames, shot-matched grades and the measured voice mix in the plan. The Director stage is marked skipped until an agent decides.

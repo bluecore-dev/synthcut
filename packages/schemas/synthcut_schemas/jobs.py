@@ -12,6 +12,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .preferences import EditDefaults
+
 
 class JobKind:
     INGEST_ASSET = "ingest.asset"
@@ -91,24 +93,15 @@ class EnhancePreviewPayload(_Payload):
 Preset = Literal["reels_9x16", "youtube_16x9_1080", "youtube_16x9_2160", "square_1x1", "portrait_4x5"]
 
 
-class AutoEditOptions(_Payload):
-    """What the owner asks of "Tez montaj" (the rule-based editor)."""
+class AutoEditOptions(EditDefaults):
+    """What the owner asks of "Tez montaj" (the rule-based editor): the
+    remembered defaults plus what belongs to this one video."""
 
     preset: Preset | None = None  # None = the project's preset
     target_duration: float | None = Field(None, ge=5, le=4 * 3600)  # None = the project's target, else all
-    remove_pauses: bool = True
-    captions: Literal["off", "dynamic", "karaoke", "minimal", "bold"] = "dynamic"
-    caption_position: Literal["bottom", "center", "top"] = "bottom"
-    profile: Literal["neutral", "cinematic_clean", "warm_film", "cool_teal", "vivid_social", "bw_classic"] = (
-        "cinematic_clean"
-    )
-    intensity: float = Field(0.8, ge=0, le=1)
-    loudness: Literal["social", "youtube", "podcast", "broadcast"] = "social"
-    denoise: Literal["auto", "off", "light", "medium", "strong"] = "auto"
     title: str | None = Field(None, min_length=1, max_length=60)
     cta: str | None = Field(None, min_length=1, max_length=40)
     render: bool = True  # queue the final render as soon as the plan exists
-    deliver: bool = True  # send the result to the owner's Telegram chat
 
 
 class AutoEditPayload(AutoEditOptions):

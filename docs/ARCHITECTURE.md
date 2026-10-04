@@ -415,6 +415,18 @@ The Color / Audio *stages* and agent tools (`analyze_color`, `generate_grade`,
   `GET /projects/{id}/renders`. Mini App: Tez montaj card on Overview,
   Timeline, Versions, Preview and Render History tabs.
 
+## 8g. Memory: preferences and feedback (Phase 10 without a model, ADR-0016)
+
+* **Preferences** — `preferences` (user scope; project scope reserved for the
+  Memory agent): the remembered Tez montaj settings (`EditDefaults`).
+  `GET /preferences/edit` = defaults overlaid by stored values + the
+  feedback options; starting a Tez montaj stores what the owner changed.
+* **Feedback** — `POST /renders/{id}/feedback` (`codes`, `comment`,
+  `at_sec`, `remake`): ten fixed rules (`synthcut_core.preferences`) change
+  preferences and return explained changes; the comment is kept for the
+  agent; `remake` queues a new version keeping format, length, title and CTA.
+  `GET /projects/{id}/feedback` lists them; `feedback.recorded` events.
+
 ## 9. Queue design (ADR-0002)
 
 PostgreSQL `jobs` is the ledger; Redis only rings the bell.
@@ -517,7 +529,7 @@ activity log in `events`. `/api/v1/ready` checks database, Redis and storage.
 | 7 | Remotion compositions, widget registry, subtitles | **engine done** (15 components, captions, SFX, caption preview); stages run once Phase 6 makes plans |
 | 8 | Color + Audio agents, grading, mixing, ducking | **engines done** (grade/1, mix/1, LUT baking, voice chain, loudness, ducking, enhance preview); agents in Phase 6 |
 | 9 | QA, error classifier, reflection, retries | **QA on the file done** (`qa/1`); reflection loop with the agents |
-| 10 | Memory, preferences, feedback | |
+| 10 | Memory, preferences, feedback | **rules done** (remembered choices, 10 explained corrections, remake; ADR-0016); the agent reads comments with a model key |
 | 11 | Full render from originals | **done on CPU** (segments + master, ADR-0015); B-roll layers, music, speed, transitions refused until built |
 | 12 | Telegram delivery | **done** (`sendVideo`, chat-sized copy over 50 MB) |
 

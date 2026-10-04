@@ -516,6 +516,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/preferences/edit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Edit Preferences */
+        get: operations["get_edit_preferences_api_v1_preferences_edit_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/renders/{render_id}/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Give Feedback
+         * @description Quick codes change the user's preferences by fixed rules (returned as
+         *     explained changes); a comment is kept for the Memory agent. ``remake``
+         *     starts a new Tez montaj version from the corrected preferences, keeping
+         *     this version's format, length, title and call to action.
+         */
+        post: operations["give_feedback_api_v1_renders__render_id__feedback_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Feedback */
+        get: operations["list_feedback_api_v1_projects__project_id__feedback_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/uploads": {
         parameters: {
             query?: never;
@@ -900,15 +957,17 @@ export interface components {
          * @description "Tez montaj": the rule-based editor, then the final render and delivery.
          */
         AutoEditRequest: {
-            /** Preset */
-            preset?: ("reels_9x16" | "youtube_16x9_1080" | "youtube_16x9_2160" | "square_1x1" | "portrait_4x5") | null;
-            /** Target Duration */
-            target_duration?: number | null;
             /**
              * Remove Pauses
              * @default true
              */
             remove_pauses: boolean;
+            /**
+             * Min Pause
+             * @description Pauses longer than this are cut (seconds)
+             * @default 0.6
+             */
+            min_pause: number;
             /**
              * Captions
              * @default dynamic
@@ -944,6 +1003,15 @@ export interface components {
              * @enum {string}
              */
             denoise: "auto" | "off" | "light" | "medium" | "strong";
+            /**
+             * Deliver
+             * @default true
+             */
+            deliver: boolean;
+            /** Preset */
+            preset?: ("reels_9x16" | "youtube_16x9_1080" | "youtube_16x9_2160" | "square_1x1" | "portrait_4x5") | null;
+            /** Target Duration */
+            target_duration?: number | null;
             /** Title */
             title?: string | null;
             /** Cta */
@@ -953,11 +1021,6 @@ export interface components {
              * @default true
              */
             render: boolean;
-            /**
-             * Deliver
-             * @default true
-             */
-            deliver: boolean;
         };
         /**
          * CaptionPreviewOut
@@ -1157,6 +1220,63 @@ export interface components {
          * @enum {string}
          */
         DeliveryStatus: "none" | "queued" | "sent" | "failed";
+        /**
+         * EditDefaults
+         * @description The part of a Tez montaj request that carries over to the next one.
+         */
+        EditDefaults: {
+            /**
+             * Remove Pauses
+             * @default true
+             */
+            remove_pauses: boolean;
+            /**
+             * Min Pause
+             * @description Pauses longer than this are cut (seconds)
+             * @default 0.6
+             */
+            min_pause: number;
+            /**
+             * Captions
+             * @default dynamic
+             * @enum {string}
+             */
+            captions: "off" | "dynamic" | "karaoke" | "minimal" | "bold";
+            /**
+             * Caption Position
+             * @default bottom
+             * @enum {string}
+             */
+            caption_position: "bottom" | "center" | "top";
+            /**
+             * Profile
+             * @default cinematic_clean
+             * @enum {string}
+             */
+            profile: "neutral" | "cinematic_clean" | "warm_film" | "cool_teal" | "vivid_social" | "bw_classic";
+            /**
+             * Intensity
+             * @default 0.8
+             */
+            intensity: number;
+            /**
+             * Loudness
+             * @default social
+             * @enum {string}
+             */
+            loudness: "social" | "youtube" | "podcast" | "broadcast";
+            /**
+             * Denoise
+             * @default auto
+             * @enum {string}
+             */
+            denoise: "auto" | "off" | "light" | "medium" | "strong";
+            /**
+             * Deliver
+             * @default true
+             */
+            deliver: boolean;
+        };
         /** EditJobOut */
         EditJobOut: {
             /**
@@ -1176,6 +1296,20 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /**
+         * EditPreferencesOut
+         * @description What the next Tez montaj starts from. ``sources`` names the keys the
+         *     user's own choices or feedback set; the rest are built-in defaults.
+         */
+        EditPreferencesOut: {
+            values: components["schemas"]["EditDefaults"];
+            /** Sources */
+            sources: {
+                [key: string]: "choice" | "feedback" | "agent";
+            };
+            /** Feedback Options */
+            feedback_options: components["schemas"]["FeedbackOption"][];
         };
         /**
          * EditStateOut
@@ -1321,6 +1455,62 @@ export interface components {
             height: number;
             /** Score */
             score: number;
+        };
+        /** FeedbackList */
+        FeedbackList: {
+            /** Items */
+            items: components["schemas"]["FeedbackOut"][];
+        };
+        /** FeedbackOption */
+        FeedbackOption: {
+            /**
+             * Code
+             * @enum {string}
+             */
+            code: "cut_too_much" | "cut_too_little" | "no_captions" | "want_captions" | "colour_too_strong" | "colour_too_weak" | "voice_robotic" | "noise_left" | "too_quiet" | "too_loud";
+            /** Label */
+            label: string;
+        };
+        /** FeedbackOut */
+        FeedbackOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Render Id */
+            render_id: string | null;
+            /** Plan Version */
+            plan_version: number | null;
+            /** Codes */
+            codes: ("cut_too_much" | "cut_too_little" | "no_captions" | "want_captions" | "colour_too_strong" | "colour_too_weak" | "voice_robotic" | "noise_left" | "too_quiet" | "too_loud")[];
+            /** Comment */
+            comment: string | null;
+            /** At Sec */
+            at_sec: number | null;
+            /** Changes */
+            changes: components["schemas"]["PreferenceChange"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Remake Job Id */
+            remake_job_id?: string | null;
+        };
+        /** FeedbackRequest */
+        FeedbackRequest: {
+            /** Codes */
+            codes?: ("cut_too_much" | "cut_too_little" | "no_captions" | "want_captions" | "colour_too_strong" | "colour_too_weak" | "voice_robotic" | "noise_left" | "too_quiet" | "too_loud")[];
+            /** Comment */
+            comment?: string | null;
+            /** At Sec */
+            at_sec?: number | null;
+            /**
+             * Remake
+             * @default false
+             */
+            remake: boolean;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1636,6 +1826,17 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** PreferenceChange */
+        PreferenceChange: {
+            /** Key */
+            key: string;
+            /** Before */
+            before: unknown;
+            /** After */
+            after: unknown;
+            /** Label */
+            label: string;
         };
         /** PresetOut */
         PresetOut: {
@@ -3491,6 +3692,119 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RenderOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_edit_preferences_api_v1_preferences_edit_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EditPreferencesOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    give_feedback_api_v1_renders__render_id__feedback_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                render_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeedbackRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedbackOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_feedback_api_v1_projects__project_id__feedback_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedbackList"];
                 };
             };
             /** @description Not Found */

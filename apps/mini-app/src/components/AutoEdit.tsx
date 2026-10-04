@@ -9,13 +9,14 @@ import { haptic } from "../telegram";
 import { RenderCard } from "./RenderCard";
 import { Button, Card, Chip, ErrorNote, ProgressBar, SectionLabel, Skeleton, cx } from "./ui";
 
-type Request = Schemas["AutoEditRequest"];
-type Captions = NonNullable<Request["captions"]>;
-type Profile = keyof typeof ENHANCE_PROFILE_LABEL;
-type Loudness = keyof typeof LOUDNESS_TARGET_LABEL;
+type Defaults = Schemas["EditDefaults"];
+type Captions = Defaults["captions"];
+type Profile = Defaults["profile"];
+type Loudness = Defaults["loudness"];
+type Denoise = Defaults["denoise"];
 const CAPTIONS: Captions[] = ["dynamic", "karaoke", "minimal", "bold", "off"];
-const DENOISE = { auto: "Avto", off: "O'chiq", light: "Yengil", medium: "O'rta", strong: "Kuchli" } as const;
-type Denoise = keyof typeof DENOISE;
+const DENOISE: Record<Denoise, string> = { auto: "Avto", off: "O'chiq", light: "Yengil", medium: "O'rta", strong: "Kuchli" };
+const PAUSES = [0.4, 0.6, 0.9, 1.2];
 
 function durationLabel(sec: number | null): string {
   if (sec == null) return "Hammasi";
@@ -47,16 +48,19 @@ export function AutoEdit({ project, edit, render }: { project: ProjectOut; edit:
     queryKey: ["edit", project.id],
     queryFn: () => unwrap(api.GET("/api/v1/projects/{project_id}/edit", { params: { path: { project_id: project.id } } })),
   });
+  // The server remembers the last choices and the feedback-made corrections;
+  // the form starts from them and keeps only what is changed here.
+  const preferences = useQuery({
+    queryKey: ["preferences"],
+    queryFn: () => unwrap(api.GET("/api/v1/preferences/edit")),
+  });
   const [open, setOpen] = useState(false);
+  const [changed, setChanged] = useState<Partial<Defaults>>({});
   const [duration, setDuration] = useState<number | null>(project.target_duration_sec ?? null);
-  const [captions, setCaptions] = useState<Captions>("dynamic");
-  const [profile, setProfile] = useState<Profile>("cinematic_clean");
-  const [loudness, setLoudness] = useState<Loudness>("social");
-  const [denoise, setDenoise] = useState<Denoise>("auto");
-  const [cutPauses, setCutPauses] = useState(true);
-  const [deliver, setDeliver] = useState(true);
   const [title, setTitle] = useState("");
   const [cta, setCta] = useState("");
+  const values: Defaults | undefined = preferences.data ? { ...preferences.data.values, ...changed } : undefined;
+  const set = <K extends keyof Defaults>(key: K, value: Defaults[K]) => setChanged((c) => ({ ...c, [key]: value }));
 
   const run = useMutation({
     mutationFn: () =>
@@ -64,16 +68,10 @@ export function AutoEdit({ project, edit, render }: { project: ProjectOut; edit:
         api.POST("/api/v1/projects/{project_id}/auto-edit", {
           params: { path: { project_id: project.id } },
           body: {
+            ...values!,
+            preset: null,
             target_duration: duration,
-            captions,
-            caption_position: "bottom",
-            profile,
-            intensity: 0.8,
-            loudness,
-            denoise,
-            remove_pauses: cutPauses,
             render: true,
-            deliver,
             title: title.trim() || null,
             cta: cta.trim() || null,
           },
@@ -82,6 +80,8 @@ export function AutoEdit({ project, edit, render }: { project: ProjectOut; edit:
     onSuccess: (data) => {
       haptic.success();
       qc.setQueryData(["edit", project.id], data);
+      void qc.invalidateQueries({ queryKey: ["preferences"] });
+      setChanged({});
       setOpen(false);
     },
     onError: () => haptic.error(),
@@ -133,8 +133,11 @@ export function AutoEdit({ project, edit, render }: { project: ProjectOut; edit:
               Sozlamalar
               <ChevronDown className={cx("size-4 transition-transform", open && "rotate-180")} aria-hidden />
             </button>
-            {open && (
+            {open && values && (
               <div className="space-y-3">
+                {Object.keys(preferences.data?.sources ?? {}).length > 0 && (
+                  <p className="text-[11px] text-faint">Oldingi tanlovlaringiz va fikrlaringizdan eslab qolingan.</p>
+                )}
                 <div>
                   <p className="label mb-1.5">Davomiylik</p>
                   <div className="flex flex-wrap gap-2">
@@ -149,7 +152,7 @@ export function AutoEdit({ project, edit, render }: { project: ProjectOut; edit:
                   <p className="label mb-1.5">Subtitr</p>
                   <div className="flex flex-wrap gap-2">
                     {CAPTIONS.map((c) => (
-                      <Chip key={c} active={captions === c} onClick={() => setCaptions(c)}>
+                      <Chip key={c} active={values?.captions === c} onClick={() => set("captions", c)}>
                         {c === "off" ? "Yo'q" : CAPTION_STYLE_LABEL[c].title}
                       </Chip>
                     ))}
@@ -159,7 +162,7 @@ export function AutoEdit({ project, edit, render }: { project: ProjectOut; edit:
                   <p className="label mb-1.5">Ko'rinish</p>
                   <div className="flex flex-wrap gap-2">
                     {(Object.keys(ENHANCE_PROFILE_LABEL) as Profile[]).map((p) => (
-                      <Chip key={p} active={profile === p} onClick={() => setProfile(p)}>
+                      <Chip key={p} active={values?.profile === p} onClick={() => set("profile", p)}>
                         {ENHANCE_PROFILE_LABEL[p].title}
                       </Chip>
                     ))}
@@ -169,17 +172,29 @@ export function AutoEdit({ project, edit, render }: { project: ProjectOut; edit:
                   <p className="label mb-1.5">Ovoz balandligi</p>
                   <div className="flex flex-wrap gap-2">
                     {(Object.keys(LOUDNESS_TARGET_LABEL) as Loudness[]).map((t) => (
-                      <Chip key={t} active={loudness === t} onClick={() => setLoudness(t)}>
+                      <Chip key={t} active={values?.loudness === t} onClick={() => set("loudness", t)}>
                         {LOUDNESS_TARGET_LABEL[t]}
                       </Chip>
                     ))}
                   </div>
                 </div>
+                {values?.remove_pauses && (
+                  <div>
+                    <p className="label mb-1.5">Kesiladigan pauza</p>
+                    <div className="flex flex-wrap gap-2">
+                      {[...new Set([...PAUSES, values.min_pause])].sort((a, b) => a - b).map((x) => (
+                        <Chip key={x} active={values.min_pause === x} onClick={() => set("min_pause", x)}>
+                          {x} s dan uzun
+                        </Chip>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div>
                   <p className="label mb-1.5">Shovqin tozalash</p>
                   <div className="flex flex-wrap gap-2">
                     {(Object.keys(DENOISE) as Denoise[]).map((d) => (
-                      <Chip key={d} active={denoise === d} onClick={() => setDenoise(d)}>
+                      <Chip key={d} active={values?.denoise === d} onClick={() => set("denoise", d)}>
                         {DENOISE[d]}
                       </Chip>
                     ))}
@@ -201,16 +216,16 @@ export function AutoEdit({ project, edit, render }: { project: ProjectOut; edit:
                   />
                 </div>
                 <div className="divide-y divide-line">
-                  <Toggle on={cutPauses} onChange={setCutPauses}>
+                  <Toggle on={values?.remove_pauses ?? true} onChange={(v) => set("remove_pauses", v)}>
                     Pauzalarni kesish
                   </Toggle>
-                  <Toggle on={deliver} onChange={setDeliver}>
+                  <Toggle on={values?.deliver ?? true} onChange={(v) => set("deliver", v)}>
                     Tayyor bo'lgach Telegramga yuborish
                   </Toggle>
                 </div>
               </div>
             )}
-            <Button className="w-full" size="lg" variant="primary" loading={run.isPending} icon={state.data?.plan ? <Wand2 className="size-4" /> : <Sparkles className="size-4" />} onClick={() => run.mutate()}>
+            <Button className="w-full" size="lg" variant="primary" loading={run.isPending} disabled={!values} icon={state.data?.plan ? <Wand2 className="size-4" /> : <Sparkles className="size-4" />} onClick={() => run.mutate()}>
               {state.data?.plan ? "Qayta montaj (yangi versiya)" : "Tez montaj"}
             </Button>
             {run.isError && <ErrorNote>{(run.error as Error).message}</ErrorNote>}

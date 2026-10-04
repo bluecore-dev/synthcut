@@ -46,6 +46,7 @@ class EventType(StrEnum):
     RENDER_FAILED = "render.failed"
     DELIVERY_SENT = "delivery.sent"
     DELIVERY_FAILED = "delivery.failed"
+    FEEDBACK_RECORDED = "feedback.recorded"
 
     STAGE_UPDATED = "stage.updated"
 

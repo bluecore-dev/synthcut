@@ -1571,6 +1571,154 @@
         }
       }
     },
+    "/api/v1/preferences/edit": {
+      "get": {
+        "tags": [
+          "memory"
+        ],
+        "summary": "Get Edit Preferences",
+        "operationId": "get_edit_preferences_api_v1_preferences_edit_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EditPreferencesOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/renders/{render_id}/feedback": {
+      "post": {
+        "tags": [
+          "memory"
+        ],
+        "summary": "Give Feedback",
+        "description": "Quick codes change the user's preferences by fixed rules (returned as\nexplained changes); a comment is kept for the Memory agent. ``remake``\nstarts a new Tez montaj version from the corrected preferences, keeping\nthis version's format, length, title and call to action.",
+        "operationId": "give_feedback_api_v1_renders__render_id__feedback_post",
+        "parameters": [
+          {
+            "name": "render_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Render Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/feedback": {
+      "get": {
+        "tags": [
+          "memory"
+        ],
+        "summary": "List Feedback",
+        "operationId": "list_feedback_api_v1_projects__project_id__feedback_get",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackList"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/projects/{project_id}/uploads": {
       "post": {
         "tags": [
@@ -3119,41 +3267,18 @@
       },
       "AutoEditRequest": {
         "properties": {
-          "preset": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "reels_9x16",
-                  "youtube_16x9_1080",
-                  "youtube_16x9_2160",
-                  "square_1x1",
-                  "portrait_4x5"
-                ]
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Preset"
-          },
-          "target_duration": {
-            "anyOf": [
-              {
-                "type": "number",
-                "maximum": 14400.0,
-                "minimum": 5.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Target Duration"
-          },
           "remove_pauses": {
             "type": "boolean",
             "title": "Remove Pauses",
             "default": true
+          },
+          "min_pause": {
+            "type": "number",
+            "maximum": 2.0,
+            "minimum": 0.3,
+            "title": "Min Pause",
+            "description": "Pauses longer than this are cut (seconds)",
+            "default": 0.6
           },
           "captions": {
             "type": "string",
@@ -3220,6 +3345,42 @@
             "title": "Denoise",
             "default": "auto"
           },
+          "deliver": {
+            "type": "boolean",
+            "title": "Deliver",
+            "default": true
+          },
+          "preset": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "reels_9x16",
+                  "youtube_16x9_1080",
+                  "youtube_16x9_2160",
+                  "square_1x1",
+                  "portrait_4x5"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preset"
+          },
+          "target_duration": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 14400.0,
+                "minimum": 5.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Duration"
+          },
           "title": {
             "anyOf": [
               {
@@ -3249,11 +3410,6 @@
           "render": {
             "type": "boolean",
             "title": "Render",
-            "default": true
-          },
-          "deliver": {
-            "type": "boolean",
-            "title": "Deliver",
             "default": true
           }
         },
@@ -3778,6 +3934,97 @@
         ],
         "title": "DeliveryStatus"
       },
+      "EditDefaults": {
+        "properties": {
+          "remove_pauses": {
+            "type": "boolean",
+            "title": "Remove Pauses",
+            "default": true
+          },
+          "min_pause": {
+            "type": "number",
+            "maximum": 2.0,
+            "minimum": 0.3,
+            "title": "Min Pause",
+            "description": "Pauses longer than this are cut (seconds)",
+            "default": 0.6
+          },
+          "captions": {
+            "type": "string",
+            "enum": [
+              "off",
+              "dynamic",
+              "karaoke",
+              "minimal",
+              "bold"
+            ],
+            "title": "Captions",
+            "default": "dynamic"
+          },
+          "caption_position": {
+            "type": "string",
+            "enum": [
+              "bottom",
+              "center",
+              "top"
+            ],
+            "title": "Caption Position",
+            "default": "bottom"
+          },
+          "profile": {
+            "type": "string",
+            "enum": [
+              "neutral",
+              "cinematic_clean",
+              "warm_film",
+              "cool_teal",
+              "vivid_social",
+              "bw_classic"
+            ],
+            "title": "Profile",
+            "default": "cinematic_clean"
+          },
+          "intensity": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Intensity",
+            "default": 0.8
+          },
+          "loudness": {
+            "type": "string",
+            "enum": [
+              "social",
+              "youtube",
+              "podcast",
+              "broadcast"
+            ],
+            "title": "Loudness",
+            "default": "social"
+          },
+          "denoise": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "off",
+              "light",
+              "medium",
+              "strong"
+            ],
+            "title": "Denoise",
+            "default": "auto"
+          },
+          "deliver": {
+            "type": "boolean",
+            "title": "Deliver",
+            "default": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "EditDefaults",
+        "description": "The part of a Tez montaj request that carries over to the next one."
+      },
       "EditJobOut": {
         "properties": {
           "id": {
@@ -3834,6 +4081,40 @@
           "created_at"
         ],
         "title": "EditJobOut"
+      },
+      "EditPreferencesOut": {
+        "properties": {
+          "values": {
+            "$ref": "#/components/schemas/EditDefaults"
+          },
+          "sources": {
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "choice",
+                "feedback",
+                "agent"
+              ]
+            },
+            "type": "object",
+            "title": "Sources"
+          },
+          "feedback_options": {
+            "items": {
+              "$ref": "#/components/schemas/FeedbackOption"
+            },
+            "type": "array",
+            "title": "Feedback Options"
+          }
+        },
+        "type": "object",
+        "required": [
+          "values",
+          "sources",
+          "feedback_options"
+        ],
+        "title": "EditPreferencesOut",
+        "description": "What the next Tez montaj starts from. ``sources`` names the keys the\nuser's own choices or feedback set; the rest are built-in defaults."
       },
       "EditStateOut": {
         "properties": {
@@ -4250,6 +4531,218 @@
           "score"
         ],
         "title": "Face"
+      },
+      "FeedbackList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FeedbackOut"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "FeedbackList"
+      },
+      "FeedbackOption": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "cut_too_much",
+              "cut_too_little",
+              "no_captions",
+              "want_captions",
+              "colour_too_strong",
+              "colour_too_weak",
+              "voice_robotic",
+              "noise_left",
+              "too_quiet",
+              "too_loud"
+            ],
+            "title": "Code"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "label"
+        ],
+        "title": "FeedbackOption"
+      },
+      "FeedbackOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "render_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Render Id"
+          },
+          "plan_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Version"
+          },
+          "codes": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "cut_too_much",
+                "cut_too_little",
+                "no_captions",
+                "want_captions",
+                "colour_too_strong",
+                "colour_too_weak",
+                "voice_robotic",
+                "noise_left",
+                "too_quiet",
+                "too_loud"
+              ]
+            },
+            "type": "array",
+            "title": "Codes"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
+          "at_sec": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At Sec"
+          },
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/PreferenceChange"
+            },
+            "type": "array",
+            "title": "Changes"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "remake_job_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remake Job Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "render_id",
+          "plan_version",
+          "codes",
+          "comment",
+          "at_sec",
+          "changes",
+          "created_at"
+        ],
+        "title": "FeedbackOut"
+      },
+      "FeedbackRequest": {
+        "properties": {
+          "codes": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "cut_too_much",
+                "cut_too_little",
+                "no_captions",
+                "want_captions",
+                "colour_too_strong",
+                "colour_too_weak",
+                "voice_robotic",
+                "noise_left",
+                "too_quiet",
+                "too_loud"
+              ]
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Codes"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
+          "at_sec": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 14400.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At Sec"
+          },
+          "remake": {
+            "type": "boolean",
+            "title": "Remake",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "FeedbackRequest"
       },
       "HTTPValidationError": {
         "properties": {
@@ -5127,6 +5620,32 @@
           "created_at"
         ],
         "title": "PlanSummary"
+      },
+      "PreferenceChange": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "before": {
+            "title": "Before"
+          },
+          "after": {
+            "title": "After"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "before",
+          "after",
+          "label"
+        ],
+        "title": "PreferenceChange"
       },
       "PresetOut": {
         "properties": {

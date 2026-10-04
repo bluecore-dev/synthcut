@@ -12,6 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from synthcut_core.events import commit_and_publish
 from synthcut_core.models import Asset, AssetAnalysis, AssetTranscript, EditPlanRow, Job, Project, Render
+from synthcut_core.preferences import remember_choice
 from synthcut_core.projects import get_owned_project
 from synthcut_core.renders import request_auto_edit_async, request_delivery_async, request_render_async
 from synthcut_core.stages import StageState, set_stage_async
@@ -48,7 +49,7 @@ from .media import sign
 router = APIRouter(tags=["edits"], responses={404: {"model": ErrorResponse}})
 
 
-async def _project(db: AsyncSession, user_id: uuid.UUID, project_id: uuid.UUID) -> Project:
+async def owned_project(db: AsyncSession, user_id: uuid.UUID, project_id: uuid.UUID) -> Project:
     project = await get_owned_project(db, user_id, project_id)
     if project is None:
         raise not_found("Loyiha")
@@ -144,7 +145,7 @@ async def edit_state(db: AsyncSession, storage: Storage, ttl: int, project: Proj
 # --------------------------------------------------------------------------- endpoints
 
 
-async def _not_ready_reason(db: AsyncSession, project_id: uuid.UUID) -> tuple[str, str] | None:
+async def not_ready_reason(db: AsyncSession, project_id: uuid.UUID) -> tuple[str, str] | None:
     videos = (
         await db.execute(
             select(Asset.status, func.count())
@@ -203,13 +204,14 @@ async def auto_edit(
     """Tez montaj: pauses and bad shots cut, reframed, graded, mixed,
     captioned — then rendered from the originals and (optionally) sent to
     the chat. A second request while one is running returns that one."""
-    project = await _project(db, user.id, project_id)
+    project = await owned_project(db, user.id, project_id)
     if project.status != ProjectStatus.ACTIVE.value:
         raise ApiError(409, "archived", "Arxivdagi loyihani montaj qilib bo'lmaydi")
-    reason = await _not_ready_reason(db, project.id)
+    reason = await not_ready_reason(db, project.id)
     if reason is not None:
         raise ApiError(409, *reason)
     await request_auto_edit_async(db, project.id, body)
+    await remember_choice(db, user.id, body)  # the next Tez montaj starts from these
     await set_stage_async(
         db,
         project.id,
@@ -225,13 +227,13 @@ async def auto_edit(
 async def get_edit_state(
     project_id: uuid.UUID, user: CurrentUser, db: DbSession, storage: StorageClient, settings: AppSettings
 ) -> EditStateOut:
-    project = await _project(db, user.id, project_id)
+    project = await owned_project(db, user.id, project_id)
     return await edit_state(db, storage, settings.media_url_ttl_seconds, project)
 
 
 @router.get("/projects/{project_id}/plans", response_model=PlanList)
 async def list_plans(project_id: uuid.UUID, user: CurrentUser, db: DbSession) -> PlanList:
-    project = await _project(db, user.id, project_id)
+    project = await owned_project(db, user.id, project_id)
     rows = await db.execute(
         select(EditPlanRow).where(EditPlanRow.project_id == project.id).order_by(EditPlanRow.version.desc())
     )
@@ -297,7 +299,7 @@ async def _plan_row(db: AsyncSession, project_id: uuid.UUID, version: int) -> Ed
 
 @router.get("/projects/{project_id}/plans/{version}", response_model=PlanOut)
 async def get_plan(project_id: uuid.UUID, version: int, user: CurrentUser, db: DbSession) -> PlanOut:
-    project = await _project(db, user.id, project_id)
+    project = await owned_project(db, user.id, project_id)
     row = await _plan_row(db, project.id, version)
     names = {
         str(i): n
@@ -321,7 +323,7 @@ async def render_plan(
 ) -> RenderOut:
     """Render a plan version (again). The plan fixes the frame size, so the
     preset must be the one it was made for — another format is a new plan."""
-    project = await _project(db, user.id, project_id)
+    project = await owned_project(db, user.id, project_id)
     row = await _plan_row(db, project.id, version)
     preset = (row.options or {}).get("preset") or project.preset
     if body.preset is not None and body.preset.value != preset:
@@ -347,7 +349,7 @@ async def render_plan(
 async def list_renders(
     project_id: uuid.UUID, user: CurrentUser, db: DbSession, storage: StorageClient, settings: AppSettings
 ) -> RenderList:
-    project = await _project(db, user.id, project_id)
+    project = await owned_project(db, user.id, project_id)
     return RenderList(items=await _renders(db, storage, settings.media_url_ttl_seconds, project))
 
 

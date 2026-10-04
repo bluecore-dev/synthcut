@@ -252,6 +252,7 @@ def _plan(
         fps=brief.fps,
         target_duration=brief.target_duration,
         remove_pauses=payload.remove_pauses,
+        min_pause=payload.min_pause,
         captions=captions,
         title=payload.title,
         cta=payload.cta,

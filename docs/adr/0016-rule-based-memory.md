@@ -1,0 +1,12 @@
+# ADR-0016 — Memory starts as remembered choices and explained correction rules
+
+**Why.** Spec §26 gives the Memory agent one mission: turn the owner's corrections into structured, reusable preferences so the next project starts from them (its tools: `get_user_preferences`, `record_feedback`, `update_preference`). The agent reads free text with a model and waits for a key; the corrections people actually give a talking-head cut — too many cuts, the colour is too strong, the voice sounds metallic, there is noise left, it is too quiet — map onto the Tez montaj settings that already exist. The owner must also be able to see what a correction changed; a preference that moves silently is worse than none.
+
+**Impact.**
+*Preferences.* `preferences` (migration 0006): one row per (user, key) for the remembered Tez montaj settings (`EditDefaults`: pauses on/off and the pause length to cut, caption style and position, look and intensity, loudness target, noise reduction, delivery), with the source (`choice`, `feedback`, `agent`) and the feedback that set it. Project-scoped rows are reserved for the agent. `GET /preferences/edit` returns built-in defaults overlaid by the stored rows (a stored value a newer release rejects falls back to the default); the Mini App form starts from it. Starting a Tez montaj writes the keys the owner changed as `choice`.
+*Feedback.* `feedback`: render, plan version, quick codes, a free-text comment and the resulting `changes`. Each of ten codes is a fixed rule (`synthcut_core.preferences.FEEDBACK_RULES`): pause length ±, captions off/on, intensity ±0.2, noise reduction one step down/up, loudness one step along TV → podcast → social. Rules apply in order; only net changes are reported, each with an Uzbek label ("Shovqin tozalash: kuchli → o'rta"), and logged as a `feedback.recorded` event. `remake` queues a new Tez montaj version from the corrected preferences, keeping the version's format, length, title and call to action.
+*Agents.* The Memory agent will write to the same tables (source `agent`) and read the comments; nothing here has to change for it.
+
+**Alternatives.** Learning preferences from usage statistics (too few videos for statistics, and unexplainable); free-text only (needs the model to do anything); storing preferences on the project (the spec asks that the *next* project starts from them).
+
+**Decision.** User-scoped remembered choices plus ten explained correction rules, with the comment kept for the agent.

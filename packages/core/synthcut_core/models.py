@@ -352,6 +352,63 @@ class Render(TimestampMixin, Base):
     finished_at: Mapped[datetime | None]
 
 
+class Preference(TimestampMixin, Base):
+    """A remembered choice (spec §26 Memory). One row per (user, key) for the
+    user's defaults; project-scoped rows (``project_id``) are reserved for
+    the Memory agent."""
+
+    __tablename__ = "preferences"
+    __table_args__ = (
+        CheckConstraint("scope IN ('user', 'project')", name="scope"),
+        CheckConstraint("source IN ('choice', 'feedback', 'agent')", name="source"),
+        Index(
+            "uq_preferences_user_key",
+            "user_id",
+            "key",
+            unique=True,
+            postgresql_where=text("project_id IS NULL"),
+        ),
+        Index(
+            "uq_preferences_project_key",
+            "user_id",
+            "project_id",
+            "key",
+            unique=True,
+            postgresql_where=text("project_id IS NOT NULL"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=new_id)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    project_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    scope: Mapped[str] = mapped_column(Text, default="user")
+    key: Mapped[str] = mapped_column(Text)
+    value: Mapped[Any] = mapped_column(JSONB)
+    source: Mapped[str] = mapped_column(Text)
+    feedback_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("feedback.id", ondelete="SET NULL"))
+
+
+class Feedback(TimestampMixin, Base):
+    """What the owner said about a render: quick codes (each a fixed rule on
+    preferences, recorded in ``changes``) and a free-text ``comment`` kept
+    for the Memory agent."""
+
+    __tablename__ = "feedback"
+    __table_args__ = (Index("ix_feedback_project_created", "project_id", "created_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=new_id)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    project_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    render_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("renders.id", ondelete="SET NULL"))
+    plan_version: Mapped[int | None] = mapped_column(Integer)
+    codes: Mapped[list[str]] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
+    comment: Mapped[str | None] = mapped_column(Text)
+    at_sec: Mapped[float | None] = mapped_column(Float)
+    changes: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, default=list, server_default=text("'[]'::jsonb")
+    )
+
+
 class UploadSession(TimestampMixin, Base):
     """A resumable S3 multipart upload of one asset (spec §6). Parts are not
     mirrored here: storage's ListParts is the source of truth for progress."""

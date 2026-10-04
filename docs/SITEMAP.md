@@ -20,7 +20,7 @@ flowchart TD
     P --> T5[Transcript<br/>text of every file with speech]
     P --> T6[Timeline<br/>cut bars per file, clips, graphics, notes]
     P --> T7[Versions<br/>every plan, view or render any of them]
-    P --> T8[Preview · Render History<br/>video, QA checks, download, send to Telegram]
+    P --> T8[Preview · Render History<br/>video, QA checks, download, send to Telegram, feedback]
     P --> T9[AI Decisions<br/>locked until the Director has a model key]
     T2 --> A["/p/:id/a/:assetId — Asset"]
     T4 --> A
@@ -81,6 +81,7 @@ Webhook only (`/telegram/webhook/<hash of the secret>` plus the secret header); 
 | Tez montaj | `POST /projects/{id}/auto-edit`, `GET /projects/{id}/edit` |
 | Plans | `GET /projects/{id}/plans`, `GET /projects/{id}/plans/{version}`, `POST /projects/{id}/plans/{version}/render` |
 | Renders | `GET /projects/{id}/renders`, `POST /renders/{id}/deliver` |
+| Memory | `GET /preferences/edit`, `POST /renders/{id}/feedback`, `GET /projects/{id}/feedback` |
 | Activity | `GET /projects/{id}/jobs`, `GET /projects/{id}/events`, `GET /projects/{id}/events/stream` (SSE) |
 
 Full contract: [openapi.json](openapi.json). Another user's object is always a 404.
@@ -153,6 +154,7 @@ Reserved areas for later phases: `timeline/`, `exports/`.
 | `grade/1`, `mix/1` | `synthcut_schemas.grade` | `enhance.json`, media file metadata |
 | `editplan/1` | `synthcut_timeline` | `edit_plans.plan` |
 | `qa/1` | `synthcut_schemas.qa` | `renders.qa`, `qa.json` |
+| `EditDefaults` | `synthcut_schemas.preferences` | `preferences` (one row per key) |
 
 ## 8. Documentation
 

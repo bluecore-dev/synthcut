@@ -60,7 +60,7 @@ flowchart LR
 * **Storage** — originals are immutable; derived files live under deterministic keys, so re-running a job overwrites instead of duplicating.
 * **Agents** — own agent loop with a permission gate per tool, step and cost limits, and a provider-neutral model router (`provider:model` per role).
 
-Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and fifteen [architecture decision records](docs/adr/).
+Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and sixteen [architecture decision records](docs/adr/).
 
 ## Roadmap
 
@@ -76,7 +76,7 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and fifteen [architecture 
 | 7 | Remotion compositions, widget registry, animated captions, SFX | ✅ engine done |
 | 8 | Colour and audio engines: grading, Log → Rec.709, voice cleanup, loudness, ducking | ✅ engines done |
 | 9 | QA, error classifier, reflection, retries | 🟡 QA on the rendered file done |
-| 10 | Memory, preferences, feedback | ⏳ planned |
+| 10 | Memory, preferences, feedback | 🟡 remembered settings + explained corrections done; agent needs a model key |
 | 11 | Full render from originals | ✅ done (CPU: segments + master) |
 | 12 | Telegram delivery | ✅ done |
 

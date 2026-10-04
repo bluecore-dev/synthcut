@@ -7,6 +7,7 @@ import { formatBytes, formatDuration, pct } from "../services/format";
 import { stableUrl } from "../services/urlcache";
 import { DELIVERY_LABEL, QA_LABEL } from "../strings";
 import { downloadFile, haptic } from "../telegram";
+import { Feedback } from "./Feedback";
 import { Badge, Button, ErrorNote, ProgressBar, cx } from "./ui";
 
 export type RenderOut = Schemas["RenderOut"];
@@ -121,6 +122,7 @@ export function RenderCard({ projectId, render, live, filename, compact = false 
         </p>
       )}
       {deliver.isError && <ErrorNote>{(deliver.error as Error).message}</ErrorNote>}
+      {render.status === "done" && <Feedback projectId={projectId} renderId={render.id} />}
     </div>
   );
 }

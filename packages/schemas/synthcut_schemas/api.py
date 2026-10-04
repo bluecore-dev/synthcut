@@ -34,6 +34,7 @@ from .enums import (
 from .events import EventEnvelope
 from .jobs import AutoEditOptions
 from .media import MediaInfo
+from .preferences import EditDefaults, FeedbackCode, PreferenceSource
 from .qa import QaReport
 
 FpsChoice = Literal[24, 25, 30, 50, 60]  # kept equal to enums.ALLOWED_FPS by a test
@@ -555,6 +556,53 @@ class EditStateOut(BaseModel):
     job: EditJobOut | None = None
     plan: PlanSummary | None = None
     render: RenderOut | None = None
+
+
+# --------------------------------------------------------------------------- memory
+
+
+class FeedbackOption(BaseModel):
+    code: FeedbackCode
+    label: str
+
+
+class EditPreferencesOut(BaseModel):
+    """What the next Tez montaj starts from. ``sources`` names the keys the
+    user's own choices or feedback set; the rest are built-in defaults."""
+
+    values: EditDefaults
+    sources: dict[str, PreferenceSource]
+    feedback_options: list[FeedbackOption]
+
+
+class FeedbackRequest(_In):
+    codes: list[FeedbackCode] = Field(default_factory=list, max_length=10)
+    comment: str | None = Field(None, max_length=2000)
+    at_sec: float | None = Field(None, ge=0, le=4 * 3600)
+    remake: bool = False  # a new Tez montaj version from the corrected preferences
+
+
+class PreferenceChange(BaseModel):
+    key: str
+    before: Any
+    after: Any
+    label: str
+
+
+class FeedbackOut(_Out):
+    id: UUID
+    render_id: UUID | None
+    plan_version: int | None
+    codes: list[FeedbackCode]
+    comment: str | None
+    at_sec: float | None
+    changes: list[PreferenceChange]
+    created_at: datetime
+    remake_job_id: UUID | None = None
+
+
+class FeedbackList(BaseModel):
+    items: list[FeedbackOut]
 
 
 # --------------------------------------------------------------------------- health
