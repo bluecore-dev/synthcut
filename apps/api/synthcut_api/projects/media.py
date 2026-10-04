@@ -13,6 +13,7 @@ from synthcut_schemas.api import (
     AnalysisSummary,
     CaptionPreviewOut,
     ClipOut,
+    EnhancePreviewOut,
     MediaFileOut,
     SignedUrl,
     TranscriptSummary,
@@ -21,7 +22,17 @@ from synthcut_schemas.jobs import JobKind
 from synthcut_storage import Storage
 
 # Bookkeeping files are not useful in the browser (the transcript has its own endpoint).
-HIDDEN_KINDS = {"mediainfo", "shots", "audio_speech", "transcript", "clips", "caption_preview"}
+HIDDEN_KINDS = {
+    "mediainfo",
+    "shots",
+    "audio_speech",
+    "transcript",
+    "clips",
+    "caption_preview",
+    "enhance_preview",
+    "enhance_before",
+    "enhance_after",
+}
 
 
 def sign(storage: Storage, key: str, ttl: int, *, download_name: str | None = None) -> SignedUrl:
@@ -158,12 +169,38 @@ async def clips_for(
     return out
 
 
-def latest_preview_job_stmt(asset_id: uuid.UUID):
+def latest_preview_job_stmt(asset_id: uuid.UUID, kind: str = JobKind.RENDER_CAPTION_PREVIEW):
     return (
         select(Job)
-        .where(Job.kind == JobKind.RENDER_CAPTION_PREVIEW, Job.payload["asset_id"].astext == str(asset_id))
+        .where(Job.kind == kind, Job.payload["asset_id"].astext == str(asset_id))
         .order_by(Job.created_at.desc())
         .limit(1)
+    )
+
+
+async def _preview(db: AsyncSession, asset_id: uuid.UUID, job_kind: str, file_kind: str):
+    """(status, error, settings source, finished file, updated_at) of the latest
+    request (the job) and the latest finished file — or None if neither exists."""
+    job = (await db.execute(latest_preview_job_stmt(asset_id, job_kind))).scalar_one_or_none()
+    done = (
+        await db.execute(select(MediaFile).where(MediaFile.asset_id == asset_id, MediaFile.kind == file_kind))
+    ).scalar_one_or_none()
+    if job is None and done is None:
+        return None
+    if job is not None and job.status in ("queued", "running"):
+        return job.status, None, job.payload, done, job.updated_at
+    if (
+        job is not None
+        and job.status in ("dead", "cancelled")
+        and (done is None or done.updated_at < job.updated_at)
+    ):
+        return "failed", ((job.error or {}).get("message") or "xato")[:300], job.payload, done, job.updated_at
+    return (
+        "done",
+        None,
+        (done.meta if done is not None else job.payload),
+        done,
+        (done.updated_at if done else None),
     )
 
 
@@ -171,14 +208,10 @@ async def caption_preview_state(
     db: AsyncSession, storage: Storage, asset_id: uuid.UUID, ttl: int, *, filename: str
 ) -> CaptionPreviewOut | None:
     """Latest request (the job) plus the latest finished file, if any."""
-    job = (await db.execute(latest_preview_job_stmt(asset_id))).scalar_one_or_none()
-    done = (
-        await db.execute(
-            select(MediaFile).where(MediaFile.asset_id == asset_id, MediaFile.kind == "caption_preview")
-        )
-    ).scalar_one_or_none()
-    if job is None and done is None:
+    found = await _preview(db, asset_id, JobKind.RENDER_CAPTION_PREVIEW, "caption_preview")
+    if found is None:
         return None
+    status, error, source, done, updated = found
     links = {}
     if done is not None:
         stem = PurePosixPath(filename).stem or "video"
@@ -186,28 +219,57 @@ async def caption_preview_state(
             "video": sign(storage, done.storage_key, ttl),
             "download": sign(storage, done.storage_key, ttl, download_name=f"{stem}_subtitr.mp4"),
         }
-    if job is not None and job.status in ("queued", "running"):
-        status, error = job.status, None
-    elif (
-        job is not None
-        and job.status in ("dead", "cancelled")
-        and (done is None or done.updated_at < job.updated_at)
-    ):
-        status, error = "failed", ((job.error or {}).get("message") or "xato")[:300]
-    else:
-        status, error = "done", None
-    source = (
-        job.payload
-        if job is not None and status != "done"
-        else (done.meta if done is not None else job.payload)
-    )
     return CaptionPreviewOut(
         status=status,
         style=source.get("style", "dynamic"),
         position=source.get("position", "bottom"),
         error=error,
-        updated_at=(
-            job.updated_at if job is not None and status != "done" else (done.updated_at if done else None)
-        ),
-        **(links if done is not None else {}),
+        updated_at=updated,
+        **links,
+    )
+
+
+async def enhance_preview_state(
+    db: AsyncSession, storage: Storage, asset_id: uuid.UUID, ttl: int, *, filename: str
+) -> EnhancePreviewOut | None:
+    found = await _preview(db, asset_id, JobKind.RENDER_ENHANCE_PREVIEW, "enhance_preview")
+    if found is None:
+        return None
+    status, error, source, done, updated = found
+    extra: dict = {}
+    if done is not None:
+        stem = PurePosixPath(filename).stem or "video"
+        stills = {
+            m.kind: m
+            for m in (
+                await db.execute(
+                    select(MediaFile).where(
+                        MediaFile.asset_id == asset_id,
+                        MediaFile.kind.in_(["enhance_before", "enhance_after"]),
+                    )
+                )
+            ).scalars()
+        }
+        extra = {
+            "video": sign(storage, done.storage_key, ttl),
+            "download": sign(storage, done.storage_key, ttl, download_name=f"{stem}_enhanced.mp4"),
+            "before": sign(storage, stills["enhance_before"].storage_key, ttl)
+            if "enhance_before" in stills
+            else None,
+            "after": sign(storage, stills["enhance_after"].storage_key, ttl)
+            if "enhance_after" in stills
+            else None,
+            "notes": done.meta.get("notes", []),
+            "lufs_before": done.meta.get("lufs_before"),
+            "lufs_after": done.meta.get("lufs_after"),
+            "grade": done.meta.get("grade"),
+        }
+    return EnhancePreviewOut(
+        status=status,
+        profile=source.get("profile", "cinematic_clean"),
+        intensity=source.get("intensity", 0.8),
+        target=source.get("target", "social"),
+        error=error,
+        updated_at=updated,
+        **extra,
     )

@@ -6,6 +6,7 @@ import { api, unwrap, type AssetDetail, type Schemas, type TranscriptSummary } f
 import { colorTone } from "../components/AssetList";
 import { CaptionPreview } from "../components/CaptionPreview";
 import { ClipCard } from "../components/ClipCard";
+import { EnhancePreview } from "../components/EnhancePreview";
 import { TranscriptView, languageNote } from "../components/TranscriptView";
 import { Badge, Button, Card, Chip, ErrorNote, ProgressBar, SectionLabel, Skeleton } from "../components/ui";
 import { useBackButton } from "../hooks/useBackButton";
@@ -275,7 +276,7 @@ export function AssetPage() {
   const [time, setTime] = useState<number | null>(null);
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { events, speech, analysis: analysisLive, preview: previewLive } = useProjectEvents(id);
+  const { events, speech, analysis: analysisLive, preview: previewLive, enhance: enhanceLive } = useProjectEvents(id);
   const reingest = useMutation({
     mutationFn: () => unwrap(api.POST("/api/v1/assets/{asset_id}/reingest", { params: { path: { asset_id: assetId } } })),
     onSuccess: () => {
@@ -294,7 +295,8 @@ export function AssetPage() {
     refetchInterval: (query) =>
       ACTIVE.has(query.state.data?.transcript?.status ?? "") ||
       ACTIVE.has(query.state.data?.analysis?.status ?? "") ||
-      ACTIVE.has(query.state.data?.caption_preview?.status ?? "")
+      ACTIVE.has(query.state.data?.caption_preview?.status ?? "") ||
+      ACTIVE.has(query.state.data?.enhance_preview?.status ?? "")
         ? 15_000
         : false,
   });
@@ -401,6 +403,10 @@ export function AssetPage() {
 
       {a.kind === "video" && a.status === "ready" && (
         <Shots asset={a} live={analysisLive[a.id]} currentTime={time} onSeek={proxy ? seek : undefined} />
+      )}
+
+      {a.kind === "video" && a.status === "ready" && proxy && (
+        <EnhancePreview assetId={a.id} filename={a.original_filename} state={a.enhance_preview} live={enhanceLive[a.id]} />
       )}
 
       {a.status === "ready" && a.has_audio && (

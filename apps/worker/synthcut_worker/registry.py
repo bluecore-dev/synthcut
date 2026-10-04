@@ -44,6 +44,7 @@ def load_handlers() -> dict[str, HandlerSpec]:
     from .delivery import notify as _notify  # noqa: F401
     from .ingestion import jobs as _ingestion  # noqa: F401
     from .maintenance import jobs as _maintenance  # noqa: F401
+    from .render import enhance as _enhance  # noqa: F401
     from .render import jobs as _render  # noqa: F401
     from .speech import jobs as _speech  # noqa: F401
 

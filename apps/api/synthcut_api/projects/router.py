@@ -32,6 +32,8 @@ from synthcut_schemas.api import (
     CaptionPreviewOut,
     CaptionPreviewRequest,
     ClipList,
+    EnhancePreviewOut,
+    EnhancePreviewRequest,
     ErrorResponse,
     JobList,
     JobOut,
@@ -62,6 +64,7 @@ from .media import (
     analysis_summary,
     caption_preview_state,
     clips_for,
+    enhance_preview_state,
     files_for,
     latest_preview_job_stmt,
     posters,
@@ -180,6 +183,7 @@ async def get_asset(
     transcript = await transcript_summary(db, storage, asset.id, ttl, filename=asset.original_filename)
     analysis = await analysis_summary(db, asset.id)
     preview = await caption_preview_state(db, storage, asset.id, ttl, filename=asset.original_filename)
+    enhance = await enhance_preview_state(db, storage, asset.id, ttl, filename=asset.original_filename)
     base = asset_out(
         asset,
         thumbnail=thumbs.get(asset.id),
@@ -194,7 +198,54 @@ async def get_asset(
         transcript=transcript,
         analysis=analysis,
         caption_preview=preview,
+        enhance_preview=enhance,
     )
+
+
+@router.post("/assets/{asset_id}/enhance-preview", response_model=EnhancePreviewOut, status_code=202)
+async def request_enhance_preview(
+    asset_id: uuid.UUID,
+    body: EnhancePreviewRequest,
+    user: CurrentUser,
+    db: DbSession,
+    redis: RedisClient,
+    storage: StorageClient,
+    settings: AppSettings,
+) -> EnhancePreviewOut:
+    """Automatic grade (measured exposure / white balance + a creative profile)
+    and voice cleanup with loudness for the platform, rendered on the proxy."""
+    asset = await _owned_asset(db, user.id, asset_id, lock=True)
+    has_proxy = (
+        await db.execute(
+            select(func.count()).where(MediaFile.asset_id == asset.id, MediaFile.kind == "proxy_720p")
+        )
+    ).scalar_one()
+    if asset.kind != "video" or asset.status != AssetStatus.READY.value or not has_proxy:
+        raise ApiError(409, "not_enhanceable", "Faqat tahlildan o'tgan videoni yaxshilash mumkin")
+    kind = JobKind.RENDER_ENHANCE_PREVIEW
+    latest = (await db.execute(latest_preview_job_stmt(asset.id, kind))).scalar_one_or_none()
+    if latest is None or latest.status not in ("queued", "running"):
+        runs = (
+            await db.execute(
+                select(func.count()).where(Job.kind == kind, Job.payload["asset_id"].astext == str(asset.id))
+            )
+        ).scalar_one()
+        await enqueue_async(
+            db,
+            kind=kind,
+            queue=JobQueue.RENDER,
+            payload={"asset_id": str(asset.id), **body.model_dump()},
+            project_id=asset.project_id,
+            priority=JobPriority.HIGH,
+            idempotency_key=f"{kind}:{asset.id}:r{runs + 1}",
+            max_attempts=2,
+        )
+        await commit_and_publish(db, redis)
+    state = await enhance_preview_state(
+        db, storage, asset.id, settings.media_url_ttl_seconds, filename=asset.original_filename
+    )
+    assert state is not None
+    return state
 
 
 @router.post("/assets/{asset_id}/caption-preview", response_model=CaptionPreviewOut, status_code=202)

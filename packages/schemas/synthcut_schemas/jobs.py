@@ -18,6 +18,7 @@ class JobKind:
     TRANSCRIBE_ASSET = "speech.transcribe"
     ANALYZE_ASSET = "analysis.asset"
     RENDER_CAPTION_PREVIEW = "render.caption_preview"
+    RENDER_ENHANCE_PREVIEW = "render.enhance_preview"
     EXPIRE_UPLOADS = "maintenance.expire_uploads"
     SWEEP_ORPHAN_UPLOADS = "maintenance.sweep_orphan_uploads"
     PRUNE_JOBS = "maintenance.prune_jobs"
@@ -29,6 +30,7 @@ JOB_LABELS: dict[str, str] = {
     JobKind.TRANSCRIBE_ASSET: "Nutqni matnga o'girish",
     JobKind.ANALYZE_ASSET: "Kadrlar tahlili",
     JobKind.RENDER_CAPTION_PREVIEW: "Subtitrli video",
+    JobKind.RENDER_ENHANCE_PREVIEW: "Rang va ovoz",
     JobKind.EXPIRE_UPLOADS: "Eskirgan yuklashlarni tozalash",
     JobKind.SWEEP_ORPHAN_UPLOADS: "Yetim multipart yuklashlarni tozalash",
     JobKind.PRUNE_JOBS: "Eski tizim job'larini tozalash",
@@ -70,6 +72,16 @@ class CaptionPreviewPayload(_Payload):
     position: Literal["bottom", "center", "top"] = "bottom"
 
 
+class EnhancePreviewPayload(_Payload):
+    asset_id: UUID
+    profile: Literal["neutral", "cinematic_clean", "warm_film", "cool_teal", "vivid_social", "bw_classic"] = (
+        "cinematic_clean"
+    )
+    intensity: float = Field(0.8, ge=0, le=1)
+    target: Literal["social", "youtube", "podcast", "broadcast"] = "social"
+    denoise: Literal["auto", "off", "light", "medium", "strong"] = "auto"
+
+
 class ExpireUploadsPayload(_Payload):
     pass
 
@@ -93,6 +105,7 @@ PAYLOAD_MODELS: dict[str, type[_Payload]] = {
     JobKind.TRANSCRIBE_ASSET: TranscribeAssetPayload,
     JobKind.ANALYZE_ASSET: AnalyzeAssetPayload,
     JobKind.RENDER_CAPTION_PREVIEW: CaptionPreviewPayload,
+    JobKind.RENDER_ENHANCE_PREVIEW: EnhancePreviewPayload,
     JobKind.EXPIRE_UPLOADS: ExpireUploadsPayload,
     JobKind.SWEEP_ORPHAN_UPLOADS: SweepOrphanUploadsPayload,
     JobKind.PRUNE_JOBS: PruneJobsPayload,

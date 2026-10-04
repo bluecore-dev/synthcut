@@ -310,6 +310,36 @@ class CaptionPreviewOut(BaseModel):
     download: SignedUrl | None = None  # Content-Disposition: attachment
 
 
+EnhanceProfile = Literal["neutral", "cinematic_clean", "warm_film", "cool_teal", "vivid_social", "bw_classic"]
+LoudnessTarget = Literal["social", "youtube", "podcast", "broadcast"]
+
+
+class EnhancePreviewRequest(_In):
+    profile: EnhanceProfile = "cinematic_clean"
+    intensity: float = Field(0.8, ge=0, le=1)
+    target: LoudnessTarget = "social"
+    denoise: Literal["auto", "off", "light", "medium", "strong"] = "auto"
+
+
+class EnhancePreviewOut(BaseModel):
+    """Automatic colour grade + voice cleanup and loudness on one clip (Phase 8)."""
+
+    status: Literal["queued", "running", "done", "failed"]
+    profile: EnhanceProfile
+    intensity: float
+    target: LoudnessTarget
+    error: str | None = None
+    updated_at: datetime | None = None
+    video: SignedUrl | None = None
+    download: SignedUrl | None = None
+    before: SignedUrl | None = None
+    after: SignedUrl | None = None
+    notes: list[str] = Field(default_factory=list)
+    lufs_before: float | None = None
+    lufs_after: float | None = None
+    grade: dict[str, Any] | None = None  # grade/1
+
+
 class TranscribeRequest(_In):
     # None = the project's language; "auto" detects.
     language: ProjectLanguage | None = None
@@ -322,6 +352,7 @@ class AssetDetail(AssetOut):
     transcript: TranscriptSummary | None = None
     analysis: AnalysisSummary | None = None
     caption_preview: CaptionPreviewOut | None = None
+    enhance_preview: EnhancePreviewOut | None = None
 
 
 class UploadCreate(_In):

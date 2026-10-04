@@ -8,7 +8,9 @@ members = [
     "synthcut-agents",
     "synthcut-analysis",
     "synthcut-api",
+    "synthcut-audio",
     "synthcut-bot",
+    "synthcut-color",
     "synthcut-core",
     "synthcut-media",
     "synthcut-model-router",
@@ -1623,6 +1625,23 @@ requires-dist = [
 ]
 
 [[package]]
+name = "synthcut-audio"
+version = "0.1.0"
+source = { editable = "packages/audio" }
+dependencies = [
+    { name = "numpy" },
+    { name = "synthcut-media" },
+    { name = "synthcut-schemas" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "numpy", specifier = ">=2.0" },
+    { name = "synthcut-media", editable = "packages/media-engine" },
+    { name = "synthcut-schemas", editable = "packages/schemas" },
+]
+
+[[package]]
 name = "synthcut-bot"
 version = "0.1.0"
 source = { editable = "apps/bot" }
@@ -1639,6 +1658,23 @@ requires-dist = [
     { name = "synthcut-core", editable = "packages/core" },
     { name = "synthcut-schemas", editable = "packages/schemas" },
     { name = "synthcut-telemetry", editable = "packages/telemetry" },
+]
+
+[[package]]
+name = "synthcut-color"
+version = "0.1.0"
+source = { editable = "packages/color" }
+dependencies = [
+    { name = "numpy" },
+    { name = "synthcut-media" },
+    { name = "synthcut-schemas" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "numpy", specifier = ">=2.0" },
+    { name = "synthcut-media", editable = "packages/media-engine" },
+    { name = "synthcut-schemas", editable = "packages/schemas" },
 ]
 
 [[package]]
@@ -1770,6 +1806,8 @@ source = { editable = "apps/worker" }
 dependencies = [
     { name = "httpx" },
     { name = "synthcut-analysis" },
+    { name = "synthcut-audio" },
+    { name = "synthcut-color" },
     { name = "synthcut-core" },
     { name = "synthcut-media" },
     { name = "synthcut-schemas" },
@@ -1783,6 +1821,8 @@ dependencies = [
 requires-dist = [
     { name = "httpx", specifier = ">=0.28" },
     { name = "synthcut-analysis", editable = "packages/analysis" },
+    { name = "synthcut-audio", editable = "packages/audio" },
+    { name = "synthcut-color", editable = "packages/color" },
     { name = "synthcut-core", editable = "packages/core" },
     { name = "synthcut-media", editable = "packages/media-engine" },
     { name = "synthcut-schemas", editable = "packages/schemas" },

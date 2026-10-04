@@ -1,0 +1,18 @@
+[project]
+name = "synthcut-color"
+version = "0.1.0"
+description = "Colour pipeline (spec §11, §17): input transforms, exposure/white balance, creative profiles, baked 3D LUTs"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "numpy>=2.0",
+  "synthcut-media",
+  "synthcut-schemas",
+]
+
+[build-system]
+requires = ["uv_build>=0.12,<0.13"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "synthcut_color"
+module-root = ""

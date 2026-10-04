@@ -27,6 +27,7 @@ flowchart TD
     A --> A3[Kadrlar — shot cards: stills, type, motion, scores, flags]
     A --> A4[Nutq — tappable transcript, SRT download, re-run with a language]
     A4 --> A6[Subtitrli video — 4 caption styles, 3 positions, player + MP4 download]
+    A --> A7[Rang va ovoz — 6 looks, intensity, loudness target, before/after slider, notes, MP4]
     A --> A5[Video · Rang · Audio · Kamera · Fayl metadata]
 ```
 
@@ -69,6 +70,7 @@ Webhook only (`/telegram/webhook/<hash of the secret>` plus the secret header); 
 | Speech | `GET /assets/{id}/transcript`, `POST /assets/{id}/transcribe` |
 | Analysis | `GET /assets/{id}/clips`, `GET /projects/{id}/clips`, `POST /assets/{id}/analyze` |
 | Motion | `POST /assets/{id}/caption-preview` (state in `GET /assets/{id}` → `caption_preview`) |
+| Colour & audio | `POST /assets/{id}/enhance-preview` (state in `GET /assets/{id}` → `enhance_preview`) |
 | Activity | `GET /projects/{id}/jobs`, `GET /projects/{id}/events`, `GET /projects/{id}/events/stream` (SSE) |
 
 Full contract: [openapi.json](openapi.json). Another user's object is always a 404.
@@ -81,6 +83,7 @@ Full contract: [openapi.json](openapi.json). Another user's object is always a 4
 | `analysis.asset` | cpu | normal | ingestion (video) | `clipanalysis/1` per shot, shot sheets |
 | `speech.transcribe` | cpu | low | ingestion (audio present) | `transcript/1`, VTT, SRT |
 | `render.caption_preview` | render | high | the user (asset page) | `overlay/1` → Remotion PNG frames → FFmpeg → `captions.mp4` |
+| `render.enhance_preview` | render | high | the user (asset page) | `grade/1` LUT + `mix/1` chain → `enhanced.mp4`, before/after stills |
 | `notify.telegram` | io | high | stage turns done | a Telegram message |
 | `maintenance.expire_uploads` | io | low | scheduler | expired upload sessions closed |
 | `maintenance.sweep_orphan_uploads` | io | low | scheduler | orphaned multipart uploads aborted |
@@ -101,6 +104,8 @@ projects/<project>/analysis/<asset>/mediainfo.json | shots.json | clips.json
 projects/<project>/analysis/<asset>/shot_NNN.jpg               one sheet per shot
 projects/<project>/analysis/<asset>/transcript.json | subtitles.vtt | subtitles.srt
 projects/<project>/previews/<asset>/captions.mp4               caption preview (Phase 7)
+projects/<project>/previews/<asset>/enhanced.mp4 | enhance_before.jpg | enhance_after.jpg   (Phase 8)
+projects/<project>/analysis/<asset>/enhance.json                grade/1 + mix/1 decisions
 ```
 
 Reserved areas for later phases: `timeline/`, `renders/`, `exports/`.
@@ -131,6 +136,7 @@ Reserved areas for later phases: `timeline/`, `renders/`, `exports/`.
 | `transcript/1` | `synthcut_schemas.speech` | `transcripts.data`, `transcript.json` |
 | `clipanalysis/1` | `synthcut_schemas.analysis` | `clip_analyses.data`, `clips.json` |
 | `overlay/1` | `synthcut_timeline.overlay` | render scratch (`overlay.json`) |
+| `grade/1`, `mix/1` | `synthcut_schemas.grade` | `enhance.json`, media file metadata |
 | `EditPlan v1` | `synthcut_timeline` | Phase 6 |
 
 ## 8. Documentation

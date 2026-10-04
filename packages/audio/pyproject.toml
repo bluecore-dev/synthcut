@@ -1,0 +1,18 @@
+[project]
+name = "synthcut-audio"
+version = "0.1.0"
+description = "Audio engine (spec §18): measurement, automatic mix plans, FFmpeg cleanup / loudness / ducking chains"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "numpy>=2.0",
+  "synthcut-media",
+  "synthcut-schemas",
+]
+
+[build-system]
+requires = ["uv_build>=0.12,<0.13"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "synthcut_audio"
+module-root = ""

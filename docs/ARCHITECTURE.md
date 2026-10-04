@@ -103,6 +103,8 @@ packages/model-router synthcut_model_router roles → provider:model, pricing, f
 packages/media-engine synthcut_media    ffprobe → MediaInfo, colour detection, ffmpeg plans, runner
 packages/speech     synthcut_speech   speech engines (SPEECH_ROUTE), silences, subtitle cues → transcript/1
 packages/analysis   synthcut_analysis shot measurements, YuNet faces, scores and flags → clipanalysis/1
+packages/color      synthcut_color    curves, gamuts, grade pipeline, LUT baking, auto grade, shot matching
+packages/audio      synthcut_audio    voice measurement, auto mix, FFmpeg cleanup / loudness / ducking
 apps/remotion       Remotion app   registry widgets, captions, overlay composition, render script
 agents              synthcut_agents   13 agent manifests + tool catalog
 infrastructure/     docker/ nginx/ garage/ deployment/ postgres/ redis/
@@ -152,6 +154,7 @@ the single source of truth from database to React.
 | GET | `/api/v1/projects/{id}/clips` | every analysed shot of the project (`min_usable`) |
 | POST | `/api/v1/assets/{id}/analyze` | analyse the shots again |
 | POST | `/api/v1/assets/{id}/caption-preview` | render the clip with animated captions (style, position) |
+| POST | `/api/v1/assets/{id}/enhance-preview` | automatic grade + voice cleanup and loudness on the clip |
 | GET | `/api/v1/projects/{id}/jobs` | job history |
 | GET | `/api/v1/projects/{id}/events` | activity log (paged) |
 | GET | `/api/v1/projects/{id}/events/stream` | SSE, resumable with `Last-Event-ID` |
@@ -359,6 +362,30 @@ one-clip plan from the proxy, validates it, renders the layer and composites
 it over the proxy into `previews/<asset>/captions.mp4`. The Motion and
 Captions *stages* stay locked until plans exist.
 
+## 8e. Colour and audio engines (Phase 8, ADR-0014)
+
+* **`grade/1`** (`synthcut_schemas.grade.ColorGrade`) — the spec's fields plus
+  `tint`, `intensity`, `notes`. **`synthcut_color`**: published curves (Apple
+  Log, S-Log3 / S-Gamut3.Cine, BT.1886), gamut matrices, the pipeline
+  input transform → linear exposure / white balance → filmic tone curve for
+  Log → display encode → contrast / saturation → creative profile
+  (`neutral`, `cinematic_clean`, `warm_film`, `cool_teal`, `vivid_social`,
+  `bw_classic`, all formulas) — baked into one 33³ `.cube` per clip and applied
+  by FFmpeg `lut3d`. `auto_grade` / `matched_grades` turn measurements (taken
+  after the input transform) into damped corrections with Uzbek notes.
+* **`mix/1`** (`MixPlan`) — voice chain (high-pass, noise reduction, EQ,
+  compressor, de-esser), loudness target, music cues with ducking, SFX cues.
+  **`synthcut_audio`**: voice measurement from the speech track + VAD,
+  `auto_mix`, FFmpeg filters, two-pass `loudnorm`, `sidechaincompress` ducking.
+* **Preview** — `POST /assets/{id}/enhance-preview` (profile, intensity,
+  loudness target, denoise) queues `render.enhance_preview`: measure → grade
+  → LUT, measure voice → mix → loudness pass 1, then one FFmpeg pass over the
+  proxy; stores `previews/<asset>/enhanced.mp4`, before / after stills of the
+  same frame and `analysis/<asset>/enhance.json` (the decisions).
+
+The Color / Audio *stages* and agent tools (`analyze_color`, `generate_grade`,
+`analyze_audio`, `generate_mix_plan`) attach to plans in Phase 6.
+
 ## 9. Queue design (ADR-0002)
 
 PostgreSQL `jobs` is the ledger; Redis only rings the bell.
@@ -459,7 +486,7 @@ activity log in `events`. `/api/v1/ready` checks database, Redis and storage.
 | 5 | Video Analysis agent | **5a done** (measured shot analysis); 5b vision description needs `ANTHROPIC_API_KEY` |
 | 6 | Master, Director, Editor, EditPlan persistence | needs `ANTHROPIC_API_KEY` |
 | 7 | Remotion compositions, widget registry, subtitles | **engine done** (15 components, captions, SFX, caption preview); stages run once Phase 6 makes plans |
-| 8 | Color + Audio agents, grading, mixing, ducking | |
+| 8 | Color + Audio agents, grading, mixing, ducking | **engines done** (grade/1, mix/1, LUT baking, voice chain, loudness, ducking, enhance preview); agents in Phase 6 |
 | 9 | QA, error classifier, reflection, retries | |
 | 10 | Memory, preferences, feedback | |
 | 11 | Full render from originals | GPU/CPU capacity decision |

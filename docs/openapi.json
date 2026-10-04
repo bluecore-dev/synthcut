@@ -615,6 +615,70 @@
         }
       }
     },
+    "/api/v1/assets/{asset_id}/enhance-preview": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Request Enhance Preview",
+        "description": "Automatic grade (measured exposure / white balance + a creative profile)\nand voice cleanup with loudness for the platform, rendered on the proxy.",
+        "operationId": "request_enhance_preview_api_v1_assets__asset_id__enhance_preview_post",
+        "parameters": [
+          {
+            "name": "asset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Asset Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnhancePreviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnhancePreviewOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/assets/{asset_id}/caption-preview": {
       "post": {
         "tags": [
@@ -2134,6 +2198,16 @@
                 "type": "null"
               }
             ]
+          },
+          "enhance_preview": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EnhancePreviewOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -3137,6 +3211,209 @@
           "ok"
         ],
         "title": "ComponentCheck"
+      },
+      "EnhancePreviewOut": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "done",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "profile": {
+            "type": "string",
+            "enum": [
+              "neutral",
+              "cinematic_clean",
+              "warm_film",
+              "cool_teal",
+              "vivid_social",
+              "bw_classic"
+            ],
+            "title": "Profile"
+          },
+          "intensity": {
+            "type": "number",
+            "title": "Intensity"
+          },
+          "target": {
+            "type": "string",
+            "enum": [
+              "social",
+              "youtube",
+              "podcast",
+              "broadcast"
+            ],
+            "title": "Target"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "video": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SignedUrl"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "download": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SignedUrl"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "before": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SignedUrl"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "after": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SignedUrl"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Notes"
+          },
+          "lufs_before": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lufs Before"
+          },
+          "lufs_after": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lufs After"
+          },
+          "grade": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grade"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "profile",
+          "intensity",
+          "target"
+        ],
+        "title": "EnhancePreviewOut",
+        "description": "Automatic colour grade + voice cleanup and loudness on one clip (Phase 8)."
+      },
+      "EnhancePreviewRequest": {
+        "properties": {
+          "profile": {
+            "type": "string",
+            "enum": [
+              "neutral",
+              "cinematic_clean",
+              "warm_film",
+              "cool_teal",
+              "vivid_social",
+              "bw_classic"
+            ],
+            "title": "Profile",
+            "default": "cinematic_clean"
+          },
+          "intensity": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Intensity",
+            "default": 0.8
+          },
+          "target": {
+            "type": "string",
+            "enum": [
+              "social",
+              "youtube",
+              "podcast",
+              "broadcast"
+            ],
+            "title": "Target",
+            "default": "social"
+          },
+          "denoise": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "off",
+              "light",
+              "medium",
+              "strong"
+            ],
+            "title": "Denoise",
+            "default": "auto"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "EnhancePreviewRequest"
       },
       "ErrorResponse": {
         "properties": {

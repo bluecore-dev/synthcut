@@ -33,6 +33,7 @@ The core rule: **AI decides, deterministic media engines execute.** Agents never
 | **Media engine** | ffprobe → versioned `mediainfo/1`; colour detection (Rec.709, Display P3, Rec.2020, HLG, PQ, Apple Log); one decode pass for a 720p proxy, scene cuts, 16 kHz speech track and EBU R128 loudness; HDR tone-mapping; filmstrip and posters |
 | **Speech** | Local Whisper (`large-v3-turbo`, int8 CPU) behind a provider route; word timings, segments, questions, silences; WebVTT / SRT subtitles; Uzbek detection fix and Uzbek-Latin normalisation |
 | **Motion graphics** | Remotion overlay layer: 15 registry widgets, 4 animated caption styles with safe zones, synthesised SFX; FFmpeg composites; captioned MP4 from any clip |
+| **Colour & audio** | Formula-based grading (Apple Log, S-Log3, exposure, white balance, 6 looks) baked into one LUT per clip; voice cleanup, EQ, compression, de-essing, two-pass loudness to platform targets, sidechain ducking; before/after preview |
 | **Shot analysis** | Per shot: shot type and people from YuNet faces, camera motion (static / pan / tilt / handheld), sharpness, exposure, speech share, retakes (perceptual hash), usability score and editor-language flags |
 | **Mini App** | Projects, live pipeline (SSE), uploads, asset pages with proxy player + subtitle track, tappable transcript, shot cards, Analysis and Transcript tabs |
 | **Operations** | Postgres-leased job queue with leases, heartbeats, retries and idempotency; release-per-commit deploys with automatic rollback; server-side test stack on real PostgreSQL / Redis / Garage |
@@ -73,7 +74,7 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and twelve [architecture d
 | 5 | Video intelligence — measured shot analysis (5a) · vision descriptions (5b) | 🟡 5a done |
 | 6 | Master, Director and Editor agents, EditPlan persistence | ⏳ next (needs model key) |
 | 7 | Remotion compositions, widget registry, animated captions, SFX | ✅ engine done |
-| 8 | Color and Audio agents: grading, Log → Rec.709, mixing, ducking | ⏳ planned |
+| 8 | Colour and audio engines: grading, Log → Rec.709, voice cleanup, loudness, ducking | ✅ engines done |
 | 9 | QA, error classifier, reflection, retries | ⏳ planned |
 | 10 | Memory, preferences, feedback | ⏳ planned |
 | 11 | Full render from originals | ⏳ planned |
@@ -85,7 +86,7 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and twelve [architecture d
 |---|---|
 | Backend | Python 3.12, FastAPI, SQLAlchemy 2.1 (psycopg 3), Alembic, Pydantic 2, uv workspace |
 | Workers | PostgreSQL-leased job queue, Redis 7 pub/sub |
-| Media | FFmpeg 7.1 / ffprobe, zscale tone-mapping, OpenCV (YuNet), NumPy |
+| Media | FFmpeg 7.1 / ffprobe, zscale tone-mapping, 3D LUTs, loudnorm / afftdn / sidechaincompress, OpenCV (YuNet), NumPy |
 | Speech | faster-whisper (CTranslate2), Silero VAD |
 | Storage | Garage v2 (S3-compatible), presigned multipart |
 | Frontend | React 19, Vite 7, Tailwind CSS 4, TanStack Query, openapi-fetch, Telegram WebApp SDK |
@@ -110,6 +111,8 @@ packages/
   media-engine/ ffprobe normalisation, colour detection, FFmpeg plans and runner
   speech/       speech engines, silences, subtitle cues
   analysis/     shot measurements, faces, scores
+  color/        colour pipeline: curves, grade, LUT baking, auto grade, shot matching
+  audio/        voice measurement, mix plans, cleanup / loudness / ducking chains
   model-router/ provider-neutral model routing and pricing
   agent-sdk/    agent specs, typed tools, permission gate, agent loop
   timeline/     EditPlan schema, validation, versioning
@@ -170,6 +173,6 @@ Proprietary — © 2026 Omonjon. All rights reserved. See [LICENSE](LICENSE).
 
 ### O'zbekcha qisqacha
 
-**SynthCut** — telefondan yuklangan katta hajmdagi videolarni avtomatik tahlil qiladigan (metadata, rang, kadrlar, yuzlar, nutq) va AI agentlar jamoasi yordamida professional montajga aylantiradigan tizim. Boshqaruv Telegram Mini App orqali, og'ir ishlar serverdagi fon ishchilarida bajariladi. Hozir 0–5a va 7 bosqichlar tayyor: rezyumli yuklash, media tahlili, nutqni matnga o'girish va subtitrlar, kadrlar tahlili, Remotion motion grafika va animatsion subtitrli video. Keyingi bosqich — Director va Editor agentlari.
+**SynthCut** — telefondan yuklangan katta hajmdagi videolarni avtomatik tahlil qiladigan (metadata, rang, kadrlar, yuzlar, nutq) va AI agentlar jamoasi yordamida professional montajga aylantiradigan tizim. Boshqaruv Telegram Mini App orqali, og'ir ishlar serverdagi fon ishchilarida bajariladi. Hozir 0–5a, 7 va 8 bosqichlar tayyor: rezyumli yuklash, media tahlili, nutqni matnga o'girish va subtitrlar, kadrlar tahlili, Remotion motion grafika va animatsion subtitrli video, avtomatik rang va ovozni yaxshilash. Keyingi bosqich — Director va Editor agentlari.
 
 **Dasturchi:** Omonjon — 4+ yillik tajribaga ega full-stack dasturchi · [+998 91 911 99 88](tel:+998919119988) · [socialmarketing.uz](https://socialmarketing.uz) · Telegram [@anvarov_911](https://t.me/anvarov_911)

@@ -208,6 +208,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/assets/{asset_id}/enhance-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request Enhance Preview
+         * @description Automatic grade (measured exposure / white balance + a creative profile)
+         *     and voice cleanup with loudness for the platform, rendered on the proxy.
+         */
+        post: operations["request_enhance_preview_api_v1_assets__asset_id__enhance_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/assets/{asset_id}/caption-preview": {
         parameters: {
             query?: never;
@@ -624,6 +645,7 @@ export interface components {
             transcript?: components["schemas"]["TranscriptSummary"] | null;
             analysis?: components["schemas"]["AnalysisSummary"] | null;
             caption_preview?: components["schemas"]["CaptionPreviewOut"] | null;
+            enhance_preview?: components["schemas"]["EnhancePreviewOut"] | null;
         };
         /**
          * AssetKind
@@ -937,6 +959,73 @@ export interface components {
             ok: boolean;
             /** Detail */
             detail?: string | null;
+        };
+        /**
+         * EnhancePreviewOut
+         * @description Automatic colour grade + voice cleanup and loudness on one clip (Phase 8).
+         */
+        EnhancePreviewOut: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "done" | "failed";
+            /**
+             * Profile
+             * @enum {string}
+             */
+            profile: "neutral" | "cinematic_clean" | "warm_film" | "cool_teal" | "vivid_social" | "bw_classic";
+            /** Intensity */
+            intensity: number;
+            /**
+             * Target
+             * @enum {string}
+             */
+            target: "social" | "youtube" | "podcast" | "broadcast";
+            /** Error */
+            error?: string | null;
+            /** Updated At */
+            updated_at?: string | null;
+            video?: components["schemas"]["SignedUrl"] | null;
+            download?: components["schemas"]["SignedUrl"] | null;
+            before?: components["schemas"]["SignedUrl"] | null;
+            after?: components["schemas"]["SignedUrl"] | null;
+            /** Notes */
+            notes?: string[];
+            /** Lufs Before */
+            lufs_before?: number | null;
+            /** Lufs After */
+            lufs_after?: number | null;
+            /** Grade */
+            grade?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /** EnhancePreviewRequest */
+        EnhancePreviewRequest: {
+            /**
+             * Profile
+             * @default cinematic_clean
+             * @enum {string}
+             */
+            profile: "neutral" | "cinematic_clean" | "warm_film" | "cool_teal" | "vivid_social" | "bw_classic";
+            /**
+             * Intensity
+             * @default 0.8
+             */
+            intensity: number;
+            /**
+             * Target
+             * @default social
+             * @enum {string}
+             */
+            target: "social" | "youtube" | "podcast" | "broadcast";
+            /**
+             * Denoise
+             * @default auto
+             * @enum {string}
+             */
+            denoise: "auto" | "off" | "light" | "medium" | "strong";
         };
         /** ErrorResponse */
         ErrorResponse: {
@@ -2247,6 +2336,50 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AssetDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    request_enhance_preview_api_v1_assets__asset_id__enhance_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                asset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnhancePreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnhancePreviewOut"];
                 };
             };
             /** @description Not Found */

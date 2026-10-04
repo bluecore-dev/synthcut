@@ -92,6 +92,22 @@ export const CAPTION_STYLE_LABEL: Record<"dynamic" | "karaoke" | "minimal" | "bo
 
 export const CAPTION_POSITION_LABEL: Record<"bottom" | "center" | "top", string> = { bottom: "Pastda", center: "Markazda", top: "Tepada" };
 
+export const ENHANCE_PROFILE_LABEL: Record<"neutral" | "cinematic_clean" | "warm_film" | "cool_teal" | "vivid_social" | "bw_classic", { title: string; hint: string }> = {
+  neutral: { title: "Tabiiy", hint: "Faqat ekspozitsiya va oq balans tuzatiladi" },
+  cinematic_clean: { title: "Kino", hint: "Moviy soyalar, iliq teri ranglari" },
+  warm_film: { title: "Iliq plyonka", hint: "Yumshoq, iliq, ko'tarilgan qora" },
+  cool_teal: { title: "Sovuq", hint: "Zamonaviy moviy tus, kontrastli" },
+  vivid_social: { title: "Yorqin", hint: "Telefon ekrani uchun to'yingan ranglar" },
+  bw_classic: { title: "Oq-qora", hint: "Klassik kontrastli oq-qora" },
+};
+
+export const LOUDNESS_TARGET_LABEL: Record<"social" | "youtube" | "podcast" | "broadcast", string> = {
+  social: "Ijtimoiy tarmoq · −14",
+  youtube: "YouTube · −14",
+  podcast: "Podkast · −16",
+  broadcast: "TV · −23",
+};
+
 export const SUBJECT_LABEL: Record<string, string> = { person: "1 kishi", people: "bir necha kishi", crowd: "olomon" };
 
 /** Whisper language codes we can name; anything else is shown as the code. */

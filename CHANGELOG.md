@@ -5,6 +5,13 @@ All notable changes, phase by phase. Releases are deployed as
 
 ## [Unreleased]
 
+## Phase 8 — colour and audio engines · 2026-10-04
+
+- `grade/1` and `mix/1` contracts (the spec's field names).
+- `synthcut_color`: Apple Log and S-Log3 curves and gamuts from their publications, BT.1886 display curve, exposure / white balance in linear light, filmic tone curve for Log, contrast and saturation, six formula-based looks; baked into one 3D LUT per clip; automatic grades with Uzbek notes; shot matching.
+- `synthcut_audio`: voice measurement (speech level, noise floor, SNR, clipping), automatic mix plans, voice chain (high-pass, noise reduction, EQ, compressor, de-esser), two-pass loudness to −14 / −16 / −23 LUFS, sidechain ducking — verified by measuring FFmpeg's output.
+- Enhance preview: automatic grade + voice cleanup on any clip, before/after slider, notes and MP4 download in the Mini App.
+
 ## Phase 7 — motion graphics engine · 2026-10-04
 
 - Remotion app (`apps/remotion`): one transparent `Overlay` composition, the 15 registry widgets, a shared enter / exit animation system, bundled Montserrat / Inter with Uzbek Latin and Cyrillic coverage, Studio previews per widget.

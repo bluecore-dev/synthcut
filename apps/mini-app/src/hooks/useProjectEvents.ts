@@ -25,6 +25,7 @@ export function useProjectEvents(projectId: string) {
   const [speech, setSpeech] = useState<Record<string, JobProgress>>({});
   const [analysis, setAnalysis] = useState<Record<string, JobProgress>>({});
   const [preview, setPreview] = useState<Record<string, JobProgress>>({});
+  const [enhance, setEnhance] = useState<Record<string, JobProgress>>({});
   const [stream, setStream] = useState<StreamState>("connecting");
   const pending = useRef<number | null>(null);
 
@@ -57,7 +58,9 @@ export function useProjectEvents(projectId: string) {
                   ? setAnalysis
                   : d.kind === "render.caption_preview"
                     ? setPreview
-                    : null;
+                    : d.kind === "render.enhance_preview"
+                      ? setEnhance
+                      : null;
           if (d.asset_id && set) set((prev) => ({ ...prev, [d.asset_id!]: { progress: d.progress ?? 0, step: ev.message } }));
         }
         if (ev.type === "upload.progress") {
@@ -98,5 +101,5 @@ export function useProjectEvents(projectId: string) {
     };
   }, [projectId, qc]);
 
-  return { events, remoteUploads, ingest, speech, analysis, preview, stream };
+  return { events, remoteUploads, ingest, speech, analysis, preview, enhance, stream };
 }
