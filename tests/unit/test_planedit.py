@@ -109,3 +109,16 @@ def test_invalid_edits_are_reported_not_saved():
     long = apply_edit(base, edit(main=[{"asset_id": str(TALK), "source_in": 25, "source_out": 40}]), version=2,
                       durations=DUR, agent="editor")  # fmt: skip
     assert long.video_tracks[0].clips[0].source_out == pytest.approx(30.0)  # capped at the asset's end
+
+
+def test_graphics_carry_keyframes_like_after_effects():
+    base = base_plan()
+    plan = check(apply_edit(base, edit(graphics=[{
+        "component": "TitleCard", "start": 0.5, "end": 3.0, "props": {"title": "Sinov"},
+        "keyframes": [{"t": 0, "property": "x", "value": -0.4, "easing": "ease_out"},
+                      {"t": 0.6, "property": "x", "value": 0.0},
+                      {"t": 9.0, "property": "opacity", "value": 0.0}],
+    }]), version=2, durations=DUR, agent="motion"))  # fmt: skip
+    keys = plan.graphics[0].keyframes
+    assert [k.property for k in keys] == ["x", "x", "opacity"] and keys[0].easing == "ease_out"
+    assert keys[-1].t == pytest.approx(2.5)  # clamped to the graphic's length

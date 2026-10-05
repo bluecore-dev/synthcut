@@ -147,6 +147,9 @@ class GraphicsItem(_TimedItem):
     component: str = Field(pattern=r"^[A-Z][A-Za-z0-9]{1,40}$")
     layer: int = Field(1, ge=1, le=16)
     props: dict[str, Any] = Field(default_factory=dict)
+    # After Effects-style animation of the whole component on top of its own
+    # enter / exit: x / y in frame widths / heights, scale, rotation (degrees), opacity.
+    keyframes: list[Keyframe] = Field(default_factory=list, max_length=200)
 
     @model_validator(mode="after")
     def _range(self) -> GraphicsItem:

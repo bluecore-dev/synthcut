@@ -82,3 +82,37 @@ def test_captions_render_to_a_transparent_layer(tmp_path):
         check=True, capture_output=True, text=True,
     ).stdout  # fmt: skip
     assert "codec_name=h264" in info and "width=360" in info and "height=640" in info
+
+
+def test_keyframes_move_a_graphic_across_the_frame(tmp_path):
+    """After Effects-style animation of a whole component: x from left to right."""
+    from synthcut_timeline import EditPlan
+
+    plan = EditPlan.model_validate(
+        {
+            "project_id": str(uuid.uuid4()), "version": 1,
+            "sequence": {"fps": 30, "width": 360, "height": 640, "duration": 1.0},
+            "video_tracks": [{"track": 1, "role": "main", "clips": [
+                {"id": "a", "asset_id": str(uuid.uuid4()), "source_in": 0, "source_out": 1, "timeline_start": 0, "timeline_end": 1}]}],
+            "graphics": [{
+                "id": "t", "component": "TitleCard", "timeline_start": 0, "timeline_end": 1.0,
+                "props": {"title": "Salom", "variant": "lower_third", "enter": "none", "exit": "none"},
+                "keyframes": [{"t": 0, "property": "x", "value": -0.3, "easing": "linear"},
+                              {"t": 0.9, "property": "x", "value": 0.3}],
+            }],
+        }
+    )  # fmt: skip
+    props = build_overlay(plan, {})
+    assert [k.frame for k in props.items[0].keyframes] == [0, 27]
+    layer = render_overlay(props, tmp_path, remotion_dir=REMOTION, concurrency=2)
+
+    def centre_x(frame: int) -> float:
+        alpha = alpha_plane(Path(layer.pattern % frame), 0, 360, 640)
+        cols = np.nonzero(alpha > 128)[1]
+        assert cols.size > 100, frame
+        return float(cols.mean())
+
+    # The card reveals itself first (its own entrance), then rides the keyframes:
+    # x = -0.3 + 0.6 * 15/27 at frame 15, 0.3 from frame 27 on.
+    mid, end = centre_x(15), centre_x(29)
+    assert end - mid == pytest.approx((0.3 - (-0.3 + 0.6 * 15 / 27)) * 360, rel=0.15)

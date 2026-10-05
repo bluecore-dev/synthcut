@@ -67,6 +67,13 @@ class CaptionsOverlay(_Out):
     lines: list[CaptionLine]
 
 
+class OverlayKey(_Out):
+    frame: int  # from the item's first frame
+    property: Literal["scale", "x", "y", "rotation", "opacity"]
+    value: float
+    easing: Literal["linear", "ease_in", "ease_out", "ease_in_out", "hold"]
+
+
 class OverlayItem(_Out):
     id: str
     component: str
@@ -74,6 +81,7 @@ class OverlayItem(_Out):
     duration_frames: int
     layer: int
     props: dict[str, Any]
+    keyframes: list[OverlayKey] = Field(default_factory=list)
 
 
 class OverlayProps(_Out):
@@ -194,6 +202,11 @@ def build_overlay(
                 duration_frames=max(1, round(g.timeline_end * fps) - start),
                 layer=g.layer,
                 props=props,
+                keyframes=[
+                    OverlayKey(frame=round(k.t * fps), property=k.property, value=k.value, easing=k.easing)
+                    for k in sorted(g.keyframes, key=lambda k: k.t)
+                    if k.property != "volume_db"
+                ],
             )
         )
     captions = None

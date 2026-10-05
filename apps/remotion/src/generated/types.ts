@@ -364,10 +364,21 @@ export interface OverlayItem {
   duration_frames: number;
   from_frame: number;
   id: string;
+  keyframes: OverlayKey[];
   layer: number;
   props: {
     [k: string]: unknown;
   };
+}
+/**
+ * This interface was referenced by `MotionSchema`'s JSON-Schema
+ * via the `definition` "OverlayKey".
+ */
+export interface OverlayKey {
+  easing: "linear" | "ease_in" | "ease_out" | "ease_in_out" | "hold";
+  frame: number;
+  property: "scale" | "x" | "y" | "rotation" | "opacity";
+  value: number;
 }
 /**
  * Insets (fractions of the frame) that platform UI covers: on 9:16 the

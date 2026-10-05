@@ -50,6 +50,6 @@ export function widgetOverlay(name: ComponentName, width = 1080, height = 1920, 
   return {
     ...sampleOverlay(width, height, fps),
     captions: null,
-    items: [{ id: "sample", component: name, from_frame: 0, duration_frames: 5 * fps, layer: 1, props: WIDGET_SAMPLES[name] as unknown as Record<string, unknown> }],
+    items: [{ id: "sample", component: name, from_frame: 0, duration_frames: 5 * fps, layer: 1, props: WIDGET_SAMPLES[name] as unknown as Record<string, unknown>, keyframes: [] }],
   };
 }

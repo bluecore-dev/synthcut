@@ -95,12 +95,24 @@ class OverlayIn(_In):
     why: str | None = Field(None, max_length=200)
 
 
+class GraphicKeyIn(_In):
+    t: float = Field(ge=0, description="Seconds from the graphic's own start")
+    property: Literal["scale", "x", "y", "rotation", "opacity"]
+    value: float
+    easing: Easing = "ease_in_out"
+
+
 class GraphicIn(_In):
     component: str = Field(pattern=r"^[A-Z][A-Za-z0-9]{1,40}$")
     start: float = Field(ge=0)
     end: float = Field(gt=0)
     layer: int = Field(1, ge=1, le=8)
     props: dict = Field(default_factory=dict)
+    keyframes: list[GraphicKeyIn] = Field(
+        default_factory=list,
+        max_length=40,
+        description="Animate the whole component: x/y in frame widths/heights",
+    )
 
 
 class CaptionsIn(_In):
@@ -269,18 +281,25 @@ def apply_edit(
         tracks.append(VideoTrack(track=2, role="broll", clips=tops))
 
     if edit.graphics is not None:
-        graphics = [
-            GraphicsItem(
-                id=f"g{n + 1:02d}",
-                component=g.component,
-                timeline_start=_snap(g.start, fps),
-                timeline_end=_snap(min(g.end, duration), fps),
-                layer=g.layer,
-                props=g.props,
+        graphics = []
+        for n, g in enumerate(edit.graphics):
+            if g.start >= duration:
+                continue
+            start, end = _snap(g.start, fps), _snap(min(g.end, duration), fps)
+            graphics.append(
+                GraphicsItem(
+                    id=f"g{n + 1:02d}",
+                    component=g.component,
+                    timeline_start=start,
+                    timeline_end=end,
+                    layer=g.layer,
+                    props=g.props,
+                    keyframes=[
+                        Keyframe(t=min(k.t, end - start), property=k.property, value=k.value, easing=k.easing)
+                        for k in g.keyframes
+                    ],
+                )
             )
-            for n, g in enumerate(edit.graphics)
-            if g.start < duration
-        ]
     else:
         graphics = [g for g in base.graphics if g.timeline_start < duration]
         graphics = [g.model_copy(update={"timeline_end": min(g.timeline_end, duration)}) for g in graphics]

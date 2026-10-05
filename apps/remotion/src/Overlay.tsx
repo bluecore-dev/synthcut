@@ -2,6 +2,7 @@ import { AbsoluteFill, Sequence } from "remotion";
 import { Captions } from "./captions/Captions";
 import type { OverlayProps } from "./generated/types";
 import { loadFonts } from "./lib/fonts";
+import { Keyframed } from "./lib/keyframes";
 import { ThemeProvider } from "./lib/theme";
 import { WIDGETS, type ComponentName } from "./widgets";
 
@@ -19,7 +20,9 @@ export function Overlay(props: OverlayProps) {
           if (!Widget) throw new Error(`${item.component} is not in the motion registry`); // validated upstream
           return (
             <Sequence key={item.id} from={item.from_frame} durationInFrames={item.duration_frames} name={`${item.component} ${item.id}`}>
-              <Widget props={item.props as never} durationInFrames={item.duration_frames} />
+              <Keyframed keys={item.keyframes ?? []}>
+                <Widget props={item.props as never} durationInFrames={item.duration_frames} />
+              </Keyframed>
             </Sequence>
           );
         })}

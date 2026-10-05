@@ -10,6 +10,7 @@ All notable changes, phase by phase. Releases are deployed as
 - Piece renderer (ADR-0018): transitions (crossfade, dip to black / white, whip, zoom), speed changes with pitch kept, keyframed zoom / pan, B-roll cutaways and picture-in-picture with fades, J / L cuts on a voice track, ambience and SFX tracks, volume keyframes — every primitive measured on pixels and samples; a Premiere-style plan renders and passes QA.
 - Claude provider on the official SDK: streaming, adaptive thinking, prompt caching, thinking blocks preserved across tool calls, failover rules.
 - 19 live agent tools; declarative plan edits laid out on the frame grid, inheriting framing and grade, saved only when valid.
+- After Effects-style keyframes on any motion graphic (x / y, scale, rotation, opacity, easing), drawn by Remotion and available to the Motion agent.
 - AI montaj (ADR-0019): Director → Editor → Motion → QA (+ fix round) on top of the rules draft, one budget, every run recorded (`agent_runs`, migration 0007); AI Decisions tab; timeline view shows B-roll, transitions, speed and animation.
 
 ## Tez montaj from the chat, music bed · 2026-10-04

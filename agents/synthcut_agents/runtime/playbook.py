@@ -41,6 +41,9 @@ Sound and text
 - The voice is always on top; music sits under it (the mix ducks it).
 - Captions short (2-4 words per line), in the spoken language; titles and calls to action from the
   registry only, readable on a phone, never covering the speaker's face.
+- Graphics can be animated as a whole with keyframes (x / y in frame widths / heights, scale,
+  rotation in degrees, opacity) on top of their own entrance: a lower third sliding in, a number
+  growing, a callout drifting. Keep motion purposeful and short (0.3-0.8 s), ease_in_out or ease_out.
 
 Duration
 - Respect the target duration of the project if one is set; prefer cutting whole weak sections to

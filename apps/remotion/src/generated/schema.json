@@ -965,6 +965,12 @@
         "id": {
           "type": "string"
         },
+        "keyframes": {
+          "items": {
+            "$ref": "#/$defs/OverlayKey"
+          },
+          "type": "array"
+        },
         "layer": {
           "type": "integer"
         },
@@ -979,9 +985,49 @@
         "from_frame",
         "duration_frames",
         "layer",
-        "props"
+        "props",
+        "keyframes"
       ],
       "title": "OverlayItem",
+      "type": "object"
+    },
+    "OverlayKey": {
+      "additionalProperties": false,
+      "properties": {
+        "easing": {
+          "enum": [
+            "linear",
+            "ease_in",
+            "ease_out",
+            "ease_in_out",
+            "hold"
+          ],
+          "type": "string"
+        },
+        "frame": {
+          "type": "integer"
+        },
+        "property": {
+          "enum": [
+            "scale",
+            "x",
+            "y",
+            "rotation",
+            "opacity"
+          ],
+          "type": "string"
+        },
+        "value": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "frame",
+        "property",
+        "value",
+        "easing"
+      ],
+      "title": "OverlayKey",
       "type": "object"
     },
     "OverlayProps": {

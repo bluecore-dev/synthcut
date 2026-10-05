@@ -273,6 +273,10 @@ def validate_plan(
         claim_id(item.id, path)
         if item.timeline_end > seq.duration + tol:
             c.error("E_OUT_OF_SEQUENCE", path, f"ends at {item.timeline_end}s, sequence is {seq.duration}s")
+        _check_keyframes(c, path, item.keyframes, item.timeline_duration, tol)
+        for k, kf in enumerate(item.keyframes):
+            if kf.property == "volume_db":
+                c.error("E_KEYFRAME_PROPERTY", f"{path}.keyframes[{k}]", "graphics have no sound to change")
         spec = registry.get(item.component)
         if spec is None:
             c.error("E_UNKNOWN_COMPONENT", path, f"{item.component} is not in the motion registry")
