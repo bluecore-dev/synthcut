@@ -59,7 +59,17 @@ class ToolResultBlock(BaseModel):
     is_error: bool = False
 
 
-ContentBlock = TextBlock | ImageBlock | ToolUseBlock | ToolResultBlock
+class ProviderBlock(BaseModel):
+    """A block only its provider understands, carried back verbatim — e.g.
+    Claude's thinking blocks, which must accompany the tool calls they led to
+    on the next request. Other providers ignore it."""
+
+    type: Literal["provider"] = "provider"
+    provider: str
+    data: dict[str, Any]
+
+
+ContentBlock = TextBlock | ImageBlock | ToolUseBlock | ToolResultBlock | ProviderBlock
 
 
 class Message(BaseModel):

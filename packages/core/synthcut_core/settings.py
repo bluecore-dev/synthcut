@@ -77,6 +77,12 @@ class Settings(BaseSettings):
     sfx_dir: str = "/opt/sfx"
     notify_telegram: bool = True
     telegram_api_base: str = "https://api.telegram.org"
+    # AI agents (Phase 6): empty key = AI montaj unavailable, everything else works.
+    anthropic_api_key: SecretStr = SecretStr("")
+    model_routes: str = (
+        ""  # JSON {role: ["provider:model", ...]}; empty = synthcut_model_router.DEFAULT_ROUTES
+    )
+    agent_budget_usd: float = Field(default=3.0, ge=0.1, le=50)  # one AI montaj, all agents together
     worker_queues: str = "io"
     worker_concurrency: int = Field(default=1, ge=1, le=16)
     worker_lease_seconds: int = 60

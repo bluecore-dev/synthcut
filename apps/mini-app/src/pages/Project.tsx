@@ -3,6 +3,7 @@ import { Bot, CircleDollarSign, Lock, Radio } from "lucide-react";
 import { useSearchParams, useParams } from "react-router";
 import { api, unwrap, type ProjectOut } from "../api/client";
 import { ActivityLog } from "../components/ActivityLog";
+import { AgentRuns, AiEdit } from "../components/AiEdit";
 import { AssetList } from "../components/AssetList";
 import { AutoEdit } from "../components/AutoEdit";
 import { ProjectClips } from "../components/ProjectClips";
@@ -43,6 +44,7 @@ function Overview({
   return (
     <div className="space-y-5">
       <AutoEdit project={project} edit={edit} render={render} />
+      <AiEdit project={project} />
       <Card className="p-4">
         <div className="flex items-end justify-between">
           <div>
@@ -253,6 +255,7 @@ export function Project() {
         {current && !isLocked(current) && tab === "versions" && (
           <Versions projectId={id} onOpen={(v) => setParams({ tab: "timeline", v: String(v) }, { replace: true })} />
         )}
+        {current && !isLocked(current) && tab === "decisions" && <AgentRuns projectId={id} />}
         {current && !isLocked(current) && tab === "preview" && <Preview projectId={id} filename={p.name} live={render} />}
         {current && !isLocked(current) && tab === "renders" && <RenderHistory projectId={id} filename={p.name} live={render} />}
         {current && isLocked(current) && LOCKED_COPY[tab] && (

@@ -184,10 +184,10 @@ STAGE_LABELS: dict[Stage, str] = {
     Stage.DELIVERY: "Delivery",
 }
 
-# Stages that are built and deployed. The others are shown as "not yet
-# available" instead of pretending. The Director (an AI agent) waits for a model
-# key; everything after it runs on rules and measurements (ADR-0015).
-BUILT_STAGES: frozenset[Stage] = frozenset(Stage) - {Stage.DIRECTOR}
+# Stages that are built and deployed; the others would be shown as "not yet
+# available" instead of pretending. The Director runs when an AI key is
+# configured (ADR-0018); without one, Tez montaj marks it skipped.
+BUILT_STAGES: frozenset[Stage] = frozenset(Stage)
 
 # Development phase (spec §51) in which each stage becomes operational.
 STAGE_PHASE: dict[Stage, int] = {

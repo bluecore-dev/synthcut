@@ -77,7 +77,7 @@ async def test_create_project_initializes_pipeline(client, auth, Session):
     assert project["preset"] == "reels_9x16" and project["fps"] == 30 and project["mode"] == "auto"
     assert [s["stage"] for s in project["stages"]] == [s.value for s in STAGE_ORDER]
     assert project["stages"][0]["available"] is True  # upload (phase 2)
-    assert next(s for s in project["stages"] if s["stage"] == "director")["available"] is False
+    assert next(s for s in project["stages"] if s["stage"] == "director")["available"] is True
     assert project["progress"] == 0 and project["active_stage"] is None
     with Session() as s:
         assert (

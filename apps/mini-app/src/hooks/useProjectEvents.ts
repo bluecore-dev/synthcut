@@ -47,6 +47,7 @@ export function useProjectEvents(projectId: string) {
         void qc.invalidateQueries({ queryKey: ["edit", projectId] });
         void qc.invalidateQueries({ queryKey: ["plans", projectId] });
         void qc.invalidateQueries({ queryKey: ["renders", projectId] });
+        void qc.invalidateQueries({ queryKey: ["agent-runs", projectId] });
       }, 500);
     };
 
@@ -54,7 +55,7 @@ export function useProjectEvents(projectId: string) {
       if (ev.id == null) {
         if (ev.type === "job.progress") {
           const d = ev.data as { asset_id?: string; render_id?: string; progress?: number; kind?: string };
-          if (d.kind === "edit.auto") setEdit({ progress: d.progress ?? 0, step: ev.message });
+          if (d.kind === "edit.auto" || d.kind === "agent.edit") setEdit({ progress: d.progress ?? 0, step: ev.message });
           if (d.kind === "render.final" && d.render_id) {
             setRender((prev) => ({ ...prev, [d.render_id!]: { progress: d.progress ?? 0, step: ev.message } }));
           }

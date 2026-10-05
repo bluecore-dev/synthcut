@@ -70,6 +70,12 @@ class JobContext:
         with self._session_factory() as s:
             yield s
 
+    @property
+    def sessions(self) -> sessionmaker[Session]:
+        """The session factory itself, for code that opens its own sessions
+        (the agents' tools)."""
+        return self._session_factory
+
     def check(self) -> None:
         """Call between steps of long work."""
         if self.lost.is_set():

@@ -47,6 +47,7 @@ class EventType(StrEnum):
     DELIVERY_SENT = "delivery.sent"
     DELIVERY_FAILED = "delivery.failed"
     FEEDBACK_RECORDED = "feedback.recorded"
+    AGENT_FINISHED = "agent.finished"
 
     STAGE_UPDATED = "stage.updated"
 

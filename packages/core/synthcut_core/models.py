@@ -409,6 +409,40 @@ class Feedback(TimestampMixin, Base):
     )
 
 
+class AgentRun(TimestampMixin, Base):
+    """One agent's turn in an AI montaj (spec §33, AI Decisions): what it did,
+    what it cost, which plan versions it wrote and what it told the owner."""
+
+    __tablename__ = "agent_runs"
+    __table_args__ = (Index("ix_agent_runs_project_created", "project_id", "created_at"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=new_id)
+    project_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    job_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("jobs.id", ondelete="SET NULL"))
+    agent: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(
+        Text
+    )  # completed | max_steps | budget_exceeded | refused | truncated | failed
+    steps: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    model: Mapped[str | None] = mapped_column(Text)
+    input_tokens: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    output_tokens: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    cache_read_tokens: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    cache_write_tokens: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    cost_usd: Mapped[float] = mapped_column(Float, default=0.0, server_default=text("0"))
+    summary: Mapped[str | None] = mapped_column(Text)
+    tool_calls: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, default=list, server_default=text("'[]'::jsonb")
+    )
+    versions: Mapped[list[int]] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
+    findings: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, default=list, server_default=text("'[]'::jsonb")
+    )
+    error: Mapped[str | None] = mapped_column(Text)
+    started_at: Mapped[datetime | None]
+    finished_at: Mapped[datetime | None]
+
+
 class UploadSession(TimestampMixin, Base):
     """A resumable S3 multipart upload of one asset (spec §6). Parts are not
     mirrored here: storage's ListParts is the source of truth for progress."""

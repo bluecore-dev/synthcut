@@ -573,6 +573,61 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/ai/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ai Status */
+        get: operations["ai_status_api_v1_ai_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/ai-edit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ai Edit
+         * @description The agents edit on top of the rules draft: the latest plan if there is
+         *     one (or a fresh draft first), then render and delivery as usual.
+         */
+        post: operations["ai_edit_api_v1_projects__project_id__ai_edit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{project_id}/agent-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Agent Runs */
+        get: operations["agent_runs_api_v1_projects__project_id__agent_runs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/uploads": {
         parameters: {
             query?: never;
@@ -715,6 +770,105 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AgentRunList */
+        AgentRunList: {
+            /** Items */
+            items: components["schemas"]["AgentRunOut"][];
+            /** Total Cost Usd */
+            total_cost_usd: number;
+        };
+        /** AgentRunOut */
+        AgentRunOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Agent */
+            agent: string;
+            /** Status */
+            status: string;
+            /** Steps */
+            steps: number;
+            /** Model */
+            model: string | null;
+            /** Input Tokens */
+            input_tokens: number;
+            /** Output Tokens */
+            output_tokens: number;
+            /** Cache Read Tokens */
+            cache_read_tokens: number;
+            /** Cost Usd */
+            cost_usd: number;
+            /** Summary */
+            summary: string | null;
+            /** Tool Calls */
+            tool_calls: components["schemas"]["AgentToolCall"][];
+            /** Versions */
+            versions: number[];
+            /** Findings */
+            findings: {
+                [key: string]: unknown;
+            }[];
+            /** Error */
+            error: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Finished At */
+            finished_at: string | null;
+        };
+        /** AgentToolCall */
+        AgentToolCall: {
+            /** Tool */
+            tool: string;
+            /** Ok */
+            ok: boolean;
+            /** Error */
+            error?: string | null;
+            /**
+             * Ms
+             * @default 0
+             */
+            ms: number;
+            /**
+             * Input
+             * @default
+             */
+            input: string;
+        };
+        /** AiEditRequest */
+        AiEditRequest: {
+            /**
+             * Prompt
+             * @description What the owner wants, in their words
+             * @default
+             */
+            prompt: string;
+            /**
+             * Deliver
+             * @default true
+             */
+            deliver: boolean;
+            /**
+             * Redraft
+             * @default false
+             */
+            redraft: boolean;
+        };
+        /** AiStatusOut */
+        AiStatusOut: {
+            /** Enabled */
+            enabled: boolean;
+            /** Models */
+            models: {
+                [key: string]: string[];
+            };
+            /** Budget Usd */
+            budget_usd: number;
+        };
         /**
          * AnalysisStatus
          * @enum {string}
@@ -1306,6 +1460,11 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /**
+             * Kind
+             * @default edit.auto
+             */
+            kind: string;
             status: components["schemas"]["JobStatus"];
             /** Progress */
             progress?: number | null;
@@ -1755,6 +1914,22 @@ export interface components {
             fill: "cover" | "blur";
             /** Exposure */
             exposure?: number | null;
+            /**
+             * Speed
+             * @default 1
+             */
+            speed: number;
+            /** Transition */
+            transition?: string | null;
+            /**
+             * Animated
+             * @default false
+             */
+            animated: boolean;
+            /** Kind */
+            kind?: string | null;
+            /** Why */
+            why?: string | null;
         };
         /** PlanGraphicOut */
         PlanGraphicOut: {
@@ -1815,6 +1990,8 @@ export interface components {
             loudness_lufs: number | null;
             /** Clips */
             clips: components["schemas"]["PlanClipOut"][];
+            /** Overlays */
+            overlays?: components["schemas"]["PlanClipOut"][];
             /** Graphics */
             graphics: components["schemas"]["PlanGraphicOut"][];
         };
@@ -3827,6 +4004,119 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FeedbackList"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ai_status_api_v1_ai_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiStatusOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    ai_edit_api_v1_projects__project_id__ai_edit_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiEditRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EditStateOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    agent_runs_api_v1_projects__project_id__agent_runs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentRunList"];
                 };
             };
             /** @description Not Found */

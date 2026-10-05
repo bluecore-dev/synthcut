@@ -105,6 +105,7 @@ async def _renders(
 def _edit_job_out(job: Job) -> EditJobOut:
     return EditJobOut(
         id=job.id,
+        kind=job.kind,
         status=job.status,
         progress=job.progress,
         step=job.progress_message,
@@ -117,7 +118,7 @@ async def edit_state(db: AsyncSession, storage: Storage, ttl: int, project: Proj
     job = (
         await db.execute(
             select(Job)
-            .where(Job.project_id == project.id, Job.kind == JobKind.EDIT_AUTO)
+            .where(Job.project_id == project.id, Job.kind.in_([JobKind.EDIT_AUTO, JobKind.AGENT_EDIT]))
             .order_by(Job.created_at.desc())
             .limit(1)
         )
@@ -180,28 +181,41 @@ async def list_plans(project_id: uuid.UUID, user: CurrentUser, db: DbSession) ->
     return PlanList(items=[PlanSummary.model_validate(r) for r in rows.scalars()])
 
 
+def _clip_out(c: dict, names: dict[str, str]) -> PlanClipOut:
+    effects = {e["type"]: e.get("params", {}) for e in c.get("effects", [])}
+    transform = c.get("transform") or {}
+    trans = c.get("transition_in") or {}
+    meta = c.get("metadata") or {}
+    return PlanClipOut(
+        id=c["id"],
+        asset_id=c["asset_id"],
+        asset_name=names.get(str(c["asset_id"])),
+        source_in=c["source_in"],
+        source_out=c["source_out"],
+        timeline_start=c["timeline_start"],
+        timeline_end=c["timeline_end"],
+        reframed=bool(transform.get("x") or transform.get("y")),
+        fill="blur" if effects.get("background", {}).get("fill") == "blur" else "cover",
+        exposure=effects["grade"].get("exposure") if "grade" in effects else None,
+        speed=c.get("speed", 1.0),
+        transition=trans.get("type") if trans and trans.get("type") != "cut" else None,
+        animated=bool(c.get("keyframes")),
+        kind=meta.get("kind"),
+        why=meta.get("why"),
+    )
+
+
 def plan_out(row: EditPlanRow, names: dict[str, str]) -> PlanOut:
     plan = row.plan
     seq = plan["sequence"]
     main = next((t for t in plan["video_tracks"] if t.get("role") == "main"), plan["video_tracks"][0])
-    clips = []
-    for c in sorted(main["clips"], key=lambda c: c["timeline_start"]):
-        effects = {e["type"]: e.get("params", {}) for e in c.get("effects", [])}
-        transform = c.get("transform") or {}
-        clips.append(
-            PlanClipOut(
-                id=c["id"],
-                asset_id=c["asset_id"],
-                asset_name=names.get(str(c["asset_id"])),
-                source_in=c["source_in"],
-                source_out=c["source_out"],
-                timeline_start=c["timeline_start"],
-                timeline_end=c["timeline_end"],
-                reframed=bool(transform.get("x") or transform.get("y")),
-                fill="blur" if effects.get("background", {}).get("fill") == "blur" else "cover",
-                exposure=effects["grade"].get("exposure") if "grade" in effects else None,
-            )
-        )
+    clips = [_clip_out(c, names) for c in sorted(main["clips"], key=lambda c: c["timeline_start"])]
+    overlays = [
+        _clip_out(c, names)
+        for t in plan["video_tracks"]
+        if t is not main
+        for c in sorted(t["clips"], key=lambda c: c["timeline_start"])
+    ]
     graphics = [
         PlanGraphicOut(
             id=g["id"],
@@ -222,6 +236,7 @@ def plan_out(row: EditPlanRow, names: dict[str, str]) -> PlanOut:
         captions=captions["style"] if captions and captions.get("enabled", True) else None,
         loudness_lufs=(mix.get("loudness") or {}).get("target_lufs"),
         clips=clips,
+        overlays=overlays,
         graphics=graphics,
     )
 

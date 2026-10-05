@@ -24,6 +24,7 @@ class JobKind:
     EDIT_AUTO = "edit.auto"
     RENDER_FINAL = "render.final"
     DELIVER_TELEGRAM = "deliver.telegram"
+    AGENT_EDIT = "agent.edit"
     EXPIRE_UPLOADS = "maintenance.expire_uploads"
     SWEEP_ORPHAN_UPLOADS = "maintenance.sweep_orphan_uploads"
     PRUNE_JOBS = "maintenance.prune_jobs"
@@ -39,6 +40,7 @@ JOB_LABELS: dict[str, str] = {
     JobKind.EDIT_AUTO: "Tez montaj",
     JobKind.RENDER_FINAL: "Yakuniy render",
     JobKind.DELIVER_TELEGRAM: "Telegramga yuborish",
+    JobKind.AGENT_EDIT: "AI montaj",
     JobKind.EXPIRE_UPLOADS: "Eskirgan yuklashlarni tozalash",
     JobKind.SWEEP_ORPHAN_UPLOADS: "Yetim multipart yuklashlarni tozalash",
     JobKind.PRUNE_JOBS: "Eski tizim job'larini tozalash",
@@ -105,7 +107,16 @@ class AutoEditOptions(EditDefaults):
 
 
 class AutoEditPayload(AutoEditOptions):
-    pass
+    # Set when the rules plan is only the draft of an AI montaj: the agents
+    # take over after it instead of the render.
+    ai_prompt: str | None = Field(None, max_length=2000)
+
+
+class AgentEditPayload(_Payload):
+    base_version: int = Field(ge=1)
+    prompt: str = Field("", max_length=2000)
+    render: bool = True
+    deliver: bool = True
 
 
 class RenderFinalPayload(_Payload):
@@ -145,6 +156,7 @@ PAYLOAD_MODELS: dict[str, type[_Payload]] = {
     JobKind.EDIT_AUTO: AutoEditPayload,
     JobKind.RENDER_FINAL: RenderFinalPayload,
     JobKind.DELIVER_TELEGRAM: DeliverTelegramPayload,
+    JobKind.AGENT_EDIT: AgentEditPayload,
     JobKind.EXPIRE_UPLOADS: ExpireUploadsPayload,
     JobKind.SWEEP_ORPHAN_UPLOADS: SweepOrphanUploadsPayload,
     JobKind.PRUNE_JOBS: PruneJobsPayload,

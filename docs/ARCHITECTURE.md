@@ -438,6 +438,28 @@ The Color / Audio *stages* and agent tools (`analyze_color`, `generate_grade`,
   mixes it per clip, ducks it with `sidechaincompress` keyed by the voice
   chain, and normalises loudness over the whole mix.
 
+## 8i. Piece renderer (ADR-0018)
+
+`synthcut_timeline.pieces` cuts a plan where layers change; `synthcut_media.compose`
+renders each piece: transitions (`xfade` / `acrossfade`), speed (`setpts` /
+`atempo`), keyframed zoom / pan (`perspective`), overlays (cutaway, PiP,
+keyframed position, fades), black gaps; the sound bus mixes voice-track clips
+into the voice chain (J / L cuts), ducks music / ambience, adds SFX.
+
+## 8j. AI team (Phase 6, ADR-0019)
+
+* **Provider** — official Anthropic SDK, streamed, adaptive thinking, cached
+  prefix, thinking blocks returned verbatim; failover classification.
+* **Tools** — 19 implemented (`synthcut_agents.runtime.tools`); plan writes
+  are declarative (`PlanEdit` → `apply_edit`: story order laid out on the
+  frame grid, framing / grade inherited, music bed rebuilt) and saved only
+  when valid.
+* **Orchestration** — `run_ai_edit`: Director → Editor → Motion → QA (+ one
+  fix round), one budget, every run in `agent_runs`.
+* **API** — `GET /ai/status`, `POST /projects/{id}/ai-edit`,
+  `GET /projects/{id}/agent-runs`; job `agent.edit` (llm queue). Mini App: AI
+  montaj card, AI Decisions tab.
+
 ## 9. Queue design (ADR-0002)
 
 PostgreSQL `jobs` is the ledger; Redis only rings the bell.
@@ -536,12 +558,12 @@ activity log in `events`. `/api/v1/ready` checks database, Redis and storage.
 | 3 | FFprobe, proxies, thumbnails, audio extraction, shot detection, color metadata | **done** |
 | 4 | Whisper, word timestamps, silence, subtitles | **done** (local CPU Whisper; a hosted engine is one provider away) |
 | 5 | Video Analysis agent | **5a done** (measured shot analysis); 5b vision description needs `ANTHROPIC_API_KEY` |
-| 6 | Master, Director, Editor, EditPlan persistence | **persistence + rule-based editor done** ("Tez montaj", ADR-0015); Director / Editor agents need `ANTHROPIC_API_KEY` |
+| 6 | Master, Director, Editor, EditPlan persistence | **done** — rules draft + AI team (Director, Editor, Motion, QA) with live tools and recorded runs (ADR-0019); runs when `ANTHROPIC_API_KEY` is set |
 | 7 | Remotion compositions, widget registry, subtitles | **engine done** (15 components, captions, SFX, caption preview); stages run once Phase 6 makes plans |
 | 8 | Color + Audio agents, grading, mixing, ducking | **engines done** (grade/1, mix/1, LUT baking, voice chain, loudness, ducking, enhance preview); agents in Phase 6 |
 | 9 | QA, error classifier, reflection, retries | **QA on the file done** (`qa/1`); reflection loop with the agents |
 | 10 | Memory, preferences, feedback | **rules done** (remembered choices, 10 explained corrections, remake; ADR-0016); the agent reads comments with a model key |
-| 11 | Full render from originals | **done on CPU** (segments + master, ADR-0015); B-roll layers, music, speed, transitions refused until built |
+| 11 | Full render from originals | **done on CPU** — pieces with transitions, speed, keyframes, overlays, multi-track sound (ADR-0015, ADR-0018) |
 | 12 | Telegram delivery | **done** (`sendVideo`, chat-sized copy over 50 MB) |
 
 ## 16. Operations

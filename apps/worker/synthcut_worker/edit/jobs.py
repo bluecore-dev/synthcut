@@ -20,6 +20,7 @@ from synthcut_audio.measure import measure_voice
 from synthcut_audio.plan import auto_mix
 from synthcut_color.auto import input_transform_for, matched_grades, measure, sample_rgb
 from synthcut_core.events import commit_and_publish_sync, emit
+from synthcut_core.jobs import enqueue
 from synthcut_core.models import (
     Asset,
     AssetTranscript,
@@ -36,6 +37,7 @@ from synthcut_schemas.enums import (
     PRESET_SPECS,
     AssetStatus,
     EventLevel,
+    JobPriority,
     JobQueue,
     PlanSource,
     ProjectPreset,
@@ -167,7 +169,9 @@ def _gather(ctx: JobContext, payload: AutoEditPayload) -> Brief:
             project.id,
             Stage.DIRECTOR,
             StageStatus.SKIPPED,
-            "Tez montaj — qoidalar asosida, AI rejissor ulanmagan",
+            "AI jamoa qoralamadan keyin ishlaydi"
+            if payload.ai_prompt is not None
+            else "Tez montaj — qoidalar asosida",
         )
         _stage(s, project.id, Stage.EDITOR, StageStatus.RUNNING, "Material o'lchanmoqda", 0.0)
         commit_and_publish_sync(s, ctx.redis)
@@ -383,7 +387,29 @@ def _save(
             job_id=ctx.job.id,
         )
         render_id = None
-        if payload.render:
+        if payload.ai_prompt is not None:  # the rules plan is the agents' draft
+            enqueue(
+                s,
+                kind=JobKind.AGENT_EDIT,
+                queue=JobQueue.LLM,
+                payload={
+                    "base_version": plan.version,
+                    "prompt": payload.ai_prompt,
+                    "deliver": payload.deliver,
+                },
+                project_id=brief.project_id,
+                priority=JobPriority.HIGH,
+                idempotency_key=f"{JobKind.AGENT_EDIT}:{brief.project_id}:v{plan.version}",
+                max_attempts=1,
+            )
+            set_stage(
+                s,
+                brief.project_id,
+                Stage.DIRECTOR,
+                StageState(StageStatus.QUEUED, None, "AI jamoa navbatda"),
+                source=SOURCE,
+            )
+        elif payload.render:
             render, _ = request_render(s, row, preset=brief.preset, deliver=payload.deliver, force=True)
             render_id = str(render.id)
             set_stage(

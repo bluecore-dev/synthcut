@@ -1,6 +1,6 @@
 # SynthCut — Entity relationships
 
-Implemented in migrations `0001_foundation` (Phase 1–2), `0002_ingestion` (Phase 3), `0003_transcripts` (Phase 4), `0004_clip_analyses` (Phase 5) `0005_edit_plans_renders` (Tez montaj, render, QA, delivery — ADR-0015) and `0006_preferences_feedback` (memory — ADR-0016):
+Implemented in migrations `0001_foundation` (Phase 1–2), `0002_ingestion` (Phase 3), `0003_transcripts` (Phase 4), `0004_clip_analyses` (Phase 5) `0005_edit_plans_renders` (Tez montaj, render, QA, delivery — ADR-0015) `0006_preferences_feedback` (memory — ADR-0016) and `0007_agent_runs` (AI team — ADR-0019):
 
 ```mermaid
 erDiagram
@@ -20,6 +20,7 @@ erDiagram
     users ||--o{ preferences : "remembers"
     renders ||--o{ feedback : "about"
     feedback ||--o{ preferences : "set by"
+    projects ||--o{ agent_runs : "AI decisions"
     jobs ||--o{ jobs : "parent_id"
 
     users {
@@ -133,6 +134,19 @@ erDiagram
         text delivery_status "none | queued | sent | failed"
         bigint telegram_message_id
     }
+    agent_runs {
+        uuid id PK
+        uuid project_id FK
+        uuid job_id FK
+        text agent "director | editor | motion | qa ..."
+        text status "completed | max_steps | budget_exceeded | refused | truncated | failed"
+        int steps
+        real cost_usd
+        text summary "for the owner"
+        jsonb tool_calls
+        jsonb versions "plan versions written"
+        jsonb findings
+    }
     preferences {
         uuid id PK
         uuid user_id FK
@@ -188,7 +202,6 @@ erDiagram
 | Table | Phase | Key columns |
 |---|---|---|
 | `edit_plans` additions | 6 | parent_version, reason, validation report — when agents and the user branch versions |
-| `agent_runs` | 5–6 | project_id, job_id, agent, model, status, steps, tokens in/out/cache, cost_usd, transcript ref |
 | `cost_records` | 5 | project_id, agent_run_id, provider, model, usage, cost_usd — the §33 dashboard sums these |
 | `qa_reports` | 9 | plan-level findings, classification, deterministic_fix, attempts (≤ 3) — the reflection loop; the file's QA is `renders.qa` |
 | `feedback` | 10 | project_id, user_id, text, target ref, structured interpretation |

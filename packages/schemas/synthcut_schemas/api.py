@@ -456,6 +456,7 @@ class AutoEditRequest(AutoEditOptions):
 
 class EditJobOut(BaseModel):
     id: UUID
+    kind: str = "edit.auto"  # "agent.edit" while the AI team works
     status: JobStatus
     progress: float | None = None
     step: str | None = None
@@ -485,6 +486,11 @@ class PlanClipOut(BaseModel):
     reframed: bool  # moved to keep a face in view
     fill: Literal["cover", "blur"]  # blur: fitted over a blurred copy of itself
     exposure: float | None = None  # the clip's grade, stops
+    speed: float = 1.0
+    transition: str | None = None  # how the clip arrives (crossfade, dip_to_black, ...); None = a cut
+    animated: bool = False  # keyframes (zoom / pan / fades)
+    kind: str | None = None  # overlays: "cutaway" | "pip"
+    why: str | None = None  # the agent's reason, if an agent placed it
 
 
 class PlanGraphicOut(BaseModel):
@@ -505,6 +511,7 @@ class PlanOut(PlanSummary):
     captions: str | None  # caption style, None = off
     loudness_lufs: float | None
     clips: list[PlanClipOut]
+    overlays: list[PlanClipOut] = Field(default_factory=list)
     graphics: list[PlanGraphicOut]
 
 
@@ -603,6 +610,53 @@ class FeedbackOut(_Out):
 
 class FeedbackList(BaseModel):
     items: list[FeedbackOut]
+
+
+# --------------------------------------------------------------------------- AI montaj
+
+
+class AiStatusOut(BaseModel):
+    enabled: bool  # an API key is configured
+    models: dict[str, list[str]]  # role -> provider:model chain
+    budget_usd: float  # per AI montaj, all agents together
+
+
+class AiEditRequest(_In):
+    prompt: str = Field("", max_length=2000, description="What the owner wants, in their words")
+    deliver: bool = True
+    redraft: bool = False  # rebuild the rules draft first (e.g. after new uploads)
+
+
+class AgentToolCall(BaseModel):
+    tool: str
+    ok: bool
+    error: str | None = None
+    ms: int = 0
+    input: str = ""
+
+
+class AgentRunOut(_Out):
+    id: UUID
+    agent: str
+    status: str
+    steps: int
+    model: str | None
+    input_tokens: int
+    output_tokens: int
+    cache_read_tokens: int
+    cost_usd: float
+    summary: str | None
+    tool_calls: list[AgentToolCall]
+    versions: list[int]
+    findings: list[dict[str, Any]]
+    error: str | None
+    created_at: datetime
+    finished_at: datetime | None
+
+
+class AgentRunList(BaseModel):
+    items: list[AgentRunOut]
+    total_cost_usd: float
 
 
 # --------------------------------------------------------------------------- health

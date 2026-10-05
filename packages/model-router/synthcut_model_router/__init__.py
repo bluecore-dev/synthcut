@@ -1,6 +1,7 @@
 """Provider-independent model routing and cost accounting (spec §29, §33)."""
 
 from .pricing import PRICES, ModelPrice, cost_usd
+from .providers.anthropic import AnthropicProvider
 from .providers.scripted import ScriptedProvider
 from .router import (
     DEFAULT_ROUTES,
@@ -18,6 +19,7 @@ from .types import (
     ImageBlock,
     Message,
     ModelRole,
+    ProviderBlock,
     StopReason,
     TextBlock,
     ToolDefinition,
@@ -29,6 +31,7 @@ from .types import (
 __all__ = [
     "DEFAULT_ROUTES",
     "PRICES",
+    "AnthropicProvider",
     "CompletionRequest",
     "CompletionResponse",
     "ContentBlock",
@@ -39,6 +42,7 @@ __all__ = [
     "ModelRouter",
     "NoRouteError",
     "Provider",
+    "ProviderBlock",
     "ProviderError",
     "RouteTable",
     "ScriptedProvider",

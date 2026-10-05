@@ -160,7 +160,7 @@ export const DELIVERY_LABEL: Record<"none" | "queued" | "sent" | "failed", strin
 
 export const PLAN_SOURCE_LABEL: Record<"rules" | "director" | "user", string> = {
   rules: "Tez montaj",
-  director: "AI rejissor",
+  director: "AI jamoa",
   user: "Qo'lda",
 };
 

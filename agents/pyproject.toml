@@ -5,6 +5,10 @@ description = "The SynthCut specialist agent team (manifests and implementations
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "synthcut-agent-sdk",
+  "synthcut-core",
+  "synthcut-model-router",
+  "synthcut-schemas",
+  "synthcut-timeline",
 ]
 
 [build-system]

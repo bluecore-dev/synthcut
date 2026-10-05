@@ -9,6 +9,14 @@ const COLOURS = ["bg-accent/70", "bg-ok/70", "bg-warn/70", "bg-run/70", "bg-bran
 
 const sec = (t: number) => `${t.toFixed(1)} s`;
 
+const TRANSITION_LABEL: Record<string, string> = {
+  crossfade: "crossfade",
+  dip_to_black: "qora o'tish",
+  dip_to_white: "oq o'tish",
+  whip: "whip",
+  zoom: "zoom o'tish",
+};
+
 /** A plan version: the cut as proportional bars per source file, then every clip and graphic. */
 export function TimelineView({ projectId, version }: { projectId: string; version: number | null }) {
   const plans = useQuery({
@@ -60,6 +68,18 @@ export function TimelineView({ projectId, version }: { projectId: string; versio
             />
           ))}
         </div>
+        {(p.overlays ?? []).length > 0 && (
+          <div className="relative h-5 rounded bg-s2" aria-label="B-roll qatlami">
+            {(p.overlays ?? []).map((o) => (
+              <div
+                key={o.id}
+                className="absolute inset-y-0 rounded border border-bg bg-accent/40"
+                style={{ left: `${(o.timeline_start / total) * 100}%`, width: `${Math.max(1, ((o.timeline_end - o.timeline_start) / total) * 100)}%` }}
+                title={`${o.kind ?? "B-roll"} ${o.asset_name ?? ""}`}
+              />
+            ))}
+          </div>
+        )}
         {p.graphics.length > 0 && (
           <div className="relative h-4 rounded bg-s2">
             {p.graphics.map((g) => (
@@ -89,8 +109,12 @@ export function TimelineView({ projectId, version }: { projectId: string; versio
                   <p className="tabular text-xs text-faint">
                     manba {sec(c.source_in)}–{sec(c.source_out)} → {sec(c.timeline_start)}
                   </p>
+                  {c.why && <p className="text-xs text-dim">{c.why}</p>}
                 </div>
-                <div className="flex shrink-0 gap-1">
+                <div className="flex shrink-0 flex-wrap justify-end gap-1">
+                  {c.transition && <Badge tone="accent">{TRANSITION_LABEL[c.transition] ?? c.transition}</Badge>}
+                  {c.speed !== 1 && <Badge>{c.speed}×</Badge>}
+                  {c.animated && <Badge>zoom</Badge>}
                   {c.reframed && <Badge>yuz</Badge>}
                   {c.fill === "blur" && <Badge>fon</Badge>}
                   {c.exposure != null && c.exposure !== 0 && <Badge>{c.exposure > 0 ? "+" : ""}{c.exposure.toFixed(1)} EV</Badge>}
@@ -100,6 +124,28 @@ export function TimelineView({ projectId, version }: { projectId: string; versio
           </ul>
         </Card>
       </div>
+
+      {(p.overlays ?? []).length > 0 && (
+        <div>
+          <SectionLabel right={<span className="text-xs text-faint">{(p.overlays ?? []).length}</span>}>B-roll va PiP</SectionLabel>
+          <Card>
+            <ul className="divide-y divide-line">
+              {(p.overlays ?? []).map((o) => (
+                <li key={o.id} className="px-4 py-2.5 text-[13px]">
+                  <div className="flex items-center gap-2">
+                    <span className="min-w-0 flex-1 truncate font-medium">{o.asset_name ?? o.asset_id.slice(0, 8)}</span>
+                    <Badge>{o.kind === "pip" ? "PiP" : "cutaway"}</Badge>
+                    <span className="tabular text-xs text-faint">
+                      {sec(o.timeline_start)}–{sec(o.timeline_end)}
+                    </span>
+                  </div>
+                  {o.why && <p className="mt-0.5 text-xs text-dim">{o.why}</p>}
+                </li>
+              ))}
+            </ul>
+          </Card>
+        </div>
+      )}
 
       {p.graphics.length > 0 && (
         <div>

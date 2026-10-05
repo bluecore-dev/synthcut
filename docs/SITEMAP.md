@@ -21,7 +21,7 @@ flowchart TD
     P --> T6[Timeline<br/>cut bars per file, clips, graphics, notes]
     P --> T7[Versions<br/>every plan, view or render any of them]
     P --> T8[Preview · Render History<br/>video, QA checks, download, send to Telegram, feedback]
-    P --> T9[AI Decisions<br/>locked until the Director has a model key]
+    P --> T9[AI Decisions<br/>every agent run: summary, versions, findings, tools, cost]
     T2 --> A["/p/:id/a/:assetId — Asset"]
     T4 --> A
     T5 --> A
@@ -84,6 +84,7 @@ Webhook only (`/telegram/webhook/<hash of the secret>` plus the secret header); 
 | Plans | `GET /projects/{id}/plans`, `GET /projects/{id}/plans/{version}`, `POST /projects/{id}/plans/{version}/render` |
 | Renders | `GET /projects/{id}/renders`, `POST /renders/{id}/deliver` |
 | Memory | `GET /preferences/edit`, `POST /renders/{id}/feedback`, `GET /projects/{id}/feedback` |
+| AI team | `GET /ai/status`, `POST /projects/{id}/ai-edit`, `GET /projects/{id}/agent-runs` |
 | Activity | `GET /projects/{id}/jobs`, `GET /projects/{id}/events`, `GET /projects/{id}/events/stream` (SSE) |
 
 Full contract: [openapi.json](openapi.json). Another user's object is always a 404.
@@ -99,6 +100,7 @@ Full contract: [openapi.json](openapi.json). Another user's object is always a 4
 | `render.enhance_preview` | render | high | the user (asset page) | `grade/1` LUT + `mix/1` chain → `enhanced.mp4`, before/after stills |
 | `edit.auto` | cpu | high | the user (Tez montaj) | `editplan/1` version in `edit_plans`, a queued render |
 | `render.final` | render | normal | `edit.auto`, the user (Versions) | segments → concat → Remotion → master → `qa/1` → `renders/<id>/final.mp4` |
+| `agent.edit` | llm | high | the user (AI montaj), `edit.auto` with `ai_prompt` | Director → Editor → Motion → QA runs, plan versions, a queued render |
 | `deliver.telegram` | io | high | a finished render with *deliver*, the user | the video (`sendVideo`) in the owner's chat |
 | `notify.telegram` | io | high | stage turns done | a Telegram message |
 | `maintenance.expire_uploads` | io | low | scheduler | expired upload sessions closed |
