@@ -7,6 +7,7 @@ import { Wordmark } from "../components/Wordmark";
 import { presetBadge, usePresets } from "../hooks/usePresets";
 import { useUploads } from "../hooks/useUploads";
 import { formatBytes, formatRelative, pct } from "../services/format";
+import { openExternal } from "../telegram";
 
 function ProjectCard({ p, uploading }: { p: ProjectSummary; uploading: boolean }) {
   const { byId } = usePresets();
@@ -80,6 +81,21 @@ export function Home() {
       <div className="space-y-3">
         {projects.data?.items.map((p) => <ProjectCard key={p.id} p={p} uploading={activeUploads.has(p.id)} />)}
       </div>
+
+      <p className="mt-8 text-center">
+        <a
+          href="https://bluecoredev.uz"
+          target="_blank"
+          rel="noopener"
+          onClick={(e) => {
+            e.preventDefault();
+            openExternal("https://bluecoredev.uz");
+          }}
+          className="text-[10.5px] text-faint hover:text-dim"
+        >
+          Powered by <span className="font-semibold">bluecoredev.uz</span>
+        </a>
+      </p>
 
       <div className="fixed inset-x-0 bottom-0 border-t border-line bg-bg/90 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 backdrop-blur">
         <div className="mx-auto max-w-xl">

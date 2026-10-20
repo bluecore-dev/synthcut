@@ -26,6 +26,7 @@ export interface TelegramWebApp {
   disableClosingConfirmation(): void;
   disableVerticalSwipes?(): void;
   openTelegramLink(url: string): void;
+  openLink?(url: string): void;
   showConfirm?(message: string, callback: (ok: boolean) => void): void;
   downloadFile?(params: { url: string; file_name: string }, callback?: (accepted: boolean) => void): void;
   BackButton: TelegramBackButton;
@@ -76,6 +77,12 @@ export const haptic = {
   warning: () => atLeast("6.1") && tg?.HapticFeedback.notificationOccurred("warning"),
   error: () => atLeast("6.1") && tg?.HapticFeedback.notificationOccurred("error"),
 };
+
+// External site: Telegram's in-app browser inside the Mini App, a new tab elsewhere.
+export function openExternal(url: string): void {
+  if (tg?.openLink) tg.openLink(url);
+  else window.open(url, "_blank", "noopener");
+}
 
 export function setClosingConfirmation(on: boolean): void {
   if (!atLeast("6.2")) return;
